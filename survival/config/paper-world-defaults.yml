@@ -1,0 +1,259 @@
+config-version: 30
+_version: 30
+
+# ═══════════════════════════════════════════════════════════════════
+#  paper-world-defaults.yml  —  Folia Survival (30-60 players)
+#  Values here apply to ALL worlds unless overridden in
+#  config/paper-world/world.yml  (or nether / end equivalents).
+# ═══════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────
+#  Anti-Xray
+# ─────────────────────────────────────────────
+anticheat:
+  anti-xray:
+    enabled: true
+    # Engine 1: Replace ores in existing chunks sent to the client.
+    # Lower CPU cost than engine 2; good choice for survival with 30-60 players.
+    # Engine 2 is more thorough but significantly more expensive.
+    engine-mode: 1
+    max-block-height: 64
+    update-radius: 2
+    use-permission: false
+    hidden-blocks:
+    - copper_ore
+    - deepslate_copper_ore
+    - gold_ore
+    - deepslate_gold_ore
+    - iron_ore
+    - deepslate_iron_ore
+    - coal_ore
+    - deepslate_coal_ore
+    - lapis_ore
+    - deepslate_lapis_ore
+    - redstone_ore
+    - deepslate_redstone_ore
+    - emerald_ore
+    - deepslate_emerald_ore
+    - diamond_ore
+    - deepslate_diamond_ore
+    replacement-blocks:
+    - stone
+    - oak_planks
+    - deepslate
+
+# ─────────────────────────────────────────────
+#  Block Updates & Redstone
+# ─────────────────────────────────────────────
+block-updates:
+  disable-noteblock-impostors: false
+  disable-tripwire-updates: false
+
+redstone:
+  # ALTERNATE_CURRENT is a community-developed, highly optimised redstone
+  # implementation. It is ideal for servers with large redstone farms.
+  # See: https://github.com/SpaceWalkerRS/alternate-current
+  implementation: ALTERNATE_CURRENT
+
+# ─────────────────────────────────────────────
+#  Chunks
+# ─────────────────────────────────────────────
+chunks:
+  auto-save-interval: -1         # -1 = inherits bukkit.yml ticks-per.autosave (6000)
+  delay-chunk-unloads-by: 10s
+  entity-per-chunk-save-limit:
+    # Cap how many of each entity type are saved per chunk to prevent
+    # runaway lag from mob farms filling chunks with thousands of entities.
+    arrow: 16
+    ender_pearl: 8
+    experience_orb: 16
+    fireball: 8
+    small_fireball: 8
+    snowball: 8
+    egg: 8
+    trident: 16
+    llama_spit: 4
+    shulker_bullet: 8
+    spectral_arrow: 8
+    potion: 8
+    wither_skull: 8
+  fixed-chunk-inhabited-time: -1
+  max-auto-save-chunks-per-tick: 24
+  prevent-moving-into-unloaded-chunks: true
+
+# ─────────────────────────────────────────────
+#  Collisions
+# ─────────────────────────────────────────────
+collisions:
+  enable-player-collisions: true
+  send-full-pos-for-hard-collisions: false
+  fix-climbing-bypassing-cramming-rule: false
+  max-entity-collisions: 8
+  only-players-collide: false
+  allow-vehicle-collisions: true
+
+# ─────────────────────────────────────────────
+#  Entities — General
+# ─────────────────────────────────────────────
+entities:
+  spawning:
+    # Duplicate UUID resolution — SAFE is recommended
+    duplicate-uuid:
+      mode: SAFE_REGEN
+      safe-regen-delete-range: 32
+    # Per-chunk hard caps; prevents mob farms from escaping spawner limits
+    count-all-mobs-for-spawning: false
+    creative-arrow-despawn-rate: default
+    non-player-arrow-despawn-rate: default
+    # Wandering traders are noisy and can be annoying on busy servers
+    disable-mob-spawner-spawn-egg-transformation: false
+    # How often to scan for pillager patrols (vanilla = 12000)
+    scan-for-legacy-ender-dragon: true
+    per-player-mob-spawns: true    # Fairer mob distribution across many players
+    despawn-ranges:
+      ambient:
+        hard: 128
+        soft: 32
+      axolotls:
+        hard: 128
+        soft: 32
+      creature:
+        hard: 128
+        soft: 32
+      misc:
+        hard: 128
+        soft: 32
+      monster:
+        hard: 128
+        soft: 32
+      underground_water_creature:
+        hard: 128
+        soft: 32
+      water_ambient:
+        hard: 64
+        soft: 32
+      water_creature:
+        hard: 128
+        soft: 32
+
+# ─────────────────────────────────────────────
+#  Environment
+# ─────────────────────────────────────────────
+environment:
+  disable-explosion-knockback: false
+  disable-ice-and-snow: false
+  disable-teleportation-suffocation-check: false
+  disable-thunder: false
+  frosted-ice:
+    delay:
+      max: 40
+      min: 20
+    enabled: true
+  generate-flat-bedrock: false
+  nether-ceiling-void-damage-height: 0
+  # Significantly reduces lag spikes from creepers/TNT/respawn anchor explosions
+  optimize-explosions: true
+  portal-create-radius: 16
+  portal-search-radius: 128
+  portal-search-vanilla-dimension-scaling: true
+  treasure-maps:
+    # Vanilla treasure maps cause major lag because they search for structures.
+    # "find-already-discovered" skips the search if a structure was already found.
+    # Set enabled=false to disable maps entirely if lag is unacceptable.
+    enabled: true
+    find-already-discovered:
+      loot-tables: false
+      villager-trade: true
+
+# ─────────────────────────────────────────────
+#  Hopper Optimizations
+# ─────────────────────────────────────────────
+hopper:
+  cooldown-when-full: true    # Stops checking if inventory is full — big perf win
+  disable-move-event: false   # Keep true only if plugins don't need InventoryMoveItemEvent
+  ignore-occluding-blocks: true
+
+# ─────────────────────────────────────────────
+#  Loot Tables
+# ─────────────────────────────────────────────
+loot-tables:
+  reroll-relations: false   # Prevents unnecessary structure re-rolls
+
+# ─────────────────────────────────────────────
+#  Maps
+# ─────────────────────────────────────────────
+maps:
+  item-frame-cursor-limit: 128
+  item-frame-cursor-update-interval: 10
+
+# ─────────────────────────────────────────────
+#  Misc
+# ─────────────────────────────────────────────
+misc:
+  disable-relative-projectile-velocity: false
+  fix-entity-position-desync: true
+  load-permissions-yml-before-plugins: true
+  max-leash-distance: 10.0
+  redstone-implementation: ALTERNATE_CURRENT   # Belt-and-suspenders; matches block above
+  show-sign-click-command-failure-msgs-to-player: false
+  update-pathfinding-on-block-update: false   # Reduces lag from large builds / farms
+
+# ─────────────────────────────────────────────
+#  Scoreboards
+# ─────────────────────────────────────────────
+scoreboards:
+  allow-non-player-entities-on-scoreboards: false
+  use-vanilla-world-scoreboard-name-coloring: false
+
+# ─────────────────────────────────────────────
+#  Spawn
+# ─────────────────────────────────────────────
+spawn:
+  allow-using-signs-inside-spawn-protection: false
+  keep-spawn-loaded: true
+  keep-spawn-loaded-range: 8
+
+# ─────────────────────────────────────────────
+#  Tick Rates
+# ─────────────────────────────────────────────
+tick-rates:
+  # How often (in ticks) item cooldowns are recalculated per entity type.
+  # Higher = less CPU; these values are safe for survival gameplay.
+  behavior:
+    villager:
+      validatenearbypoi: -1   # -1 = disabled; let Folia region scheduler handle it
+      acquirepoi: -1
+  container-update: 1         # Keep at 1 for accurate hopper/farm behavior
+  grass-spread: 4             # Vanilla = 1; 4 is imperceptibly slower but cheaper
+  mob-spawner: 2              # How often spawners attempt a spawn (ticks)
+  sensor:
+    villager:
+      secondarypoisensor: 40
+      nearestbedsensor: 20
+      villagerbabiessensor: 40
+      playersensor: 20
+      nearestlivingentitysensor: 40
+
+# ─────────────────────────────────────────────
+#  Townhall / Pathfinder
+# ─────────────────────────────────────────────
+pathfinder:
+  disable-stuck-entity-detection: false
+  max-co-routine-per-tick: 10
+
+# ─────────────────────────────────────────────
+#  Fishing & Loot
+# ─────────────────────────────────────────────
+fishing-time-range:
+  MaximumTicks: 600
+  MinimumTicks: 100
+
+# ─────────────────────────────────────────────
+#  Packet Settings
+# ─────────────────────────────────────────────
+packet-limiter:
+  # Per-world limits (complementing global limits in paper-global.yml)
+  all-packets:
+    action: KICK
+    interval: 7.0
+    max-packet-rate: 500.0

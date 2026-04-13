@@ -1,0 +1,49 @@
+# Server type: "lobby" or "survival"
+server-type: "lobby"
+
+# Server selector menu
+menu:
+  title: "<gradient:#a8edea:#fed6e3>✦ Serveurs ✦</gradient>"
+  items:
+    lobby:
+      slot: 11
+      material: NETHER_STAR
+      name: "<gradient:#a8edea:#fed6e3>Lobby</gradient>"
+      lore:
+        - ""
+        - "<gray>Le hub principal</gray>"
+        - ""
+        - "<gray>Joueurs: <green>%players%</green></gray>"
+        - ""
+        - "<yellow>▶ Clic pour rejoindre</yellow>"
+    survival:
+      slot: 15
+      material: GRASS_BLOCK
+      name: "<gradient:#84fab0:#8fd3f4>Survie</gradient>"
+      lore:
+        - ""
+        - "<gray>Le monde survie principal</gray>"
+        - ""
+        - "<gray>Joueurs: <green>%players%</green></gray>"
+        - ""
+        - "<yellow>▶ Clic pour rejoindre</yellow>"
+
+# Lobby settings
+lobby:
+  give-compass: true
+  compass-slot: 4
+  compass-name: "<gradient:#a8edea:#fed6e3>✦ Menu Serveurs ✦</gradient>"
+
+# Chat format (MiniMessage)
+chat:
+  enabled: true
+  format: "<gray>%player%</gray> <dark_gray>»</dark_gray> <white>%message%</white>"
+
+# Spawn
+spawn:
+  world: "world"
+  x: 0.5
+  y: 100.0
+  z: 0.5
+  yaw: 0.0
+  pitch: 0.0

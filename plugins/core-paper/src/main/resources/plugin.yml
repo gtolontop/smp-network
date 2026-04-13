@@ -1,0 +1,20 @@
+name: SMPCore
+version: 1.0.0
+main: fr.smp.core.SMPCore
+api-version: "1.21"
+folia-supported: true
+description: "Core SMP plugin - server selector, spawn, utilities"
+authors: ["SMP Team"]
+commands:
+  menu:
+    description: "Open server selector"
+    aliases: [servers, hub, selector]
+  spawn:
+    description: "Teleport to spawn"
+  setspawn:
+    description: "Set spawn location"
+    permission: smp.admin
+permissions:
+  smp.admin:
+    description: "Admin permissions"
+    default: op

@@ -1,0 +1,66 @@
+# Server JARs (downloaded, not committed)
+*.jar
+!plugins/*/build/libs/*.jar
+
+# World data
+velocity/world/
+lobby/world/
+lobby/world_nether/
+lobby/world_the_end/
+survival/world/
+survival/world_nether/
+survival/world_the_end/
+
+# Server runtime files
+*.log
+/logs/
+*/logs/
+*/crash-reports/
+*/cache/
+*.lck
+*.pid
+scripts/.*.pid
+
+# Player data
+*/usercache.json
+*/whitelist.json
+*/ops.json
+*/banned-ips.json
+*/banned-players.json
+
+# Plugin data (generated at runtime)
+*/plugins/*/data/
+*/plugins/*/*.db
+*/plugins/*/*.sqlite
+
+# Velocity runtime
+velocity/plugins/*/
+velocity/forwarding.secret
+
+# Paper/Folia runtime generated
+*/version_history.json
+*/paper.yml
+*/commands.yml
+*/help.yml
+*/permissions.yml
+*/eula.txt
+
+# Build artifacts
+plugins/*/build/
+plugins/*/.gradle/
+plugins/*/.idea/
+plugins/*/*.iml
+
+# Claude Code
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.code-workspace

@@ -1,0 +1,133 @@
+config-version: 30
+_version: 30
+
+# ─────────────────────────────────────────────
+#  Velocity / Proxy Configuration
+#  Folia Survival is behind a Velocity proxy
+#  using MODERN forwarding.
+# ─────────────────────────────────────────────
+proxies:
+  bungee-cord:
+    online-mode: false
+  proxy-protocol: false
+  velocity:
+    enabled: true
+    online-mode: true
+    secret: "smp-vF7kXq2mN9pRwL4tJhBcYeAsDuZi3G8n"
+
+# ─────────────────────────────────────────────
+#  Async Chunk I/O  (Folia-relevant)
+# ─────────────────────────────────────────────
+chunk-system:
+  gen-parallelism: default   # "default" lets Folia decide based on CPU count
+  io-threads: -1             # -1 = auto
+  worker-threads: -1         # -1 = auto
+
+# ─────────────────────────────────────────────
+#  Network / Connection
+# ─────────────────────────────────────────────
+net:
+  # Raise to handle bursts from 30-60 players joining
+  maxInboundPacketSize: 2097152
+  # Send compression level; 1 is fast, 9 is best compression
+  compression-level: 6
+
+# ─────────────────────────────────────────────
+#  Misc
+# ─────────────────────────────────────────────
+messages:
+  no-permission: "&cI'm sorry, but you do not have permission to perform this command. Please contact the server administrators if you believe that this is in error."
+  use-display-name-in-quit-message: false
+  kick:
+    connection-throttle: Connection throttled! Please wait before reconnecting.
+    authentication-servers-down: "&cAuthentication servers are currently down. Please try again later, sorry!"
+    flying-player: Flying is not enabled on this server
+    flying-vehicle: Flying is not enabled on this server
+
+# ─────────────────────────────────────────────
+#  Timings (Paper profiler)
+# ─────────────────────────────────────────────
+timings:
+  enabled: true
+  verbose: false
+  server-name-privacy: false
+  hidden-config-entries:
+  - database
+  - proxies.velocity.secret
+  history-interval: 300
+  history-length: 3600
+  server-name: Survival
+
+# ─────────────────────────────────────────────
+#  Console
+# ─────────────────────────────────────────────
+console:
+  enable-brigadier-completions: false
+  enable-brigadier-highlighting: true
+  has-all-permissions: false
+
+# ─────────────────────────────────────────────
+#  Item Validation
+# ─────────────────────────────────────────────
+item-validation:
+  display-name: 8192
+  loc-name: 8192
+  lore-line: 8192
+  book:
+    author: 8192
+    title: 8192
+    page: 16384
+    pages: 200
+
+# ─────────────────────────────────────────────
+#  Player Auto-Save
+# ─────────────────────────────────────────────
+player-auto-save:
+  max-per-tick: -1   # -1 = auto; Paper spreads saves across ticks
+  rate: -1           # -1 = use ticks-per.autosave from bukkit.yml
+
+# ─────────────────────────────────────────────
+#  Logging
+# ─────────────────────────────────────────────
+logging:
+  deobfuscate-stacktraces: true
+
+# ─────────────────────────────────────────────
+#  Spam Limiter
+# ─────────────────────────────────────────────
+spam-limiter:
+  incoming-packet-threshold: 300
+  recipe-spam-increment: 1
+  recipe-spam-limit: 20
+  tab-spam-increment: 1
+  tab-spam-limit: 500
+
+# ─────────────────────────────────────────────
+#  Watchdog
+# ─────────────────────────────────────────────
+watchdog:
+  # Folia uses regionized threading; set to 0 to disable global watchdog
+  # Individual region watchdogs are managed by Folia internally
+  early-warning-every: 5000
+  early-warning-delay: 10000
+
+# ─────────────────────────────────────────────
+#  Packet Limiter
+# ─────────────────────────────────────────────
+packet-limiter:
+  kick-message: "&cSent too many packets"
+  limits:
+    all:
+      action: KICK
+      interval: 7.0
+      max-packet-rate: 500.0
+
+# ─────────────────────────────────────────────
+#  Unsupported Settings
+# ─────────────────────────────────────────────
+unsupported-settings:
+  allow-headless-pistons: false
+  allow-perm-block-break-exploits: false
+  allow-player-cramming-damage: false
+  allow-permanent-block-break-exploits: false
+  perform-username-validation: true
