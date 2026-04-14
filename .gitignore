@@ -68,3 +68,6 @@ desktop.ini
 *.iml
 .vscode/
 *.code-workspace
+*/plugins/.paper-remapped/
+*/plugins/bStats/
+*/plugins/spark/

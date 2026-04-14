@@ -188,10 +188,8 @@ entities:
       spawn-day-length: 24000
       spawn-minute-length: 1200
     wateranimal-spawn-height:
-      maximum:
-        default: default
-      minimum:
-        default: default
+      maximum: default
+      minimum: default
 
 environment:
   disable-explosion-knockback: false
