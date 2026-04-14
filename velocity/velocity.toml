@@ -1,96 +1,79 @@
 # Velocity Configuration
 # Generated for SMP Network
-
 # Bind address and port for the proxy
 bind = "0.0.0.0:25565"
-
-# MOTD shown in the server list (MiniMessage format)
-motd = "<gradient:#a8edea:#fed6e3>✦ SMP ✦</gradient>"
-
+# What should be the MOTD? This gets displayed when the player adds your server to
+# their server list. Only MiniMessage format is accepted.
+motd = "\\<gradient:#a8edea:#fed6e3>SMP\\</gradient>"
 # Maximum number of players shown in the server list
 show-max-players = 60
-
 # Whether to authenticate players with Mojang (online mode)
 online-mode = true
-
 # Prevent client proxies/VPNs (requires online-mode = true)
 prevent-client-proxy-connections = false
-
 # Player info forwarding mode
 # "none"   - No forwarding (BungeeCord-style IP spoofing disabled)
 # "legacy" - BungeeCord-compatible forwarding
 # "bungeeguard" - BungeeCord + BungeeGuard token
 # "modern" - Velocity modern forwarding (Paper/Folia compatible, recommended)
 player-info-forwarding-mode = "modern"
-
 # Kick existing player when a new player with the same name connects
 kick-existing-players = false
-
 # Announce forge on the ping response
 announce-forge = false
-
 # Enable the built-in Velocity command /server, /velocity, etc.
 # Requires operator permissions
 announce-proxy-commands = true
-
 # Log command executions
 log-command-executions = false
-
 # Log player connections
 log-player-connections = true
+forced-hosts = {}
+#If you are using modern or BungeeGuard IP forwarding, configure a file that contains a unique secret here.
+#The file is expected to be UTF-8 encoded and not empty.
+forwarding-secret-file = "forwarding.secret"
+config-version = "2.7"
+#Should the proxy enforce the new public key security standard? By default, this is on.
+force-key-authentication = true
 
 [servers]
-# Backend server definitions
-lobby    = "127.0.0.1:25566"
-survival = "127.0.0.1:25567"
-
-# The order servers are tried when a player first joins.
-# Players will land in "lobby" by default.
-try = [
-    "lobby"
-]
-
-[forced-hosts]
+	# Backend server definitions
+	lobby = "127.0.0.1:25566"
+	survival = "127.0.0.1:25567"
+	# The order servers are tried when a player first joins.
+	# Players will land in "lobby" by default.
+	try = ["lobby"]
 # Route specific hostnames to specific servers, e.g.:
 # "survival.yourdomain.com" = ["survival"]
-
 [advanced]
-# Size of the compression threshold (bytes). -1 disables compression.
-compression-threshold = 256
-
-# Level of compression (0 = none, 9 = max). -1 uses Java default.
-compression-level = -1
-
-# Timeout (ms) for a player to complete the login process.
-login-ratelimit = 3000
-
-# Connection timeout to backend servers (ms).
-connection-timeout = 5000
-
-# Read timeout from backend servers (ms).
-read-timeout = 30000
-
-# Enable proxy protocol support (for HAProxy etc.)
-proxy-protocol = false
-
-# Show ping requests in the log
-show-ping-requests = false
-
-# Fail on forwarding secret mismatch (recommended true)
-failover-on-unexpected-server-disconnect = true
-
-# Enables BungeeCord plugin messaging channel support
-bungee-plugin-message-channel = true
-
-# Enable TCP fast open (Linux only)
-tcp-fast-open = false
-
-# Enable Velocity's built-in query protocol
-enable-player-address-logging = true
-
+	# Connection timeout to backend servers (ms).
+	connection-timeout = 5000
+	# Enables BungeeCord plugin messaging channel support
+	bungee-plugin-message-channel = true
+	# Read timeout from backend servers (ms).
+	read-timeout = 30000
+	# Enable proxy protocol support (for HAProxy etc.)
+	proxy-protocol = false
+	# Show ping requests in the log
+	show-ping-requests = false
+	# Enable TCP fast open (Linux only)
+	tcp-fast-open = false
+	#Allows players transferred from other hosts via the
+	#Transfer packet (Minecraft 1.20.5) to be received.
+	accepts-transfers = false
+	# Fail on forwarding secret mismatch (recommended true)
+	failover-on-unexpected-server-disconnect = true
+	# Enable Velocity's built-in query protocol
+	enable-player-address-logging = true
+	# Level of compression (0 = none, 9 = max). -1 uses Java default.
+	compression-level = -1
+	# Size of the compression threshold (bytes). -1 disables compression.
+	compression-threshold = 256
+	# Timeout (ms) for a player to complete the login process.
+	login-ratelimit = 3000
 [query]
-# Enable GameSpy4 query protocol
-enabled = false
-port = 25565
-map = "SMP"
-show-plugins = false
+	port = 25565
+	show-plugins = false
+	map = "SMP"
+	# Enable GameSpy4 query protocol
+	enabled = false

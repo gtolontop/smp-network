@@ -36,6 +36,7 @@ scripts/.*.pid
 # Velocity runtime
 velocity/plugins/*/
 velocity/forwarding.secret
+velocity/lang/
 
 # Paper/Folia runtime generated
 */version_history.json
@@ -50,6 +51,9 @@ plugins/*/build/
 plugins/*/.gradle/
 plugins/*/.idea/
 plugins/*/*.iml
+
+# Bundled Java runtime
+java/
 
 # Claude Code
 .claude/

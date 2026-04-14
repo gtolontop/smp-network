@@ -7,8 +7,8 @@
 set -e
 
 VELOCITY_VERSION="3.4.0-SNAPSHOT"
-PAPER_VERSION="1.21.4"
-FOLIA_VERSION="1.21.4"
+PAPER_VERSION="1.21.11"
+FOLIA_VERSION="1.21.11"
 
 BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 

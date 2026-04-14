@@ -1,7 +1,7 @@
 name: SMPCore
 version: 1.0.0
 main: fr.smp.core.SMPCore
-api-version: "1.21"
+api-version: "1.21.11"
 folia-supported: true
 description: "Core SMP plugin - server selector, spawn, utilities"
 authors: ["SMP Team"]
