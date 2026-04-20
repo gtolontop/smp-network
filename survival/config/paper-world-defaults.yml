@@ -47,7 +47,7 @@ block-updates:
   disable-noteblock-impostors: false
   disable-tripwire-updates: false
 chunks:
-  auto-save-interval: default
+  auto-save-interval: '6000'
   delay-chunk-unloads-by: 10s
   entity-per-chunk-save-limit:
     arrow: 16
@@ -56,16 +56,16 @@ chunks:
     experience_orb: 16
     fireball: 8
     llama_spit: 4
-    splash_potion: 8
     shulker_bullet: 8
     small_fireball: 8
     snowball: 8
     spectral_arrow: 8
+    splash_potion: 8
     trident: 16
     wither_skull: 8
   fixed-chunk-inhabited-time: -1
-  flush-regions-on-save: false
-  max-auto-save-chunks-per-tick: 24
+  flush-regions-on-save: true
+  max-auto-save-chunks-per-tick: 8
   prevent-moving-into-unloaded-chunks: true
 collisions:
   allow-player-cramming-damage: false
@@ -187,6 +187,7 @@ entities:
     - Motion
     - sleeping_pos
     iron-golems-can-spawn-in-air: false
+    max-arrow-despawn-invulnerability: 200
     monster-spawn-max-light-level: default
     non-player-arrow-despawn-rate: default
     per-player-mob-spawns: true
@@ -245,10 +246,10 @@ environment:
   locate-structures-outside-world-border: false
   max-block-ticks: 65536
   max-fluid-ticks: 65536
-  nether-ceiling-void-damage-height: 0
+  nether-ceiling-void-damage-height: disabled
   optimize-explosions: true
-  portal-create-radius: 16
-  portal-search-radius: 128
+  portal-create-radius: 128
+  portal-search-radius: 512
   portal-search-vanilla-dimension-scaling: true
   treasure-maps:
     enabled: true
