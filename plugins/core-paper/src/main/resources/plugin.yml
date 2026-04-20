@@ -1,20 +1,203 @@
 name: SMPCore
 version: 1.0.0
 main: fr.smp.core.SMPCore
-api-version: "1.21.11"
-folia-supported: true
-description: "Core SMP plugin - server selector, spawn, utilities"
+api-version: "26.1.2"
+description: "Full SMP core — economy, teams, homes, warps, AH, combat tag, logging"
 authors: ["SMP Team"]
+
 commands:
   menu:
     description: "Open server selector"
-    aliases: [servers, hub, selector]
+    aliases: [servers, selector]
   spawn:
-    description: "Teleport to spawn"
+    description: "Teleport to the hub spawn (transfers to lobby if needed)"
+    aliases: [hub, lobby]
   setspawn:
-    description: "Set spawn location"
+    description: "Set survival spawn"
     permission: smp.admin
+  sethubspawn:
+    description: "Set hub/lobby spawn"
+    permission: smp.admin
+  rtp:
+    description: "Random teleport (GUI or direct)"
+    aliases: [wild]
+  wb:
+    description: "Worldborder management"
+    aliases: [worldborder]
+    permission: smp.admin
+  tp:
+    description: "Teleport instantly to a player (network-wide, admin)"
+    permission: smp.admin
+  tpa:
+    description: "Ask to teleport to a player"
+  tpahere:
+    description: "Ask a player to teleport to you"
+  tpaccept:
+    description: "Accept a TPA request"
+    aliases: [tpaccept]
+  tpdeny:
+    description: "Deny a TPA request"
+  tpacancel:
+    description: "Cancel outgoing TPA requests"
+  warp:
+    description: "Warp command"
+  warps:
+    description: "Warps GUI"
+  setwarp:
+    description: "Create a warp"
+    permission: smp.admin
+  delwarp:
+    description: "Delete a warp"
+    permission: smp.admin
+  find:
+    description: "Find online players (GUI)"
+  bal:
+    description: "Show balance"
+    aliases: [balance, money]
+  pay:
+    description: "Send money to a player"
+  shards:
+    description: "Show saphir balance"
+    aliases: [saphirs, saphir]
+  eco:
+    description: "Economy admin (give/take/set)"
+    permission: smp.admin
+  baltop:
+    description: "Top richest players (GUI)"
+    aliases: [moneytop, richlist]
+  sell:
+    description: "Sell items (hand | all)"
+  shop:
+    description: "Open the shop GUI"
+  home:
+    description: "Teleport to a home"
+  homes:
+    description: "Homes GUI"
+  sethome:
+    description: "Set a home at current location"
+  delhome:
+    description: "Delete a home"
+  team:
+    description: "Team management"
+    aliases: [guild]
+  ah:
+    description: "Auction House"
+    aliases: [auction]
+  # keyall:
+  #   description: "Keyall countdown"
+  end:
+    description: "Enable/disable the End dimension (admin)"
+    permission: smp.admin
+  heads:
+    description: "Open the heads explorer GUI"
+  bounty:
+    description: "Bounty system — place, list and collect bounties on other players"
+    aliases: [bounties, prime]
+  waypoints:
+    description: "Open the waypoint GUI. Use player <name> or coords <x> <y> <z> to display coordinates."
+    aliases: [wp, waypoint]
+  msg:
+    description: "Send a private message"
+    aliases: [message, w, tell, whisper]
+  r:
+    description: "Reply to the last private message"
+    aliases: [reply]
+  here:
+    description: "Broadcast your current location"
+    aliases: [coords, h]
+  sit:
+    description: "Sit on any solid block; sneak to stand up"
+  playtime:
+    description: "Show detailed playtime (AFK included) for you or another player"
+    aliases: [pt]
+  ping:
+    description: "Check network latency for yourself or another player"
+  saphir:
+    description: "Show detailed saphir for you or another player"
+    aliases: [saphirs]
+  invsee:
+    description: "Inspect another player's inventory"
+    permission: smp.admin
+  vanish:
+    description: "Toggle vanish mode with movement safeguards"
+    aliases: [v]
+    permission: smp.vanish
+  kick:
+    description: "Kick a player with optional reason"
+    permission: smp.moderation
+  ban:
+    description: "Ban a player. Duration format: 1d2h30m (empty = permanent)"
+    permission: smp.moderation
+  unban:
+    description: "Unban a player"
+    permission: smp.moderation
+  mute:
+    description: "Mute a player. Duration format: 1d2h30m (empty = permanent)"
+    permission: smp.moderation
+  unmute:
+    description: "Unmute a player"
+    permission: smp.moderation
+  sb:
+    description: "Toggle scoreboard"
+    aliases: [scoreboard]
+  spawner:
+    description: "Gérer les spawners custom (give/types)"
+    permission: smp.admin
+  ce:
+    description: "Custom enchants admin — list, book, apply, clear"
+    aliases: [customench, customenchant]
+    permission: smp.admin
+  perm:
+    description: "Manage cross-server permissions (groups / users)"
+    aliases: [permission, perms, lp]
+    permission: smp.perm.manage
+  op:
+    description: "Promote a player to admin (cross-server)"
+    permission: smp.op
+  deop:
+    description: "Remove admin from a player (cross-server)"
+    permission: smp.op
+  online:
+    description: "List all players across the network (OP)"
+    aliases: [netlist, nlist, gplayers]
+    permission: smp.admin
+
 permissions:
   smp.admin:
     description: "Admin permissions"
+    default: op
+  smp.rtp.bypass:
+    description: "Bypass RTP cooldown"
+    default: op
+  smp.sync.bypass:
+    description: "Bypass cross-server inventory sync"
+    default: false
+  smp.homes.5:
+    default: true
+  smp.homes.10:
+    default: false
+  smp.homes.15:
+    default: false
+  smp.homes.20:
+    default: op
+  smp.chat.color:
+    description: "Use color codes in chat (&a, &#rrggbb)"
+    default: true
+  smp.chat.format:
+    description: "Use formatting codes (&l bold, &n underline, etc.)"
+    default: op
+  smp.perm.manage:
+    description: "Manage the permissions system"
+    default: op
+  smp.op:
+    description: "Use /op and /deop"
+    default: op
+  smp.moderation:
+    description: "Use /kick /ban /unban /mute /unmute"
+    default: op
+  smp.vanish:
+    description: "Use /vanish"
+    default: op
+  smp.vanish.see:
+    description: "See other vanished staff even when hidden"
     default: op
