@@ -72,7 +72,7 @@ plugins/*/.idea/
 plugins/*/*.iml
 
 # Bundled Java runtime
-java/
+/java/
 
 # Claude Code
 .claude/
