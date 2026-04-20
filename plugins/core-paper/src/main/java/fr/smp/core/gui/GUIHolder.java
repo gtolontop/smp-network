@@ -1,0 +1,27 @@
+package fr.smp.core.gui;
+
+import org.bukkit.Bukkit;
+import org.bukkit.entity.HumanEntity;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+
+/**
+ * Base holder: any custom GUI extends this so clicks can be routed.
+ * The inventory field is lazily set by subclasses right after creation.
+ */
+public abstract class GUIHolder implements InventoryHolder {
+
+    protected Inventory inventory;
+
+    @Override
+    public Inventory getInventory() {
+        return inventory;
+    }
+
+    /** Called when a viewer clicks inside this GUI. Event is cancelled before this call. */
+    public abstract void onClick(InventoryClickEvent event);
+
+    /** Called when a viewer closes the GUI. Default no-op. */
+    public void onClose(HumanEntity who) {}
+}
