@@ -6,16 +6,16 @@ bind = "0.0.0.0:25565"
 # their server list. Only MiniMessage format is accepted.
 motd = "\\<gradient:#a8edea:#fed6e3>SMP\\</gradient>"
 # Maximum number of players shown in the server list
-show-max-players = 60
+show-max-players = 100
 # Whether to authenticate players with Mojang (online mode)
-online-mode = true
+online-mode = false
 # Prevent client proxies/VPNs (requires online-mode = true)
 prevent-client-proxy-connections = false
 # Player info forwarding mode
 # "none"   - No forwarding (BungeeCord-style IP spoofing disabled)
 # "legacy" - BungeeCord-compatible forwarding
 # "bungeeguard" - BungeeCord + BungeeGuard token
-# "modern" - Velocity modern forwarding (Paper/Folia compatible, recommended)
+# "modern" - Velocity modern forwarding (Paper compatible, recommended)
 player-info-forwarding-mode = "modern"
 # Kick existing player when a new player with the same name connects
 kick-existing-players = false
