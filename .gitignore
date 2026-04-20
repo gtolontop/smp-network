@@ -33,6 +33,22 @@ scripts/.*.pid
 */plugins/*/*.db
 */plugins/*/*.sqlite
 
+# Deployed server plugins (runtime — JARs + plugin data)
+lobby/plugins/
+survival/plugins/
+
+# Runtime misc
+lobby/wepif.yml
+survival/wepif.yml
+lobby/.console_history
+survival/.console_history
+survival/debug/
+shared-data/
+.tmp/
+
+# Compiled rcon helper
+scripts/rcon/*.class
+
 # Velocity runtime
 velocity/plugins/*/
 velocity/forwarding.secret
@@ -45,6 +61,9 @@ velocity/lang/
 */help.yml
 */permissions.yml
 */eula.txt
+
+# Folia build from source
+_build/
 
 # Build artifacts
 plugins/*/build/
