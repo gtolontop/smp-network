@@ -1,20 +1,23 @@
 package fr.smp.core.listeners;
 
 import fr.smp.core.SMPCore;
-import net.kyori.adventure.text.minimessage.MiniMessage;
+import fr.smp.core.data.PlayerData;
+import fr.smp.core.logging.LogCategory;
+import fr.smp.core.managers.PendingTeleportManager;
+import fr.smp.core.utils.Msg;
+import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 public class JoinListener implements Listener {
 
     private final SMPCore plugin;
-    private final MiniMessage mm = MiniMessage.miniMessage();
 
     public JoinListener(SMPCore plugin) {
         this.plugin = plugin;
@@ -22,54 +25,131 @@ public class JoinListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-
-        // Suppress default join message — Velocity handles network-wide announcements
+        Player p = event.getPlayer();
         event.joinMessage(null);
 
-        if (plugin.isLobby()) {
-            // Give compass for server selector
-            if (plugin.getConfig().getBoolean("lobby.give-compass", true)) {
-                giveCompass(player);
-            }
+        PlayerData data = plugin.players().loadOrCreate(p.getUniqueId(), p.getName());
+        plugin.logs().log(LogCategory.JOIN, p, "join (new=" +
+                (data.firstJoin() >= System.currentTimeMillis()/1000 - 5) + ")");
 
-            // Teleport to spawn (Folia-safe)
-            Location spawn = getSpawnLocation();
-            if (spawn != null) {
-                player.teleportAsync(spawn);
+        if (plugin.permissions() != null) plugin.permissions().apply(p);
+
+        // Pending cross-server teleport wins over any other auto-tp behavior.
+        PendingTeleportManager.Pending pending = plugin.pendingTp() != null
+                ? plugin.pendingTp().peek(p.getUniqueId()) : null;
+        boolean pendingFresh = pending != null
+                && System.currentTimeMillis() - pending.createdAt() < 60_000;
+        if (pendingFresh) {
+            plugin.pendingTp().consume(p.getUniqueId());
+            applyPending(p, pending);
+        } else if (plugin.isLobby()) {
+            Location hub = plugin.spawns().hub();
+            if (hub != null) p.teleportAsync(hub);
+        } else {
+            if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR
+                    && !p.hasPermission("smp.gamemode.keep")) {
+                p.setGameMode(GameMode.SURVIVAL);
+            }
+            if (!data.survivalJoined()) {
+                String worldName = plugin.getConfig().getString("rtp.default-world", "world");
+                World w = Bukkit.getWorld(worldName);
+                if (w != null) {
+                    p.sendMessage(Msg.info("<aqua>Bienvenue ! Téléportation aléatoire...</aqua>"));
+                    plugin.rtp().teleport(p, w);
+                } else {
+                    Location s = plugin.spawns().spawn();
+                    if (s != null) p.teleportAsync(s);
+                }
+            } else if (data.hasLastLocation()) {
+                World lw = Bukkit.getWorld(data.lastWorld());
+                if (lw != null) {
+                    Location last = new Location(lw, data.lastX(), data.lastY(), data.lastZ(),
+                            data.lastYaw(), data.lastPitch());
+                    p.teleportAsync(last);
+                } else {
+                    Location s = plugin.spawns().spawn();
+                    if (s != null) p.teleportAsync(s);
+                }
             }
         }
+
+        if (!plugin.isLobby()) data.setSurvivalJoined(true);
+
+        if (plugin.scoreboard() != null) plugin.scoreboard().apply(p);
+        if (plugin.tabList() != null) plugin.tabList().update(p);
+        if (plugin.nametags() != null) plugin.nametags().refresh(p);
+        if (plugin.hunted() != null) plugin.hunted().refreshOnJoin(p);
     }
 
-    private void giveCompass(Player player) {
-        int slot = plugin.getConfig().getInt("lobby.compass-slot", 4);
-        String compassName = plugin.getConfig().getString(
-                "lobby.compass-name", "<gradient:#a8edea:#fed6e3>✦ Menu Serveurs ✦</gradient>");
-
-        ItemStack compass = new ItemStack(Material.COMPASS);
-        ItemMeta meta = compass.getItemMeta();
-        meta.displayName(mm.deserialize("<!italic>" + compassName));
-        compass.setItemMeta(meta);
-
-        player.getInventory().setItem(slot, compass);
+    private void applyPending(Player p, PendingTeleportManager.Pending pending) {
+        // Run slightly delayed so the world chunk is ready + sync layer has loaded.
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            switch (pending.kind()) {
+                case LOC -> {
+                    World w = Bukkit.getWorld(pending.world());
+                    if (w == null) {
+                        p.sendMessage(Msg.err("Monde <white>" + pending.world() + "</white> introuvable ici."));
+                        return;
+                    }
+                    Location loc = new Location(w, pending.x(), pending.y(), pending.z(),
+                            pending.yaw(), pending.pitch());
+                    p.teleportAsync(loc);
+                    p.sendMessage(Msg.ok("<aqua>Téléporté.</aqua>"));
+                }
+                case RTP -> {
+                    World w = Bukkit.getWorld(pending.world());
+                    if (w == null) {
+                        p.sendMessage(Msg.err("Monde <white>" + pending.world() + "</white> introuvable."));
+                        return;
+                    }
+                    if (plugin.rtp() == null) {
+                        p.sendMessage(Msg.err("RTP indisponible."));
+                        return;
+                    }
+                    p.sendMessage(Msg.info("<aqua>Recherche d'un lieu sûr...</aqua>"));
+                    plugin.rtp().teleport(p, w);
+                }
+                case SPAWN -> {
+                    Location loc = plugin.spawns().spawn();
+                    if (loc == null) loc = plugin.spawns().hub();
+                    if (loc != null) {
+                        p.teleportAsync(loc);
+                        p.sendMessage(Msg.ok("<aqua>Spawn.</aqua>"));
+                    }
+                }
+            }
+        }, 10L);
     }
 
-    private Location getSpawnLocation() {
-        var config = plugin.getConfig();
-        String worldName = config.getString("spawn.world", "world");
-        var world = plugin.getServer().getWorld(worldName);
-        if (world == null) {
-            plugin.getLogger().warning("Spawn world '" + worldName + "' not found.");
-            return null;
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        Player p = event.getPlayer();
+        event.quitMessage(null);
+
+        if (plugin.combat() != null && plugin.combat().isTagged(p)) {
+            // Combat log: kill + drop
+            p.setHealth(0);
+            plugin.logs().log(LogCategory.COMBAT, p, "combat_log_kill");
         }
 
-        return new Location(
-                world,
-                config.getDouble("spawn.x", 0.5),
-                config.getDouble("spawn.y", 100.0),
-                config.getDouble("spawn.z", 0.5),
-                (float) config.getDouble("spawn.yaw", 0.0),
-                (float) config.getDouble("spawn.pitch", 0.0)
-        );
+        if (!plugin.isLobby()) {
+            PlayerData d = plugin.players().get(p.getUniqueId());
+            Location loc = p.getLocation();
+            if (d != null && loc.getWorld() != null) {
+                d.setLastLocation(loc.getWorld().getName(), loc.getX(), loc.getY(), loc.getZ(),
+                        loc.getYaw(), loc.getPitch());
+            }
+        }
+
+        if (plugin.tpa() != null) plugin.tpa().cancelOutgoing(p.getUniqueId());
+        if (plugin.rtp() != null) plugin.rtp().unload(p.getUniqueId());
+        if (plugin.combat() != null) plugin.combat().untag(p);
+        if (plugin.scoreboard() != null) plugin.scoreboard().remove(p);
+        if (plugin.nametags() != null) plugin.nametags().forget(p.getUniqueId());
+        if (plugin.playtime() != null) plugin.playtime().syncNow(p);
+        if (plugin.permissions() != null) plugin.permissions().detach(p);
+
+        plugin.players().unload(p.getUniqueId());
+        plugin.logs().log(LogCategory.JOIN, p, "quit");
     }
 }
