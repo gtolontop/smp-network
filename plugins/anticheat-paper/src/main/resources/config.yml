@@ -1,0 +1,283 @@
+# AntiCheat configuration
+# All checks are independent and can be toggled.
+
+# Verbose [xray] / [container] / [movement] info logs. Use /ac debug to toggle at runtime.
+debug: false
+
+xray:
+  enabled: true
+  # Blocks treated as "valuable" and obfuscated until a player has line of sight.
+  # Includes ores AND structural giveaways (spawners, end portal frames, trial
+  # chambers, deep dark, conduit, beacon, etc.) so X-ray clients can't locate
+  # strongholds, dungeons, trial chambers, ancient cities, monuments, etc.
+  hidden-blocks:
+    # Ores
+    - coal_ore
+    - deepslate_coal_ore
+    - copper_ore
+    - deepslate_copper_ore
+    - iron_ore
+    - deepslate_iron_ore
+    - gold_ore
+    - deepslate_gold_ore
+    - lapis_ore
+    - deepslate_lapis_ore
+    - redstone_ore
+    - deepslate_redstone_ore
+    - emerald_ore
+    - deepslate_emerald_ore
+    - diamond_ore
+    - deepslate_diamond_ore
+    - nether_gold_ore
+    - nether_quartz_ore
+    - ancient_debris
+    # Spawners (dungeon, mineshaft, nether fortress, etc.)
+    - spawner
+    - trial_spawner
+    # Stronghold + End
+    - end_portal_frame
+    - end_portal
+    # Ancient City / Deep Dark
+    - reinforced_deepslate
+    - sculk_shrieker
+    - sculk_catalyst
+    - sculk_sensor
+    - calibrated_sculk_sensor
+    # Trial Chambers (1.21)
+    - vault
+    - heavy_core
+    # Other high-value indicators
+    - conduit
+    - beacon
+    - decorated_pot
+    # Treasure-room flags
+    - bookshelf
+    - chiseled_bookshelf
+    # Dungeon / stronghold / jungle-temple indicators (leaks structure location)
+    - mossy_cobblestone
+    - infested_cobblestone
+    - infested_stone
+    - infested_stone_bricks
+    - infested_mossy_stone_bricks
+    - infested_cracked_stone_bricks
+    - infested_chiseled_stone_bricks
+    - infested_deepslate
+    - stone_bricks
+    - mossy_stone_bricks
+    - cracked_stone_bricks
+    - chiseled_stone_bricks
+    # ---- Containers / workstations (full block hide, not just NBT strip) ----
+    # These are visible to ESP cheats unless we mask the block ID itself.
+    # When the player has LoS + within reveal-distance, the real block + BE data
+    # are sent back so the legitimate experience is unchanged.
+    - chest
+    - trapped_chest
+    - ender_chest
+    - barrel
+    - hopper
+    - dispenser
+    - dropper
+    - furnace
+    - blast_furnace
+    - smoker
+    - brewing_stand
+    - jukebox
+    - lectern
+    - cartography_table
+    - smithing_table
+    - fletching_table
+    - grindstone
+    - loom
+    - stonecutter
+    - composter
+    - crafting_table
+    - enchanting_table
+    - anvil
+    - chipped_anvil
+    - damaged_anvil
+    # All shulker box colors
+    - shulker_box
+    - white_shulker_box
+    - orange_shulker_box
+    - magenta_shulker_box
+    - light_blue_shulker_box
+    - yellow_shulker_box
+    - lime_shulker_box
+    - pink_shulker_box
+    - gray_shulker_box
+    - light_gray_shulker_box
+    - cyan_shulker_box
+    - purple_shulker_box
+    - blue_shulker_box
+    - brown_shulker_box
+    - green_shulker_box
+    - red_shulker_box
+    - black_shulker_box
+  # Replacement blocks used to mask hidden ores/structures. Picked deterministically per coord.
+  replacement-blocks:
+    overworld:
+      - stone
+      - deepslate
+    nether:
+      - netherrack
+    end:
+      - end_stone
+  # Y-range outside which obfuscation is skipped. Bumped to 320 to cover surface
+  # structures (pillager outpost, mansion, monument) and ancient city ceiling.
+  max-obfuscate-y: 320
+  min-obfuscate-y: -64
+  # If true, send fake ores in random stone/deepslate to confuse seed-based xray.
+  fake-ore-injection: true
+  fake-ore-density: 0.002
+  # A hidden block is only revealed to the client when the player has LoS AND is
+  # within this many blocks of the block. 64 = generous for large caves / water caves
+  # (matches vanilla perception distance). Anti-xray is still intact — no LoS through
+  # walls means xray cheats still see stone at any distance.
+  reveal-distance: 64.0
+  # If true, mask even ores that are already exposed on a cave wall (paranoid). If
+  # false, exposed ores pass through unmasked — legitimate cave UX shows ores
+  # instantly, only ores fully enclosed in stone are obfuscated. Buried-ore masking
+  # still fully defeats xray cheats (they see stone at any distance for the thing
+  # they actually want to cheat for). Overworld default: false. Nether default: true.
+  mask-cave-ores: false
+
+  # ---- Nether override ----
+  # Dans le nether, le netherrack forme une matrice dense sans caves, donc chaque
+  # minerai masqué provoque un "reveal mid-mining" très bruyant côté UX (le joueur
+  # creuse ce qu'il croit être du netherrack et voit le bloc devenir quartz/gold
+  # juste avant de le casser). On restreint donc le mask à ancient_debris (rare,
+  # vraiment à protéger) et on désactive fake-ore-injection (sinon des faux
+  # minerais apparaissent sur netherrack — exactement le symptôme remonté).
+  # Quartz et gold_ore restent visibles naturellement : aucune surprise mi-minage.
+  # Casser un voisin d'un ancient_debris enfoui continue de le révéler grâce au
+  # même chemin que sur l'overworld (reveal-distance 64 hérité).
+  nether-overrides:
+    enabled: true
+    fake-ore-injection: false
+    fake-ore-density: 0.0
+    hidden-blocks:
+      - ancient_debris
+      - nether_gold_ore
+      - nether_quartz_ore
+
+  # ---- Optional override for the END ----
+  end-overrides:
+    enabled: true
+    reveal-distance: 4.0
+    fake-ore-density: 0.005
+
+containers:
+  enabled: true
+  # Block-entity types that should be hidden (NBT stripped from chunk packet)
+  # when the player has no line of sight. Covers loot containers, spawners
+  # (so spawn entity & loot table don't leak), conduit, beacon, vault, etc.
+  hidden-types:
+    # Player loot containers
+    - chest
+    - trapped_chest
+    - barrel
+    - shulker_box
+    - hopper
+    - dispenser
+    - dropper
+    - furnace
+    - blast_furnace
+    - smoker
+    - brewing_stand
+    - ender_chest
+    # Spawners — keep entity to spawn + spawn potential hidden
+    - mob_spawner
+    - trial_spawner
+    # Trial chambers
+    - vault
+    # Music / decoration that hint at dungeons
+    - jukebox
+    - decorated_pot
+    # Beacons / conduits — leak the active state otherwise
+    - beacon
+    - conduit
+    # Sculk shrieker (Warden trigger) — NBT contains warning level
+    - sculk_shrieker
+    - sculk_catalyst
+    - sculk_sensor
+    - calibrated_sculk_sensor
+  # Reveal distance: any container within N blocks line-of-sight is visible.
+  reveal-distance: 64.0
+
+entity-esp:
+  enabled: true
+  # Entities further than this distance with no LoS are hidden from the client.
+  hide-distance: 12.0
+  # Always-visible entity types (skipped from filter).
+  always-visible:
+    - item_frame
+    - glow_item_frame
+    - painting
+    - armor_stand
+  # Re-check visibility every N ticks per entity (per viewer).
+  check-interval-ticks: 10
+
+movement:
+  enabled: true
+  noclip:
+    enabled: true
+    # Max distance allowed in a single move event. Above => suspicious.
+    max-step: 10.0
+  speed:
+    enabled: true
+    # Allowed horizontal blocks per second measured over a 1s sliding window.
+    # Vanilla: walk ~4.3, sprint ~5.6, sprint-jump peaks ~7.1. Generous margin
+    # to avoid false positives on lag/knockback/ice (ice multiplier is applied
+    # automatically on top of these values).
+    walk-bps: 7.0
+    sprint-bps: 9.0
+    sprint-jump-bps: 12.0
+  fly:
+    enabled: true
+    # Number of consecutive ticks airborne with no falling allowed.
+    max-airborne-ticks: 80
+  # Action when violation passes threshold: log | teleport | kick.
+  # Default is "log" — validate via /ac logs before switching to teleport.
+  action: log
+  violation-threshold: 8
+
+  # ---- Aggressive override for the NETHER ----
+  # Justification: in the Nether the cost of a false positive (legit player kicked
+  # mid-bridge) is acceptable, but the cost of a missed cheat (crystal-pvp / fly /
+  # noclip duel-getaway) is HUGE. So we hammer down hard on anything fishy.
+  # Any setting omitted here inherits the default above.
+  nether-overrides:
+    enabled: true
+    noclip:
+      max-step: 3.0
+    speed:
+      walk-bps: 6.5
+      sprint-bps: 8.0
+      sprint-jump-bps: 10.5
+    fly:
+      max-airborne-ticks: 12
+    action: kick
+    violation-threshold: 2
+
+  # ---- Optional override for the END (mid-aggressive) ----
+  end-overrides:
+    enabled: true
+    fly:
+      max-airborne-ticks: 30
+    action: teleport
+    violation-threshold: 2
+
+raytrace:
+  # Cap on raytraces dispatched per player per tick. Each watched position does up to 4
+  # samples internally (center + 3 face centers), so budget=64 lets the engine keep up
+  # with dense ore fields while the invalidate-on-block-change listener cuts TTL latency.
+  max-per-player-per-tick: 64
+  # Reuse cached visibility for this many ms before re-evaluating. Block break/place
+  # events force an immediate re-check on nearby watches, so the TTL only bounds the
+  # latency for player-movement-based visibility changes.
+  cache-ttl-ms: 750
+  # How often (in ticks) the xray module re-reconciles reveal/mask state against player
+  # position. 4 ticks = 200 ms, imperceptible latency, but 4× cheaper than per-tick. The
+  # reconcile is also chunk-scoped to the reveal-distance neighbourhood of the player, so
+  # total cost is O(chunksInRange × oresPerChunk) rather than O(allWatches).
+  tick-reveal-interval: 4

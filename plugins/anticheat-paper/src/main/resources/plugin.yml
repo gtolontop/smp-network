@@ -1,0 +1,19 @@
+name: AntiCheat
+version: 1.0.0
+main: fr.smp.anticheat.AntiCheatPlugin
+api-version: "26.1.2"
+description: "Custom anti-xray, anti-ESP (containers + entities) and movement validation"
+authors: ["SMP Team"]
+load: POSTWORLD
+commands:
+  ac:
+    description: "AntiCheat admin command"
+    aliases: [anticheat]
+    permission: anticheat.admin
+permissions:
+  anticheat.admin:
+    description: "Admin commands + bypass"
+    default: op
+  anticheat.bypass:
+    description: "Bypass all checks (sees everything, no movement validation). Granted manually via LuckPerms / op-bypass.yml only — NOT default op, otherwise admins testing the plugin think it's broken."
+    default: false
