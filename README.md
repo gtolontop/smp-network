@@ -1,6 +1,6 @@
 # SMP Network
 
-Serveur SMP Minecraft open-source avec architecture multi-serveurs, hébergé en self-host.
+Serveur SMP Minecraft open-source avec architecture multi-serveurs, heberge en self-host.
 
 ## Architecture
 
@@ -14,30 +14,30 @@ Serveur SMP Minecraft open-source avec architecture multi-serveurs, hébergé en
                 │                         │
         ┌───────▼───────┐        ┌────────▼────────┐
         │    Lobby      │        │    Survival      │
-        │    (Paper)    │        │    (Folia)       │
+        │    (Paper)    │        │    (Paper)       │
         │    :25566     │        │    :25567        │
         └───────────────┘        └─────────────────┘
 ```
 
 | Composant | Software | Port | Role |
 |-----------|----------|------|------|
-| **Proxy** | Velocity | 25565 | Auth, routage, commandes réseau |
+| **Proxy** | Velocity | 25565 | Auth, routage, commandes reseau |
 | **Lobby** | Paper | 25566 | Hub, menu serveurs, AFK zone |
-| **Survival** | Folia | 25567 | Monde survie, bordure 10k, farms |
+| **Survival** | Paper | 25567 | Monde survie, bordure 10k, farms |
 
 ## Features
 
-- **Velocity Proxy** - Modern forwarding, join/leave réseau, `/lobby`, `/survival`, `/glist`
+- **Velocity Proxy** - Modern forwarding, join/leave reseau, `/lobby`, `/survival`, `/glist`
 - **Server Selector GUI** - Menu chest propre avec icones par serveur, clic droit compas
-- **Folia Survival** - Multithreading régionalisé pour 30-60 joueurs avec grosses farms
+- **Paper latest** - MC 26.1.2 (resolved dynamically by `scripts/download.sh`)
 - **Custom Generation** - Support datapacks (Terralith, Tectonic, etc.)
-- **Optimisé** - Configs Paper/Folia tunées, Alternate Current redstone, anti-xray
+- **Optimise** - Configs Paper tunees, Alternate Current redstone, anti-xray
 - **Chat format** - MiniMessage avec gradients
 - **Spawn system** - `/spawn`, `/setspawn`
 
-## Prérequis
+## Prerequis
 
-- **Java 21+** ([Adoptium](https://adoptium.net/))
+- **Java 25+** ([Adoptium](https://adoptium.net/)) - inclus dans `java/`
 - **Git**
 - **Gradle** (inclus via wrapper dans les plugins)
 
@@ -50,16 +50,18 @@ git clone https://github.com/TON-USER/smp-network.git
 cd smp-network
 ```
 
-### 2. Telecharger les JARs serveur
+### 2. Telecharger les JARs
 
 ```bash
 bash scripts/download.sh
 ```
 
-Ou manuellement :
-- [Velocity](https://papermc.io/downloads/velocity) → `velocity/velocity.jar`
-- [Paper](https://papermc.io/downloads/paper) → `lobby/paper.jar`
-- [Folia](https://papermc.io/downloads/folia) → `survival/folia.jar`
+Ce script telecharge Velocity et le dernier build Paper disponible pour `MC_VERSION`.
+
+> Note : `26.1.2` est une branche experimentale sur Paper. Si les dimensions
+> (Nether/End) ont un comportement instable, evite de re-pinner un vieux build
+> experimental et prefere soit le dernier build disponible, soit une version
+> stable de Paper si tu veux prioriser la fiabilite.
 
 ### 3. Compiler les plugins
 
@@ -69,7 +71,7 @@ cd plugins/core-velocity
 ./gradlew shadowJar
 cp build/libs/SMPCore-Velocity-1.0.0.jar ../../velocity/plugins/
 
-# Plugin Paper/Folia (serveurs)
+# Plugin Paper (serveurs)
 cd ../core-paper
 ./gradlew shadowJar
 cp build/libs/SMPCore-Paper-1.0.0.jar ../../lobby/plugins/
@@ -123,6 +125,7 @@ Recommandes :
 │   ├── forwarding.secret     # Secret partage avec les backends
 │   └── plugins/              # Plugins Velocity
 ├── lobby/                    # Serveur lobby (Paper)
+│   ├── paper.jar             # Paper (build telecharge dynamiquement)
 │   ├── server.properties
 │   ├── bukkit.yml
 │   ├── spigot.yml
@@ -130,7 +133,8 @@ Recommandes :
 │   │   ├── paper-global.yml
 │   │   └── paper-world-defaults.yml
 │   └── plugins/
-├── survival/                 # Serveur survie (Folia)
+├── survival/                 # Serveur survie (Paper)
+│   ├── paper.jar             # Paper (build telecharge dynamiquement)
 │   ├── server.properties
 │   ├── bukkit.yml
 │   ├── spigot.yml
@@ -142,10 +146,12 @@ Recommandes :
 ├── plugins/
 │   ├── core-velocity/        # Plugin reseau cote proxy
 │   │   └── src/
-│   └── core-paper/           # Plugin reseau cote serveurs
+│   └── core-paper/           # Plugin reseau cote serveurs (Paper API)
 │       └── src/
+├── java/
+│   └── jdk-25.0.2+10/        # Java 25 bundle
 ├── scripts/
-│   ├── download.sh           # Telecharge les JARs
+│   ├── download.sh           # Installe les JARs
 │   ├── start-all.bat         # Demarre tout (Windows)
 │   ├── start-all.sh          # Demarre tout (Linux)
 │   └── stop-all.sh           # Arrete tout (Linux)
@@ -158,10 +164,10 @@ Recommandes :
 | Commande | Aliases | Description |
 |----------|---------|-------------|
 | `/globby` | `/lobby`, `/hub`, `/l` | Rejoindre le lobby |
-| `/gsurvival` | `/survival`, `/surv`, `/s` | Rejoindre le servie |
+| `/gsurvival` | `/survival`, `/surv`, `/s` | Rejoindre le survie |
 | `/glist` | | Liste des joueurs en ligne |
 
-### Serveurs (Paper/Folia)
+### Serveurs (Paper)
 | Commande | Aliases | Description |
 |----------|---------|-------------|
 | `/menu` | `/servers`, `/selector` | Ouvrir le menu serveurs |
