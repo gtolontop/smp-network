@@ -71,11 +71,19 @@ public class ServerSelectorGUI {
             ItemMeta meta = item.getItemMeta();
             meta.displayName(mm.deserialize("<!italic>" + si.displayName()));
 
+            int count = -1;
+            if (plugin.serverStats() != null) {
+                var s = plugin.serverStats().get(si.serverName());
+                if (s != null) count = s.online();
+            }
+            if (count < 0 && si.serverName().equalsIgnoreCase(plugin.getServerType())) {
+                count = org.bukkit.Bukkit.getOnlinePlayers().size();
+            }
+            String shown = count < 0 ? "?" : String.valueOf(count);
+
             List<net.kyori.adventure.text.Component> loreComponents = new ArrayList<>();
             for (String line : si.lore()) {
-                // Replace %players% placeholder — real counts are not available on the
-                // backend; the Velocity-side plugin handles that via plugin messaging.
-                String resolved = line.isEmpty() ? "<!italic> " : "<!italic>" + line.replace("%players%", "?");
+                String resolved = line.isEmpty() ? "<!italic> " : "<!italic>" + line.replace("%players%", shown);
                 loreComponents.add(mm.deserialize(resolved));
             }
             meta.lore(loreComponents);
