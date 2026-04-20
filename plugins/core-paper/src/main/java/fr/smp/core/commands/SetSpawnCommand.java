@@ -1,7 +1,8 @@
 package fr.smp.core.commands;
 
 import fr.smp.core.SMPCore;
-import net.kyori.adventure.text.minimessage.MiniMessage;
+import fr.smp.core.logging.LogCategory;
+import fr.smp.core.utils.Msg;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -11,41 +12,29 @@ import org.bukkit.entity.Player;
 public class SetSpawnCommand implements CommandExecutor {
 
     private final SMPCore plugin;
-    private final MiniMessage mm = MiniMessage.miniMessage();
+    private final boolean hub;
 
-    public SetSpawnCommand(SMPCore plugin) {
+    public SetSpawnCommand(SMPCore plugin, boolean hub) {
         this.plugin = plugin;
+        this.hub = hub;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("This command can only be used by players.");
+        if (!(sender instanceof Player p)) {
+            sender.sendMessage("Joueurs uniquement.");
             return true;
         }
-
-        if (!player.hasPermission("smp.admin")) {
-            player.sendMessage(mm.deserialize("<red>Permission refusée.</red>"));
+        if (!p.hasPermission("smp.admin")) {
+            p.sendMessage(Msg.err("Permission refusée."));
             return true;
         }
-
-        Location loc = player.getLocation();
-        var config = plugin.getConfig();
-
-        config.set("spawn.world", loc.getWorld().getName());
-        config.set("spawn.x", loc.getX());
-        config.set("spawn.y", loc.getY());
-        config.set("spawn.z", loc.getZ());
-        config.set("spawn.yaw", (double) loc.getYaw());
-        config.set("spawn.pitch", (double) loc.getPitch());
-        plugin.saveConfig();
-
-        player.sendMessage(mm.deserialize(
-                "<green>Spawn défini à ta position !</green> "
-                + "<gray>(" + String.format("%.1f", loc.getX()) + ", "
-                + String.format("%.1f", loc.getY()) + ", "
-                + String.format("%.1f", loc.getZ()) + ")</gray>"));
-
+        Location l = p.getLocation();
+        if (hub) plugin.spawns().setHub(l);
+        else plugin.spawns().setSpawn(l);
+        p.sendMessage(Msg.ok("<green>" + (hub ? "Hub" : "Spawn") + " défini.</green>"));
+        plugin.logs().log(LogCategory.ADMIN, p, "setspawn " + (hub ? "hub" : "") + " @" +
+                l.getWorld().getName() + " " + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ());
         return true;
     }
 }
