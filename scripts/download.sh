@@ -1,18 +1,18 @@
 #!/bin/bash
 # ============================================================
-#  Download server JARs (Velocity, Paper, Folia)
+#  Download server JARs (Velocity + Paper x2)
 #  Run once or whenever you want to update to latest builds.
 # ============================================================
 
 set -e
 
-VELOCITY_VERSION="3.4.0-SNAPSHOT"
-PAPER_VERSION="1.21.11"
-FOLIA_VERSION="1.21.11"
+VELOCITY_VERSION="3.5.0-SNAPSHOT"
+MC_VERSION="26.1.2"
+PAPER_BUILD="${PAPER_BUILD:-}"
 
 BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "=== Downloading server JARs ==="
+echo "=== Downloading server JARs (MC $MC_VERSION) ==="
 
 # --- Velocity ---
 echo "[1/3] Downloading Velocity..."
@@ -28,37 +28,36 @@ else
   echo "  -> WARN: Could not fetch Velocity build. Download manually from https://papermc.io/downloads/velocity"
 fi
 
+# --- Paper ---
+if [ -z "$PAPER_BUILD" ]; then
+  echo "[2/3] Resolving latest Paper build for MC $MC_VERSION..."
+  PAPER_BUILD=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/$MC_VERSION/builds" | \
+    python3 -c "import sys,json; builds=json.load(sys.stdin).get('builds', []); print(builds[-1]['build'] if builds else '')" 2>/dev/null || echo "")
+fi
+
+if [ -z "$PAPER_BUILD" ]; then
+  echo "  -> ERROR: Could not fetch a Paper build for MC $MC_VERSION"
+  echo "     You can force one with: PAPER_BUILD=<build-number> bash scripts/download.sh"
+  exit 1
+fi
+
+PAPER_JAR="paper-${MC_VERSION}-${PAPER_BUILD}.jar"
+PAPER_URL="https://api.papermc.io/v2/projects/paper/versions/$MC_VERSION/builds/$PAPER_BUILD/downloads/$PAPER_JAR"
+
 # --- Paper (Lobby) ---
-echo "[2/3] Downloading Paper (lobby)..."
-PAPER_BUILD=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/$PAPER_VERSION/builds" | \
-  python3 -c "import sys,json; builds=json.load(sys.stdin)['builds']; print(builds[-1]['build'])" 2>/dev/null || echo "")
+echo "[2/3] Downloading Paper for lobby (build $PAPER_BUILD)..."
+curl -Lo "$BASE_DIR/lobby/paper.jar" "$PAPER_URL"
+echo "  -> lobby/paper.jar downloaded"
 
-if [ -n "$PAPER_BUILD" ]; then
-  PAPER_JAR="paper-${PAPER_VERSION}-${PAPER_BUILD}.jar"
-  curl -Lo "$BASE_DIR/lobby/paper.jar" \
-    "https://api.papermc.io/v2/projects/paper/versions/$PAPER_VERSION/builds/$PAPER_BUILD/downloads/$PAPER_JAR"
-  echo "  -> paper.jar downloaded (build $PAPER_BUILD)"
-else
-  echo "  -> WARN: Could not fetch Paper build. Download manually from https://papermc.io/downloads/paper"
-fi
-
-# --- Folia (Survival) ---
-echo "[3/3] Downloading Folia (survival)..."
-FOLIA_BUILD=$(curl -s "https://api.papermc.io/v2/projects/folia/versions/$FOLIA_VERSION/builds" | \
-  python3 -c "import sys,json; builds=json.load(sys.stdin)['builds']; print(builds[-1]['build'])" 2>/dev/null || echo "")
-
-if [ -n "$FOLIA_BUILD" ]; then
-  FOLIA_JAR="folia-${FOLIA_VERSION}-${FOLIA_BUILD}.jar"
-  curl -Lo "$BASE_DIR/survival/folia.jar" \
-    "https://api.papermc.io/v2/projects/folia/versions/$FOLIA_VERSION/builds/$FOLIA_BUILD/downloads/$FOLIA_JAR"
-  echo "  -> folia.jar downloaded (build $FOLIA_BUILD)"
-else
-  echo "  -> WARN: Could not fetch Folia build. Download manually from https://papermc.io/downloads/folia"
-fi
+# --- Paper (Survival) ---
+echo "[3/3] Downloading Paper for survival (build $PAPER_BUILD)..."
+curl -Lo "$BASE_DIR/survival/paper.jar" "$PAPER_URL"
+echo "  -> survival/paper.jar downloaded"
 
 echo ""
 echo "=== Done! ==="
 echo "JARs saved to:"
 echo "  velocity/velocity.jar"
 echo "  lobby/paper.jar"
-echo "  survival/folia.jar"
+echo "  survival/paper.jar"
+echo "Paper build: $PAPER_BUILD"
