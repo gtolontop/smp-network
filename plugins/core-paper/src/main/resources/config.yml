@@ -1,9 +1,17 @@
+# =========================================
+#  SMPCore — Global configuration
+# =========================================
+
 # Server type: "lobby" or "survival"
 server-type: "lobby"
 
+# Storage (SQLite). Relative to server working dir.
+storage:
+  directory: "../shared-data"
+
 # Server selector menu
 menu:
-  title: "<gradient:#a8edea:#fed6e3>✦ Serveurs ✦</gradient>"
+  title: "<gradient:#67e8f9:#a78bfa><bold>Serveurs</bold></gradient>"
   items:
     lobby:
       slot: 11
@@ -28,18 +36,17 @@ menu:
         - ""
         - "<yellow>▶ Clic pour rejoindre</yellow>"
 
-# Lobby settings
-lobby:
-  give-compass: true
-  compass-slot: 4
-  compass-name: "<gradient:#a8edea:#fed6e3>✦ Menu Serveurs ✦</gradient>"
-
-# Chat format (MiniMessage)
+# Chat (MiniMessage). Available placeholders:
+#   %rank%    -> group prefix from the permissions system (e.g. "<red>[Admin]</red> ")
+#   %hunted%  -> "[CHASSÉ • $xK]" tag if the player is the hunted of the day
+#   %tag%     -> team tag if the player is in a team
+#   %player%  -> player name
+# The message itself is rendered by the plugin, not via placeholder.
 chat:
   enabled: true
-  format: "<gray>%player%</gray> <dark_gray>»</dark_gray> <white>%message%</white>"
+  format: "%rank%%hunted%%tag%<gray>%player%</gray> <dark_gray>»</dark_gray> "
 
-# Spawn
+# Spawn (survival)
 spawn:
   world: "world"
   x: 0.5
@@ -47,3 +54,151 @@ spawn:
   z: 0.5
   yaw: 0.0
   pitch: 0.0
+
+# Hub spawn (lobby)
+hub-spawn:
+  world: "world"
+  x: 0.5
+  y: 100.0
+  z: 0.5
+  yaw: 0.0
+  pitch: 0.0
+
+# Cross-server player data sync (inventory, enderchest, xp, food, effects)
+sync:
+  enabled: true
+  directory: "../shared-data/players"
+
+# ------ RTP ------
+rtp:
+  on-join: false              # Teleport players randomly each join (default: first-join only)
+  cooldown-seconds: 600       # 10 min
+  min-distance: 500
+  max-attempts: 16
+  default-world: "world"
+  world-overworld: "world"
+  world-nether: "world_nether"
+  world-end: "world_the_end"
+  radius:                     # Override per-world (defaults to border/2 - 50)
+    # world: 8000
+    # world_nether: 3000
+
+# ------ Worldborder ------
+worldborder:
+  world:
+    size: 20000
+    center: { x: 0.0, z: 0.0 }
+  world_nether:
+    size: 5000
+    center: { x: 0.0, z: 0.0 }
+  world_the_end:
+    size: 10000
+    center: { x: 0.0, z: 0.0 }
+
+# ------ Combat tag ------
+combat:
+  duration-seconds: 15
+
+# ------ TPA ------
+tpa:
+  ttl-seconds: 60
+
+# ------ Homes ------
+homes:
+  base-slots: 5               # default max homes (override via smp.homes.<N>)
+  max-slots: 5                # hard cap, matches the single-row Homes GUI
+
+# ------ Teams ------
+teams:
+  creation-cost: 500
+
+# ------ Economy ------
+economy:
+  shards-per-minute: 1
+  starting-balance: 0
+
+# ------ Auction House ------
+auction:
+  ttl-hours: 48
+  max-per-player: 5
+  fee-percent: 5.0
+
+# ------ Bounty ------
+bounty:
+  min-amount: 1000000        # Minimum added per bounty contribution (1M)
+  max-amount: 100000000000   # Maximum added per single contribution (100B)
+
+# ------ Chassé du jour ------
+# Le joueur avec le plus de kills quotidiens reçoit un statut visible
+# (glow rouge, tag [CHASSÉ], traces de sang, aura). Une prime automatique
+# est placée sur lui au moment où il devient chassé — une seule fois par
+# journée. Reset à minuit heure serveur.
+hunted:
+  enabled: true
+  min-kills: 5           # kills quotidiens requis pour devenir chassé
+  bounty-amount: 100000  # prime auto placée à la 1ère désignation du jour
+
+# ------ Keyall (global crate countdown) ------
+keyall:
+  interval-minutes: 60
+
+# ------ World toggles ------
+world:
+  end-enabled: true           # /end on|off|toggle (admin only)
+  disable-locator-bar: true   # try to disable the vanilla locator bar HUD (gamerule if available)
+
+# ------ Weather ------
+weather:
+  # Worlds on which rain/thunder is permanently suppressed.
+  no-rain-worlds:
+    - "world"                 # lobby world always clear
+
+# ------ AFK detection (feeds /playtime) ------
+afk:
+  inactive-seconds: 120         # no-movement / head-still seconds before flagging AFK
+
+# ------ Custom enchants ------
+# Enchants custom + over-cap de vanilla (Eff VI, Unb IV, Prot VI, Sharp VI, Fort IV).
+# Les livres s'appliquent à l'enclume sur un objet compatible. Les drops custom
+# se cumulent avec vanilla via PDC — les drops overcap sont des enchantements
+# vanilla appliqués à un niveau supérieur au cap normal.
+customenchants:
+  table:
+    # Probabilité à coût 30 (étoiles). Réduite linéairement pour les coûts plus bas.
+    custom-chance-at-30: 0.30
+    overcap-chance-at-30: 0.10
+  mob-drop:
+    enabled: true
+    chance: 0.015               # 1.5% par mob hostile tué
+    overcap-ratio: 0.20         # 20% des drops sont des overcap, 80% custom
+  anvil:
+    book-cost: 6                # coût XP pour appliquer un livre d'enchant custom
+    elytra-fusion-cost: 15      # coût XP pour fusionner plastron + élytre
+
+# ------ Resource packs ------
+# Envoie tous les packs configurés au joueur à l'entrée sur la survie, et
+# les retire quand il quitte. Chaque entrée est un slot libre (nom au choix :
+# sparkles, stellarity, ...). Le sha1 est le hash SHA-1 hexadécimal (40 chars)
+# du fichier zip — obtenable avec `sha1sum pack.zip` ou
+# `Get-FileHash -Algorithm SHA1 pack.zip`.
+#
+# Laisser url/sha1 vides désactive le slot correspondant.
+resource-packs:
+  enabled: true
+  sparkles:
+    url: ""
+    sha1: ""
+    required: false
+    prompt: "<yellow>Pack Sparkles recommandé (textures Incendium)</yellow>"
+  stellarity:
+    url: ""
+    sha1: ""
+    required: true
+    prompt: "<yellow>Pack Stellarity requis</yellow>"
+
+# ------ Scoreboard ------
+scoreboard:
+  title: "<gradient:#67e8f9:#a78bfa><bold>SaphirSMP</bold></gradient>"
+  # Leave empty to use defaults. Placeholders:
+  #  %money% %shards% %kills% %deaths% %keyall% %playtime% %team% %ping%
+  lines: []
