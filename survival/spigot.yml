@@ -1,10 +1,22 @@
-config-version: 12
+# This is the Spigot configuration file for Paper.
+# As you can see, there's tons to configure. Some options may impact gameplay, so use
+# with caution, and make sure you know what each option does before configuring.
+#
+# If you need help with the configuration or have any questions related to Paper,
+# join us in our Discord or check the docs page.
+#
+# File Reference: https://docs.papermc.io/paper/reference/spigot-configuration/
+# Docs: https://docs.papermc.io/
+# Discord: https://discord.gg/papermc
+# Website: https://papermc.io/
+
+config-version: 13
 settings:
   debug: false
   save-user-cache-on-stop-only: false
   log-villager-deaths: true
   log-named-deaths: true
-  bungeecord: false  # Not needed — using Velocity modern forwarding via Paper config
+  bungeecord: false # Not needed — using Velocity modern forwarding via Paper config
   sample-count: 12
   player-shuffle: 0
   user-cache-size: 1000
@@ -15,6 +27,8 @@ settings:
   restart-script: ./start.sh
   netty-threads: 4
   attribute:
+    maxAbsorption:
+      max: 2048.0
     maxHealth:
       max: 2048.0
     movementSpeed:
@@ -26,8 +40,8 @@ messages:
   whitelist: You are not whitelisted on this server!
   unknown-command: Unknown command. Type "/help" for help.
   server-full: The server is full!
-  outdated-client: "Outdated client! Please use {0}"
-  outdated-server: "Outdated server! I'm still on {0}"
+  outdated-client: Outdated client! Please use {0}
+  outdated-server: Outdated server! I'm still on {0}
   restart: Server is restarting
 
 advancements:
@@ -46,19 +60,39 @@ commands:
   silent-commandblock-console: false
   tab-complete: 0
   send-namespaced: true
+  enable-spam-exclusions: false
 
 players:
   disable-saving: false
 
 world-settings:
   default:
+    below-zero-generation-in-existing-chunks: true
+    end-portal-sound-radius: 0
+    wither-spawn-sound-radius: 0
+    seed-ancientcity: 20083232
+    seed-trailruins: 83469867
+    seed-trialchambers: 94251327
+    seed-buriedtreasure: 10387320
+    seed-mineshaft: default
+    seed-stronghold: default
+    unload-frozen-chunks: false
+    max-tick-time:
+      tile: 50
+      entity: 50
+    ticks-per:
+      hopper-transfer: 8
+      hopper-check: 1
+    verbose: false
     # --- Mob Spawning ---
     # How many chunks from the player mobs can spawn (vanilla = 8)
     mob-spawn-range: 6
-
+    
     # --- Entity Activation Ranges ---
     # Entities outside these ranges (in blocks) tick less aggressively
     entity-activation-range:
+      villagers-active-for-panic: true
+      tick-inactive-villagers: true
       animals: 24
       monsters: 32
       raiders: 48
@@ -82,7 +116,7 @@ world-settings:
         flying-monsters-max-per-tick: 2
         flying-monsters-every: 20
         flying-monsters-for: 2
-
+    
     # --- Entity Tracking Ranges ---
     # How far (in blocks) clients receive entity updates; lower = less network & CPU
     entity-tracking-range:
@@ -92,28 +126,28 @@ world-settings:
       misc: 32
       display: 128
       other: 64
-
+    
     # --- Item & XP Merging ---
     # Merge dropped items/XP within this radius to reduce entity count
     merge-radius:
       item: 3.5
       exp: 6.0
-
+    
     # --- Hopper Optimizations ---
     hopper-amount: 1
     hopper-can-load-chunks: false
-
+    
     # --- Tick Rates ---
     nerf-spawner-mobs: false
     arrow-despawn-rate: 1200
     trident-despawn-rate: 1200
     zombie-aggressive-towards-villager: true
-
+    
     # --- View Distance (overrides server.properties per-world if needed) ---
     # Left at default here; global values set in server.properties
     view-distance: default
     simulation-distance: default
-
+    
     # --- Misc Performance ---
     max-tnt-per-tick: 100
     max-bulk-chunks: 10
@@ -148,6 +182,10 @@ world-settings:
     exp-merge-max-value: -1
     thunder-chance: 100000
     growth:
+      twistingvines-modifier: 100
+      weepingvines-modifier: 100
+      cavevines-modifier: 100
+      glowberry-modifier: 100
       cactus-modifier: 100
       cane-modifier: 100
       melon-modifier: 100
@@ -166,3 +204,8 @@ world-settings:
       kelp-modifier: 100
       torchflower-modifier: 100
       pitcherplant-modifier: 100
+  worldeditregentempworld:
+    verbose: false
+stats:
+  disable-saving: false
+  forced-stats: {}
