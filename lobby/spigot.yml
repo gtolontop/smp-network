@@ -1,4 +1,20 @@
-config-version: 12
+# This is the Spigot configuration file for Paper.
+# As you can see, there's tons to configure. Some options may impact gameplay, so use
+# with caution, and make sure you know what each option does before configuring.
+#
+# If you need help with the configuration or have any questions related to Paper,
+# join us in our Discord or check the docs page.
+#
+# File Reference: https://docs.papermc.io/paper/reference/spigot-configuration/
+# Docs: https://docs.papermc.io/
+# Discord: https://discord.gg/papermc
+# Website: https://papermc.io/
+
+advancements:
+  disable-saving: false
+  disabled:
+  - minecraft:story/disabled
+config-version: 13
 settings:
   debug: false
   save-user-cache-on-stop-only: false
@@ -6,6 +22,8 @@ settings:
   log-named-deaths: true
   bungeecord: false
   attribute:
+    maxAbsorption:
+      max: 2048.0
     maxHealth:
       max: 2048.0
     movementSpeed:
@@ -44,10 +62,26 @@ commands:
   - /skill
   tab-complete: 0
   send-namespaced: true
+  enable-spam-exclusions: false
 players:
   disable-saving: false
 world-settings:
   default:
+    unload-frozen-chunks: false
+    seed-ancientcity: 20083232
+    seed-trailruins: 83469867
+    seed-trialchambers: 94251327
+    seed-buriedtreasure: 10387320
+    seed-mineshaft: default
+    seed-stronghold: default
+    hunger:
+      jump-walk-exhaustion: 0.05
+      jump-sprint-exhaustion: 0.2
+      combat-exhaustion: 0.1
+      regen-exhaustion: 6.0
+      swim-multiplier: 0.01
+      sprint-multiplier: 0.1
+      other-multiplier: 0.0
     below-zero-generation-in-existing-chunks: true
     end-portal-sound-radius: 0
     verbose: false
@@ -90,6 +124,10 @@ world-settings:
       tile: 50
       entity: 50
     growth:
+      twistingvines-modifier: 100
+      weepingvines-modifier: 100
+      cavevines-modifier: 100
+      glowberry-modifier: 100
       cactus-modifier: 0
       cane-modifier: 0
       melon-modifier: 0
@@ -109,6 +147,7 @@ world-settings:
       torchflower-modifier: 0
       pitcherplant-modifier: 0
     entity-activation-range:
+      ignore-spectators: false
       animals: 8
       monsters: 8
       raiders: 16
@@ -134,6 +173,7 @@ world-settings:
         flying-monsters-every: 200
         flying-monsters-for: 100
     entity-tracking-range:
+      display: 128
       players: 48
       animals: 32
       monsters: 32
@@ -146,3 +186,8 @@ world-settings:
     squid-spawn-range:
       min: 45.0
     exp-merge-max-value: 3
+  worldeditregentempworld:
+    verbose: false
+stats:
+  disable-saving: false
+  forced-stats: {}
