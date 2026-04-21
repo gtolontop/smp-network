@@ -34,6 +34,24 @@ public class JoinListener implements Listener {
 
         if (plugin.permissions() != null) plugin.permissions().apply(p);
 
+        // If auth is loaded and the player is not yet authenticated, defer
+        // teleport / world placement until /login or /register completes —
+        // otherwise an unauthenticated cracker would be RTP'd to a real
+        // player's coordinates while frozen.
+        if (plugin.auth() != null && !plugin.auth().isAuthenticated(p)) {
+            // Scoreboard / tab / nametags also wait for auth — the player
+            // is invisible/blind anyway.
+            return;
+        }
+        runJoinSetup(p, data);
+    }
+
+    /**
+     * Post-auth join setup. Called either directly from onJoin() (premium
+     * auto-auth) or from {@link fr.smp.core.auth.AuthManager} once a cracked
+     * player completes /login or /register.
+     */
+    public void runJoinSetup(Player p, PlayerData data) {
         // Pending cross-server teleport wins over any other auto-tp behavior.
         PendingTeleportManager.Pending pending = plugin.pendingTp() != null
                 ? plugin.pendingTp().peek(p.getUniqueId()) : null;
