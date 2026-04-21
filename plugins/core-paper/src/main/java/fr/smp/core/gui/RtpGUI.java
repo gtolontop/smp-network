@@ -45,14 +45,22 @@ public class RtpGUI extends GUIHolder {
                 "",
                 "<yellow>▶ Clic pour partir</yellow>"));
 
-        inv.setItem(15, GUIUtil.item(Material.END_STONE,
-                "<light_purple><bold>End</bold></light_purple>",
-                "",
-                "<gray>Téléporte aléatoirement dans l'End.</gray>",
-                "",
-                cdLine,
-                "",
-                "<yellow>▶ Clic pour partir</yellow>"));
+        boolean endOn = plugin.endToggle().enabled();
+        if (endOn) {
+            inv.setItem(15, GUIUtil.item(Material.END_STONE,
+                    "<light_purple><bold>End</bold></light_purple>",
+                    "",
+                    "<gray>Téléporte aléatoirement dans l'End.</gray>",
+                    "",
+                    cdLine,
+                    "",
+                    "<yellow>▶ Clic pour partir</yellow>"));
+        } else {
+            inv.setItem(15, GUIUtil.item(Material.BARRIER,
+                    "<dark_gray><bold>End</bold></dark_gray>",
+                    "",
+                    "<red>L'End est désactivé.</red>"));
+        }
 
         inv.setItem(22, GUIUtil.item(Material.BARRIER,
                 "<red>Fermer</red>"));
@@ -72,9 +80,15 @@ public class RtpGUI extends GUIHolder {
             case 13 -> target = plugin.resolveWorld(
                     plugin.getConfig().getString("rtp.world-nether", suffix + "_nether"),
                     World.Environment.NETHER);
-            case 15 -> target = plugin.resolveWorld(
-                    plugin.getConfig().getString("rtp.world-end", suffix + "_the_end"),
-                    World.Environment.THE_END);
+            case 15 -> {
+                if (!plugin.endToggle().enabled()) {
+                    p.sendMessage(Msg.err("<red>L'End est désactivé.</red>"));
+                    return;
+                }
+                target = plugin.resolveWorld(
+                        plugin.getConfig().getString("rtp.world-end", suffix + "_the_end"),
+                        World.Environment.THE_END);
+            }
             case 22 -> { p.closeInventory(); return; }
             default -> { return; }
         }
