@@ -60,6 +60,9 @@ public class TeamCommand implements CommandExecutor {
                 if (d.teamId() == null) { p.sendMessage(Msg.err("Tu n'es pas dans une team.")); return true; }
                 if (args.length < 2) { p.sendMessage(Msg.err("/team invite <joueur>")); return true; }
                 TeamManager.Team t = plugin.teams().get(d.teamId());
+                if (plugin.teams().isFull(t.id())) {
+                    p.sendMessage(Msg.err("Team pleine (" + plugin.teams().maxMembers() + " max).")); return true;
+                }
                 Player target = Bukkit.getPlayerExact(args[1]);
                 if (target != null) {
                     PlayerData td = plugin.players().get(target);
@@ -95,6 +98,9 @@ public class TeamCommand implements CommandExecutor {
                 String invited = plugin.teamInvites().peek(p.getUniqueId());
                 if (invited == null || !invited.equals(t.id())) {
                     p.sendMessage(Msg.err("Aucune invitation pour cette team.")); return true;
+                }
+                if (plugin.teams().isFull(t.id())) {
+                    p.sendMessage(Msg.err("Team pleine (" + plugin.teams().maxMembers() + " max).")); return true;
                 }
                 plugin.teamInvites().consume(p.getUniqueId());
                 plugin.teams().addMember(t.id(), p.getUniqueId());
