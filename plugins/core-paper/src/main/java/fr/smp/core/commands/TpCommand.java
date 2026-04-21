@@ -43,17 +43,17 @@ public class TpCommand implements CommandExecutor {
 
         // /tp <player> <x> <y> <z>
         if (args.length == 4 && isNumber(args[1]) && isNumber(args[2]) && isNumber(args[3])) {
-            return teleportPlayerToCoords(p, args[0], args[1], args[2], args[3]);
+            return teleportPlayerToCoords(sender, p, args[0], args[1], args[2], args[3]);
         }
 
         // /tp <player> <target>
         if (args.length == 2) {
-            return teleportPlayerToPlayer(p, args[0], args[1]);
+            return teleportPlayerToPlayer(sender, p, args[0], args[1]);
         }
 
         // /tp <player>  — self to target
         if (args.length == 1) {
-            return teleportSelfToPlayer(p, args[0]);
+            return teleportSelfToPlayer(sender, p, args[0]);
         }
 
         p.sendMessage(Msg.err("/tp <joueur> | /tp <x> <y> <z> | /tp <joueur> <cible> | /tp <joueur> <x> <y> <z>"));
@@ -73,8 +73,8 @@ public class TpCommand implements CommandExecutor {
         return true;
     }
 
-    private boolean teleportPlayerToCoords(Player sender, String name, String sx, String sy, String sz) {
-        Player target = findLocalPlayer(name);
+    private boolean teleportPlayerToCoords(CommandSender src, Player sender, String name, String sx, String sy, String sz) {
+        Player target = findLocalPlayer(src, name);
         if (target == null) {
             sender.sendMessage(Msg.err("Le déplacement par coordonnées ne marche que si le joueur est sur ce serveur."));
             return true;
@@ -92,12 +92,11 @@ public class TpCommand implements CommandExecutor {
         return true;
     }
 
-    private boolean teleportSelfToPlayer(Player p, String targetName) {
-        if (targetName.equalsIgnoreCase(p.getName())) {
+    private boolean teleportSelfToPlayer(CommandSender src, Player p, String targetName) {
+        Player local = findLocalPlayer(src, targetName);
+        if (local != null && local.getUniqueId().equals(p.getUniqueId())) {
             p.sendMessage(Msg.err("Tu es déjà toi-même.")); return true;
         }
-
-        Player local = findLocalPlayer(targetName);
         if (local != null) {
             p.teleportAsync(local.getLocation());
             p.sendMessage(Msg.ok("<aqua>Téléporté à " + local.getName() + ".</aqua>"));
@@ -118,9 +117,9 @@ public class TpCommand implements CommandExecutor {
         return true;
     }
 
-    private boolean teleportPlayerToPlayer(Player sender, String moverName, String destName) {
-        Player mover = findLocalPlayer(moverName);
-        Player destLocal = findLocalPlayer(destName);
+    private boolean teleportPlayerToPlayer(CommandSender src, Player sender, String moverName, String destName) {
+        Player mover = findLocalPlayer(src, moverName);
+        Player destLocal = findLocalPlayer(src, destName);
 
         // Both on this server: easy case.
         if (mover != null && destLocal != null) {
@@ -131,7 +130,7 @@ public class TpCommand implements CommandExecutor {
 
         // Mover is the sender themselves: reuse the self-to-player path.
         if (mover == null && moverName.equalsIgnoreCase(sender.getName())) {
-            return teleportSelfToPlayer(sender, destName);
+            return teleportSelfToPlayer(src, sender, destName);
         }
 
         // Mover local, dest remote: lookup dest coords, then teleport mover (possibly via transfer).
@@ -210,8 +209,19 @@ public class TpCommand implements CommandExecutor {
         out.writeUTF(adminName);
     }
 
-    private static Player findLocalPlayer(String name) {
+    private static Player findLocalPlayer(CommandSender src, String name) {
         if (name == null || name.isEmpty()) return null;
+        // Minecraft target selector (@p, @s, @r, @a[...]) — resolve against sender.
+        if (name.charAt(0) == '@' && src != null) {
+            try {
+                for (org.bukkit.entity.Entity e : Bukkit.selectEntities(src, name)) {
+                    if (e instanceof Player pl) return pl;
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Fall through to name lookup.
+            }
+            return null;
+        }
         Player exact = Bukkit.getPlayerExact(name);
         if (exact != null) return exact;
         // Case-insensitive fallback: scan online players.
