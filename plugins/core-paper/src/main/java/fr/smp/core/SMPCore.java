@@ -1,17 +1,26 @@
 package fr.smp.core;
 
 import fr.smp.core.alchemytotem.AlchemyTotemManager;
+import fr.smp.core.auth.AuthAdminCommand;
+import fr.smp.core.auth.AuthCommand;
+import fr.smp.core.auth.AuthListener;
+import fr.smp.core.auth.AuthManager;
 import fr.smp.core.commands.*;
 import fr.smp.core.data.PlayerDataManager;
 import fr.smp.core.enchants.CustomEnchantListener;
 import fr.smp.core.enchants.EnchantArmorTask;
 import fr.smp.core.enchants.EnchantBreakListener;
 import fr.smp.core.gui.ServerSelectorGUI;
+import fr.smp.core.holograms.HologramCommand;
+import fr.smp.core.holograms.HologramManager;
+import fr.smp.core.npc.NpcCommand;
+import fr.smp.core.npc.NpcManager;
 import fr.smp.core.listeners.ChainClimbListener;
 import fr.smp.core.listeners.ChatListener;
 import fr.smp.core.listeners.CombatListener;
 import fr.smp.core.listeners.DeathListener;
 import fr.smp.core.listeners.GUIListener;
+import fr.smp.core.listeners.GateListener;
 import fr.smp.core.listeners.JoinListener;
 import fr.smp.core.listeners.LobbyProtectionListener;
 import fr.smp.core.listeners.SpawnerListener;
@@ -85,6 +94,12 @@ public class SMPCore extends JavaPlugin {
     private SpawnerManager spawners;
     private EnchantArmorTask enchantArmor;
     private ResourcePackManager resourcePacks;
+    private GateManager gates;
+    private GateWandVisualizer gateWandViz;
+    private AuthManager auth;
+    private JoinListener joinListener;
+    private NpcManager npcs;
+    private HologramManager holograms;
 
     @Override
     public void onEnable() {
@@ -174,12 +189,31 @@ public class SMPCore extends JavaPlugin {
             resourcePacks = new ResourcePackManager(this);
         }
 
+        // Animated gates (both servers: usable for spawn portcullis, dungeon doors, etc.)
+        gates = new GateManager(this, database);
+        gates.start();
+        gateWandViz = new GateWandVisualizer(this);
+        gateWandViz.start();
+
+        // NPCs (fake-player) + holograms (TextDisplay) — utilisables sur les deux serveurs
+        npcs = new NpcManager(this, database);
+        npcs.start();
+        holograms = new HologramManager(this, database);
+        holograms.start();
+
         // Best-effort disable of the vanilla locator bar HUD.
         LocatorBarDisabler.apply(this);
 
+        // Auth — must register BEFORE JoinListener so the freeze is applied
+        // before any other join-side effect runs.
+        auth = new AuthManager(this, database);
+        auth.start();
+
         // Listeners
         var pm = getServer().getPluginManager();
-        pm.registerEvents(new JoinListener(this), this);
+        pm.registerEvents(new AuthListener(this, auth), this);
+        joinListener = new JoinListener(this);
+        pm.registerEvents(joinListener, this);
         pm.registerEvents(new GUIListener(this), this);
         pm.registerEvents(chatPrompt, this);
         WorthHoverListener worthHover = new WorthHoverListener(this);
@@ -214,6 +248,8 @@ public class SMPCore extends JavaPlugin {
         if (resourcePacks != null) {
             pm.registerEvents(resourcePacks, this);
         }
+        pm.registerEvents(new GateListener(this), this);
+        if (npcs != null) pm.registerEvents(npcs, this);
 
         // Custom enchants (table + anvil + mob-drop + soulbound + area-break + armor task).
         pm.registerEvents(new CustomEnchantListener(this), this);
@@ -334,6 +370,33 @@ public class SMPCore extends JavaPlugin {
             getCommand("ce").setTabCompleter(ceCmd);
         }
 
+        if (getCommand("gate") != null) {
+            GateCommand gateCmd = new GateCommand(this);
+            getCommand("gate").setExecutor(gateCmd);
+            getCommand("gate").setTabCompleter(gateCmd);
+        }
+
+        if (getCommand("npc") != null) {
+            NpcCommand npcCmd = new NpcCommand(this);
+            getCommand("npc").setExecutor(npcCmd);
+            getCommand("npc").setTabCompleter(npcCmd);
+        }
+
+        if (getCommand("holo") != null) {
+            HologramCommand holoCmd = new HologramCommand(this);
+            getCommand("holo").setExecutor(holoCmd);
+            getCommand("holo").setTabCompleter(holoCmd);
+        }
+
+        if (auth != null) {
+            getCommand("login").setExecutor(new AuthCommand(this, auth, AuthCommand.Mode.LOGIN));
+            getCommand("register").setExecutor(new AuthCommand(this, auth, AuthCommand.Mode.REGISTER));
+            getCommand("changepassword").setExecutor(new AuthCommand(this, auth, AuthCommand.Mode.CHANGE));
+            AuthAdminCommand authAdmin = new AuthAdminCommand(this, auth);
+            getCommand("auth").setExecutor(authAdmin);
+            getCommand("auth").setTabCompleter(authAdmin);
+        }
+
         PermCommand permCmd = new PermCommand(this);
         getCommand("perm").setExecutor(permCmd);
         getCommand("perm").setTabCompleter(permCmd);
@@ -429,6 +492,11 @@ public class SMPCore extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (auth != null) auth.stop();
+        if (npcs != null) npcs.stop();
+        if (holograms != null) holograms.stop();
+        if (gateWandViz != null) gateWandViz.stop();
+        if (gates != null) gates.stop();
         if (enchantArmor != null) enchantArmor.stop();
         if (alchemyTotem != null) alchemyTotem.shutdown();
         if (spawners != null) spawners.stop();
@@ -508,4 +576,9 @@ public class SMPCore extends JavaPlugin {
     public AlchemyTotemManager alchemyTotem() { return alchemyTotem; }
     public SpawnerManager spawners() { return spawners; }
     public ResourcePackManager resourcePacks() { return resourcePacks; }
+    public GateManager gates() { return gates; }
+    public AuthManager auth() { return auth; }
+    public JoinListener joinListener() { return joinListener; }
+    public NpcManager npcs() { return npcs; }
+    public HologramManager holograms() { return holograms; }
 }
