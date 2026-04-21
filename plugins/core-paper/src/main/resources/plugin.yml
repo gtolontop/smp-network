@@ -161,6 +161,30 @@ commands:
     description: "List all players across the network (OP)"
     aliases: [netlist, nlist, gplayers]
     permission: smp.admin
+  gate:
+    description: "Portcullis / animated gates — create, list, delete, force open/close"
+    aliases: [gates, portcullis]
+    permission: smp.admin
+  login:
+    description: "Authentifie-toi avec ton mot de passe"
+    aliases: [l, log]
+  register:
+    description: "Crée ton compte avec un mot de passe"
+    aliases: [reg, registrer]
+  changepassword:
+    description: "Change ton mot de passe"
+    aliases: [changepwd, changepass]
+  auth:
+    description: "Administration des comptes : reset / info / unlock / delete / kick"
+    permission: smp.admin
+  npc:
+    description: "PNJ d'ambiance : create / remove / list / skin / wander / tp / here / rename"
+    aliases: [npcs, pnj]
+    permission: smp.admin
+  holo:
+    description: "Hologrammes TextDisplay : create / remove / list / lines / addline / setline / delline / tp / here"
+    aliases: [hologram, holograms, hd]
+    permission: smp.admin
 
 permissions:
   smp.admin:
