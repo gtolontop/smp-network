@@ -38,6 +38,10 @@ public class RtpCommand implements CommandExecutor {
             }
         }
         String target = args[0].toLowerCase();
+        if (target.equals("end") && !plugin.endToggle().enabled() && !p.hasPermission("smp.admin")) {
+            p.sendMessage(Msg.err("<red>L'End est désactivé.</red>"));
+            return true;
+        }
         String worldName = switch (target) {
             case "nether" -> plugin.getConfig().getString("rtp.world-nether", "world_nether");
             case "end" -> plugin.getConfig().getString("rtp.world-end", "world_the_end");
