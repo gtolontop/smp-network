@@ -347,6 +347,57 @@ public class Database {
               FOREIGN KEY (spawner_id) REFERENCES spawners(id) ON DELETE CASCADE
             )
             """,
+            """
+            CREATE TABLE IF NOT EXISTS auth_accounts (
+              name_lower TEXT PRIMARY KEY,
+              password_hash TEXT,                -- pbkdf2$<iter>$<saltB64>$<hashB64>; null = premium-only
+              premium_uuid TEXT,                 -- last known premium UUID, null if never premium
+              cracked_uuid TEXT,                 -- last known offline UUID, null if never cracked
+              registered_at INTEGER NOT NULL,
+              last_login INTEGER NOT NULL DEFAULT 0,
+              last_ip TEXT,
+              failed_attempts INTEGER NOT NULL DEFAULT 0,
+              locked_until INTEGER NOT NULL DEFAULT 0,
+              must_rechange INTEGER NOT NULL DEFAULT 0   -- admin-forced re-register on next join
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS gates (
+              name TEXT PRIMARY KEY,
+              server TEXT NOT NULL,
+              world TEXT NOT NULL,
+              x1 INTEGER NOT NULL, y1 INTEGER NOT NULL, z1 INTEGER NOT NULL,
+              x2 INTEGER NOT NULL, y2 INTEGER NOT NULL, z2 INTEGER NOT NULL,
+              radius REAL NOT NULL DEFAULT 5.0,
+              blocks BLOB NOT NULL,
+              created_at INTEGER NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS npcs (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              server TEXT NOT NULL,
+              display_name TEXT NOT NULL,
+              world TEXT NOT NULL,
+              x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL,
+              yaw REAL NOT NULL, pitch REAL NOT NULL,
+              skin_owner TEXT,
+              skin_value TEXT,
+              skin_signature TEXT,
+              wander INTEGER NOT NULL DEFAULT 0,
+              wander_radius REAL NOT NULL DEFAULT 5.0
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS holograms (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              server TEXT NOT NULL,
+              name TEXT NOT NULL UNIQUE,
+              world TEXT NOT NULL,
+              x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL,
+              lines TEXT NOT NULL
+            )
+            """,
             "CREATE INDEX IF NOT EXISTS idx_auctions_seller ON auctions(seller, sold)",
             "CREATE INDEX IF NOT EXISTS idx_auctions_active ON auctions(sold, expires_at)",
             "CREATE INDEX IF NOT EXISTS idx_mailbox_uuid ON mailbox(uuid)",
