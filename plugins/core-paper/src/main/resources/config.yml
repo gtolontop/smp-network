@@ -111,6 +111,7 @@ homes:
 # ------ Teams ------
 teams:
   creation-cost: 500
+  max-members: 4
 
 # ------ Economy ------
 economy:
