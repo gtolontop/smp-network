@@ -11,7 +11,7 @@ import { hostSnapshot } from './metrics.js';
 const log = child({ mod: 'host-alerts' });
 const CHECK_EVERY_MS = 30_000;
 
-export function initHostAlerts(client: Client): void {
+export function initAlerts(client: Client): void {
   const channelId = config.channels.alerts;
   if (!channelId) {
     log.warn('CHANNEL_ALERTS not set — host alerts disabled');
