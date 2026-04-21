@@ -11,13 +11,13 @@ export interface Link {
   linkedAt: number;
 }
 
-const qLinkByDiscord = db.prepare<[string]>(
+const qLinkByDiscord = db.prepare(
   'SELECT discord_id as discordId, mc_uuid as mcUuid, mc_name as mcName, linked_at as linkedAt FROM links WHERE discord_id = ?',
 );
-const qLinkByUuid = db.prepare<[string]>(
+const qLinkByUuid = db.prepare(
   'SELECT discord_id as discordId, mc_uuid as mcUuid, mc_name as mcName, linked_at as linkedAt FROM links WHERE mc_uuid = ?',
 );
-const qLinkByName = db.prepare<[string]>(
+const qLinkByName = db.prepare(
   'SELECT discord_id as discordId, mc_uuid as mcUuid, mc_name as mcName, linked_at as linkedAt FROM links WHERE mc_name = ? COLLATE NOCASE',
 );
 
@@ -44,7 +44,8 @@ export function completeLink(code: string, uuid: string, name: string): Link | u
     db.prepare('DELETE FROM link_codes WHERE code = ?').run(code);
     return;
   }
-  const tx = db.transaction(() => {
+  db.exec('BEGIN');
+  try {
     db.prepare('DELETE FROM link_codes WHERE code = ?').run(code);
     db.prepare('DELETE FROM links WHERE mc_uuid = ? OR discord_id = ?').run(uuid, row.discordId);
     db.prepare('INSERT INTO links (discord_id, mc_uuid, mc_name, linked_at) VALUES (?, ?, ?, ?)').run(
@@ -53,8 +54,11 @@ export function completeLink(code: string, uuid: string, name: string): Link | u
       name,
       Math.floor(Date.now() / 1000),
     );
-  });
-  tx();
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
   return linkFor(row.discordId);
 }
 
@@ -83,12 +87,12 @@ export interface PlayerRow {
   blocksPlaced: number;
 }
 
-const qPlayer = db.prepare<[string]>(
+const qPlayer = db.prepare(
   `SELECT mc_uuid as mcUuid, mc_name as mcName, first_seen as firstSeen, last_seen as lastSeen,
           playtime_sec as playtimeSec, deaths, kills, blocks_broken as blocksBroken, blocks_placed as blocksPlaced
      FROM players WHERE mc_uuid = ?`,
 );
-const qPlayerByName = db.prepare<[string]>(
+const qPlayerByName = db.prepare(
   `SELECT mc_uuid as mcUuid, mc_name as mcName, first_seen as firstSeen, last_seen as lastSeen,
           playtime_sec as playtimeSec, deaths, kills, blocks_broken as blocksBroken, blocks_placed as blocksPlaced
      FROM players WHERE mc_name = ? COLLATE NOCASE`,
@@ -128,7 +132,7 @@ export function topPlayers(
               playtime_sec as playtimeSec, deaths, kills, blocks_broken as blocksBroken, blocks_placed as blocksPlaced
          FROM players ORDER BY ${field} DESC LIMIT ?`,
     )
-    .all(limit) as PlayerRow[];
+    .all(limit) as unknown as PlayerRow[];
 }
 
 // ---------- events ----------------------------------------------------------
@@ -161,7 +165,7 @@ export function eventsSince(since: number, kind?: string, limit = 500): EventRow
          FROM events WHERE created_at >= ? AND kind = ? ORDER BY id DESC LIMIT ?`
     : `SELECT id, origin, kind, mc_uuid as mcUuid, mc_name as mcName, payload, created_at as createdAt
          FROM events WHERE created_at >= ? ORDER BY id DESC LIMIT ?`;
-  return (kind ? db.prepare(sql).all(since, kind, limit) : db.prepare(sql).all(since, limit)) as EventRow[];
+  return (kind ? db.prepare(sql).all(since, kind, limit) : db.prepare(sql).all(since, limit)) as unknown as EventRow[];
 }
 
 // ---------- mail / gives ----------------------------------------------------
@@ -186,7 +190,7 @@ export function pendingMailFor(uuid: string): MailRow[] {
     .prepare(
       'SELECT id, from_name as fromName, to_uuid as toUuid, to_name as toName, body, created_at as createdAt FROM mail WHERE to_uuid = ? AND delivered = 0 ORDER BY id ASC',
     )
-    .all(uuid) as MailRow[];
+    .all(uuid) as unknown as MailRow[];
 }
 
 export function markMailDelivered(ids: number[]): void {
@@ -222,7 +226,7 @@ export function pendingGivesFor(uuid: string): GiveRow[] {
     .prepare(
       'SELECT id, to_uuid as toUuid, to_name as toName, item, amount, from_name as fromName, created_at as createdAt FROM pending_gives WHERE to_uuid = ? AND claimed = 0 ORDER BY id ASC',
     )
-    .all(uuid) as GiveRow[];
+    .all(uuid) as unknown as GiveRow[];
 }
 
 export function markGivesClaimed(ids: number[]): void {

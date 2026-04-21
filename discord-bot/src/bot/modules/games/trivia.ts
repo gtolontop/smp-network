@@ -59,7 +59,7 @@ const BANK: Question[] = [
 ];
 
 export async function playTrivia(ix: ChatInputCommandInteraction): Promise<void> {
-  const q = BANK[Math.floor(Math.random() * BANK.length)];
+  const q = BANK[Math.floor(Math.random() * BANK.length)]!;
   const msg = await ix.reply({
     embeds: [
       baseEmbed({
@@ -74,7 +74,7 @@ export async function playTrivia(ix: ChatInputCommandInteraction): Promise<void>
         ...q.answers.map((_, i) =>
           new ButtonBuilder()
             .setCustomId(`trivia:${i}`)
-            .setLabel('ABCD'[i])
+            .setLabel('ABCD'[i]!)
             .setStyle(ButtonStyle.Primary),
         ),
       ),

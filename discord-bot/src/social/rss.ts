@@ -31,14 +31,14 @@ function parse(xml: string): RssItem[] {
   const rssRe = /<item>[\s\S]*?<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>[\s\S]*?<link>(.*?)<\/link>/g;
   let m: RegExpExecArray | null;
   while ((m = rssRe.exec(xml))) {
-    out.push({ title: m[1].trim(), url: m[2].trim() });
+    out.push({ title: (m[1] ?? '').trim(), url: (m[2] ?? '').trim() });
     if (out.length >= 5) break;
   }
   if (out.length) return out;
   // Atom <entry>
   const atomRe = /<entry>[\s\S]*?<title[^>]*>(.*?)<\/title>[\s\S]*?<link[^>]*href="(.*?)"/g;
   while ((m = atomRe.exec(xml))) {
-    out.push({ title: m[1].trim(), url: m[2].trim() });
+    out.push({ title: (m[1] ?? '').trim(), url: (m[2] ?? '').trim() });
     if (out.length >= 5) break;
   }
   return out;

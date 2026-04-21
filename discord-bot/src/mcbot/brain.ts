@@ -16,7 +16,7 @@ export function initBrain(): void {
       if (username === bot.username) return;
       const trigger = /^!assistant\s+(.+)$/i.exec(message);
       if (!trigger) return;
-      const prompt = trigger[1].trim();
+      const prompt = trigger[1]!.trim();
       if (!prompt) return;
       log.info({ username, prompt }, 'mcbot brain prompt');
       try {

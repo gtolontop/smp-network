@@ -36,11 +36,15 @@ function parseFeed(xml: string): YouTubeUpload[] {
   const re = /<entry>[\s\S]*?<yt:videoId>(.*?)<\/yt:videoId>[\s\S]*?<title>(.*?)<\/title>[\s\S]*?<media:thumbnail\s+url="(.*?)"/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(xml))) {
+    const id = m[1] ?? '';
+    const title = m[2] ?? '';
+    const thumbnail = m[3] ?? '';
+    if (!id) continue;
     entries.push({
-      id: m[1],
-      title: decodeEntities(m[2]),
-      url: `https://youtu.be/${m[1]}`,
-      thumbnail: m[3],
+      id,
+      title: decodeEntities(title),
+      url: `https://youtu.be/${id}`,
+      thumbnail,
     });
     if (entries.length >= 5) break;
   }

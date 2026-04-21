@@ -22,8 +22,11 @@ const LINES = [
 ];
 
 function winner(cells: Cell[]): Cell | 'draw' | null {
-  for (const [a, b, c] of LINES) {
-    if (cells[a] && cells[a] === cells[b] && cells[a] === cells[c]) return cells[a];
+  for (const line of LINES) {
+    const a = line[0]!;
+    const b = line[1]!;
+    const c = line[2]!;
+    if (cells[a] && cells[a] === cells[b] && cells[a] === cells[c]) return cells[a]!;
   }
   if (cells.every(Boolean)) return 'draw';
   return null;

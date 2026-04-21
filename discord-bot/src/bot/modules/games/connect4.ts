@@ -19,8 +19,9 @@ function emptyBoard(): Slot[][] {
 
 function drop(board: Slot[][], col: number, player: 1 | 2): number {
   for (let r = ROWS - 1; r >= 0; r--) {
-    if (board[r][col] === 0) {
-      board[r][col] = player;
+    const row = board[r]!;
+    if (row[col] === 0) {
+      row[col] = player;
       return r;
     }
   }
@@ -28,9 +29,9 @@ function drop(board: Slot[][], col: number, player: 1 | 2): number {
 }
 
 function winsAt(board: Slot[][], r: number, c: number): boolean {
-  const player = board[r][c];
+  const player = board[r]![c];
   if (!player) return false;
-  const dirs = [
+  const dirs: Array<[number, number]> = [
     [0, 1],
     [1, 0],
     [1, 1],
@@ -78,7 +79,7 @@ export async function playConnect4(ix: ChatInputCommandInteraction): Promise<voi
           .setCustomId(`c4:${i}`)
           .setLabel(`${i + 1}`)
           .setStyle(ButtonStyle.Secondary)
-          .setDisabled(done || board[0][i] !== 0),
+          .setDisabled(done || board[0]![i] !== 0),
       ),
     );
 
