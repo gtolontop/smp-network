@@ -1,0 +1,42 @@
+{
+  "name": "smp-discord-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Discord companion bot for the SMP network — bridge, admin, AI, MC bot, games",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --enable-source-maps dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "rimraf dist"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "@discordjs/rest": "^2.4.0",
+    "better-sqlite3": "^11.5.0",
+    "discord-api-types": "^0.37.105",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7",
+    "mineflayer": "^4.23.0",
+    "mineflayer-pathfinder": "^2.4.5",
+    "openai": "^4.77.0",
+    "pino": "^9.5.0",
+    "pino-pretty": "^13.0.0",
+    "systeminformation": "^5.23.14",
+    "undici": "^6.21.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.10.1",
+    "@types/ws": "^8.5.13",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
