@@ -1,6 +1,8 @@
 package fr.smp.core;
 
 import com.google.inject.Inject;
+import fr.smp.core.auth.AuthBridge;
+import fr.smp.core.auth.MojangApi;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
@@ -58,6 +60,7 @@ public class SMPCoreVelocity {
         server.getChannelRegistrar().register(CHANNEL);
         server.getEventManager().register(this, new PluginMessageListener(this));
         server.getEventManager().register(this, new KickHandler(this));
+        server.getEventManager().register(this, new AuthBridge(new MojangApi(logger), logger));
 
         server.getScheduler().buildTask(this, this::broadcastStats)
                 .delay(5, TimeUnit.SECONDS)
