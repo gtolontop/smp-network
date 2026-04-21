@@ -355,6 +355,9 @@ public class TeamsGUI extends GUIHolder {
         PlayerData d = plugin.players().get(p);
         TeamManager.Team t = d != null ? plugin.teams().get(d.teamId()) : null;
         if (t == null) return;
+        if (plugin.teams().isFull(t.id())) {
+            p.sendMessage(Msg.err("Team pleine (" + plugin.teams().maxMembers() + " max).")); return;
+        }
         plugin.teamInvites().invite(target, t.id());
         tp.sendMessage(Msg.info("<aqua>" + p.getName() + "</aqua> t'invite dans <white>" +
                 t.color() + "[" + t.tag() + "] " + t.name() + "<reset></white>. <green>/team join " + t.tag() + "</green>"));
