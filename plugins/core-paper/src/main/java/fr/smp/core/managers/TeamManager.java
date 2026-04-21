@@ -36,6 +36,28 @@ public class TeamManager {
         return plugin.getConfig().getDouble("teams.creation-cost", 500);
     }
 
+    public int maxMembers() {
+        return Math.max(1, plugin.getConfig().getInt("teams.max-members", 4));
+    }
+
+    public int memberCount(String teamId) {
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT COUNT(*) FROM team_members WHERE team_id=?")) {
+            ps.setString(1, teamId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("team.memberCount: " + e.getMessage());
+            return 0;
+        }
+    }
+
+    public boolean isFull(String teamId) {
+        return memberCount(teamId) >= maxMembers();
+    }
+
     public Team create(String id, String tag, String name, UUID owner) {
         long now = System.currentTimeMillis() / 1000L;
         try (Connection c = db.get()) {
