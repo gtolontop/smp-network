@@ -5,6 +5,16 @@
 # Server type: "lobby" or "survival"
 server-type: "lobby"
 
+# Discord bridge — WebSocket client to the companion Discord bot.
+# Must match the bot's BRIDGE_TOKEN; url points at BRIDGE_HOST:BRIDGE_PORT.
+discord-bridge:
+  enabled: false
+  url: "ws://127.0.0.1:8787"
+  token: ""
+  # origin defaults to server-type if omitted. Override for multi-instance setups.
+  # origin: "survival"
+  telemetry-interval-ticks: 40
+
 # Storage (SQLite). Relative to server working dir.
 storage:
   directory: "../shared-data"
@@ -45,6 +55,37 @@ menu:
 chat:
   enabled: true
   format: "%rank%%hunted%%tag%<gray>%player%</gray> <dark_gray>»</dark_gray> "
+  # ------ Anti-spam automatique ------
+  # Cancel le message, auto-mute le joueur et alerte les admins (smp.moderation).
+  # Bypass: donner la permission smp.chat.antispam.bypass.
+  antispam:
+    enabled: true
+    fresh-join:
+      enabled: true
+      block-seconds: 6        # Fresh connections cannot speak immediately.
+      max-attempts: 2         # Repeated attempts during the block => mute + kick.
+      mute-duration: "30m"
+      kick-message: "<red>Connexion refusée.</red>"
+    rate-limit:
+      messages: 3            # Si > messages envoyés en window-seconds → mute.
+      window-seconds: 3
+    duplicate:
+      threshold: 2           # Si > N messages identiques à la suite → mute.
+    mute-duration: "10m"     # Format: 1d2h30m / 10m / perm
+    advert-mute-duration: "1h" # Mute pour pub de cheat client (leetspeak + domaine/nom)
+    advert-kick-message: "<red>Pub interdite.</red>"  # Kick en plus du mute — on ne garde pas un bot pub.
+    payload-mute-duration: "1d" # ${jndi:...}, ldap://, rmi://, etc.
+    payload-kick-message: "<red>Connexion refusée.</red>"
+    # ------ Anti-bot "compte neuf" ------
+    # Un compte cracked fraîchement inscrit doit avoir un minimum d'ancienneté
+    # ET de preuves de présence humaine (mouvement, clic, casse/pose) avant que
+    # son chat ne soit visible. Bloque les bots qui /register puis spam instantané.
+    # Pas de ban ni de mute — le message est juste silencieusement annulé avec
+    # un rappel action-bar. Les joueurs premium et les comptes existants ne sont
+    # pas concernés.
+    new-account:
+      min-age-ms: 120000      # 2 min d'ancienneté du compte requises pour parler
+      min-interactions: 5     # 5 interactions (déplacement inter-bloc, clic, break/place)
 
 # Spawn (survival)
 spawn:
@@ -121,7 +162,7 @@ economy:
 # ------ Auction House ------
 auction:
   ttl-hours: 48
-  max-per-player: 5
+  max-per-player: 25
   fee-percent: 5.0
 
 # ------ Bounty ------

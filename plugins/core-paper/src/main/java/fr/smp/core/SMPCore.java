@@ -7,6 +7,7 @@ import fr.smp.core.auth.AuthListener;
 import fr.smp.core.auth.AuthManager;
 import fr.smp.core.commands.*;
 import fr.smp.core.data.PlayerDataManager;
+import fr.smp.core.discord.DiscordBridge;
 import fr.smp.core.enchants.CustomEnchantListener;
 import fr.smp.core.enchants.EnchantArmorTask;
 import fr.smp.core.enchants.EnchantBreakListener;
@@ -23,6 +24,8 @@ import fr.smp.core.listeners.GUIListener;
 import fr.smp.core.listeners.GateListener;
 import fr.smp.core.listeners.JoinListener;
 import fr.smp.core.listeners.LobbyProtectionListener;
+import fr.smp.core.listeners.SeedSpoofListener;
+import fr.smp.core.listeners.SpamGuard;
 import fr.smp.core.listeners.SpawnerListener;
 import fr.smp.core.listeners.WeatherListener;
 import fr.smp.core.listeners.WorthHoverListener;
@@ -40,7 +43,9 @@ import fr.smp.core.utils.NetworkTabCompleter;
 import fr.smp.core.utils.TeamTabCompleter;
 import fr.smp.core.utils.TpsReporter;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class SMPCore extends JavaPlugin {
@@ -53,6 +58,7 @@ public class SMPCore extends JavaPlugin {
     private SyncManager syncManager;
     private TpsReporter tpsReporter;
     private String serverType;
+    private long startedAtMillis;
 
     // New systems
     private Database database;
@@ -87,6 +93,7 @@ public class SMPCore extends JavaPlugin {
     private SitManager sit;
     private AfkManager afk;
     private VanishManager vanish;
+    private AdminModeManager adminMode;
     private ModerationManager moderation;
     private BountyManager bounties;
     private HuntedManager hunted;
@@ -100,10 +107,14 @@ public class SMPCore extends JavaPlugin {
     private JoinListener joinListener;
     private NpcManager npcs;
     private HologramManager holograms;
+    private DiscordBridge discordBridge;
+    private WorthHoverListener worthHover;
+    private volatile boolean chatLocked = false;
 
     @Override
     public void onEnable() {
         instance = this;
+        startedAtMillis = System.currentTimeMillis();
         saveDefaultConfig();
 
         serverType = resolveServerType();
@@ -164,6 +175,7 @@ public class SMPCore extends JavaPlugin {
         afk = new AfkManager(this);
         afk.start();
         vanish = new VanishManager(this);
+        adminMode = new AdminModeManager(this);
         moderation = new ModerationManager(this, database);
         bounties = new BountyManager(this, database);
         if (!isLobby()) {
@@ -201,6 +213,10 @@ public class SMPCore extends JavaPlugin {
         holograms = new HologramManager(this, database);
         holograms.start();
 
+        // Discord bridge — WebSocket client towards the companion bot.
+        discordBridge = new DiscordBridge(this);
+        discordBridge.start();
+
         // Best-effort disable of the vanilla locator bar HUD.
         LocatorBarDisabler.apply(this);
 
@@ -216,7 +232,7 @@ public class SMPCore extends JavaPlugin {
         pm.registerEvents(joinListener, this);
         pm.registerEvents(new GUIListener(this), this);
         pm.registerEvents(chatPrompt, this);
-        WorthHoverListener worthHover = new WorthHoverListener(this);
+        worthHover = new WorthHoverListener(this);
         pm.registerEvents(worthHover, this);
         worthHover.start();
         // Death + combat tag only make sense on a survival server.
@@ -228,6 +244,9 @@ public class SMPCore extends JavaPlugin {
             pm.registerEvents(new SyncListener(this, syncManager), this);
         }
         if (getConfig().getBoolean("chat.enabled", true)) {
+            // SpamGuard first (LOWEST) so it runs before ChatListener (NORMAL)
+            // and the mute check in ModerationManager (HIGHEST).
+            pm.registerEvents(new SpamGuard(this), this);
             pm.registerEvents(new ChatListener(this), this);
         }
         pm.registerEvents(endToggle, this);
@@ -238,6 +257,7 @@ public class SMPCore extends JavaPlugin {
             pm.registerEvents(new LobbyProtectionListener(this), this);
         }
         pm.registerEvents(new ChainClimbListener(this), this);
+        pm.registerEvents(new SeedSpoofListener(this), this);
         pm.registerEvents(sit, this);
         pm.registerEvents(afk, this);
         pm.registerEvents(vanish, this);
@@ -324,7 +344,10 @@ public class SMPCore extends JavaPlugin {
         getCommand("shards").setExecutor(new EconomyCommand(this, "shards"));
         getCommand("eco").setExecutor(new EconomyCommand(this, "eco"));
         getCommand("baltop").setExecutor(new EconomyCommand(this, "baltop"));
-        getCommand("sell").setExecutor(new SellCommand(this));
+        SellCommand sellCmd = new SellCommand(this);
+        getCommand("sell").setExecutor(sellCmd);
+        getCommand("sellall").setExecutor(sellCmd);
+        getCommand("worth").setExecutor(new WorthCommand(this));
         getCommand("shop").setExecutor(new ShopCommand(this));
 
         getCommand("home").setExecutor(new HomeCommand(this, "home"));
@@ -348,6 +371,7 @@ public class SMPCore extends JavaPlugin {
         getCommand("saphir").setExecutor(new SaphirCommand(this));
         getCommand("invsee").setExecutor(new InvseeCommand(this));
         getCommand("vanish").setExecutor(new VanishCommand(this));
+        getCommand("admin").setExecutor(new AdminCommand(this));
         getCommand("kick").setExecutor(new ModerationCommand(this, "kick"));
         getCommand("ban").setExecutor(new ModerationCommand(this, "ban"));
         getCommand("unban").setExecutor(new ModerationCommand(this, "unban"));
@@ -410,6 +434,10 @@ public class SMPCore extends JavaPlugin {
         if (getCommand("online") != null) {
             getCommand("online").setExecutor(new OnlineCommand(this));
         }
+
+        ChatToggleCommand chatCmd = new ChatToggleCommand(this);
+        getCommand("chat").setExecutor(chatCmd);
+        getCommand("chat").setTabCompleter(chatCmd);
 
         // Network-wide tab completion for commands taking a player name.
         NetworkTabCompleter p0 = new NetworkTabCompleter(this, 0, false);
@@ -493,6 +521,7 @@ public class SMPCore extends JavaPlugin {
     @Override
     public void onDisable() {
         if (auth != null) auth.stop();
+        if (discordBridge != null) discordBridge.shutdown();
         if (npcs != null) npcs.stop();
         if (holograms != null) holograms.stop();
         if (gateWandViz != null) gateWandViz.stop();
@@ -502,6 +531,7 @@ public class SMPCore extends JavaPlugin {
         if (spawners != null) spawners.stop();
         if (hunted != null) hunted.shutdown();
         if (tpsReporter != null) tpsReporter.stop();
+        snapshotOnlinePlayerState();
         if (syncManager != null) syncManager.saveAllOnline();
         if (players != null) players.saveAll();
         if (logs != null) logs.stop();
@@ -536,6 +566,7 @@ public class SMPCore extends JavaPlugin {
     public MessageChannel getMessageChannel() { return messageChannel; }
     public SyncManager getSyncManager() { return syncManager; }
     public String getServerType() { return serverType; }
+    public long getStartedAtMillis() { return startedAtMillis; }
     public boolean isLobby() { return "lobby".equals(serverType); }
 
     // New getters
@@ -570,6 +601,7 @@ public class SMPCore extends JavaPlugin {
     public SitManager sit() { return sit; }
     public AfkManager afk() { return afk; }
     public VanishManager vanish() { return vanish; }
+    public AdminModeManager adminMode() { return adminMode; }
     public ModerationManager moderation() { return moderation; }
     public BountyManager bounties() { return bounties; }
     public HuntedManager hunted() { return hunted; }
@@ -581,4 +613,28 @@ public class SMPCore extends JavaPlugin {
     public JoinListener joinListener() { return joinListener; }
     public NpcManager npcs() { return npcs; }
     public HologramManager holograms() { return holograms; }
+    public WorthHoverListener worthHover() { return worthHover; }
+
+    public boolean isChatLocked() { return chatLocked; }
+    public void setChatLocked(boolean locked) { this.chatLocked = locked; }
+
+    private void snapshotOnlinePlayerState() {
+        if (players == null) return;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            players.loadOrCreate(player.getUniqueId(), player.getName()).setName(player.getName());
+            if (isLobby()) {
+                continue;
+            }
+            Location loc = player.getLocation();
+            if (loc.getWorld() == null) {
+                continue;
+            }
+            // NB: on ne force PAS survivalJoined=true ici. Le JoinListener le
+            // met déjà à true après un RTP réussi, et si un joueur vient de
+            // mourir sans lit on veut conserver survivalJoined=false pour que
+            // son prochain retour déclenche un RTP (géré dans DeathListener).
+            players.get(player).setLastLocation(loc.getWorld().getName(),
+                    loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
+        }
+    }
 }

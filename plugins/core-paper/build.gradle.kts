@@ -19,6 +19,7 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.7-alpha")
     implementation("org.xerial:sqlite-jdbc:3.47.1.0")
+    implementation("org.java-websocket:Java-WebSocket:1.5.7")
 }
 
 tasks {
