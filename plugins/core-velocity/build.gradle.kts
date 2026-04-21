@@ -20,6 +20,8 @@ repositories {
 dependencies {
     compileOnly("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
     annotationProcessor("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
+    implementation("org.java-websocket:Java-WebSocket:1.5.7")
+    implementation("com.google.code.gson:gson:2.11.0")
 }
 
 tasks {

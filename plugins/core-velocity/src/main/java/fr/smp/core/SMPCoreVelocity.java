@@ -3,6 +3,7 @@ package fr.smp.core;
 import com.google.inject.Inject;
 import fr.smp.core.auth.AuthBridge;
 import fr.smp.core.auth.MojangApi;
+import fr.smp.core.discord.VelocityDiscordBridge;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
@@ -18,12 +19,16 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
+import com.velocitypowered.api.scheduler.ScheduledTask;
+
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -44,7 +49,10 @@ public class SMPCoreVelocity {
     private final MiniMessage mm = MiniMessage.miniMessage();
     private final Map<String, ServerStats> statsByServer = new ConcurrentHashMap<>();
     private final Map<String, List<PluginMessageListener.RosterEntry>> rosterByServer = new ConcurrentHashMap<>();
+    private final Map<UUID, ScheduledTask> pendingJoin = new ConcurrentHashMap<>();
+    private final Set<UUID> announced = ConcurrentHashMap.newKeySet();
     private LastServerStore lastServer;
+    private VelocityDiscordBridge discordBridge;
 
     @Inject
     public SMPCoreVelocity(ProxyServer server, Logger logger, @DataDirectory Path dataDir) {
@@ -87,6 +95,10 @@ public class SMPCoreVelocity {
         cm.register(cm.metaBuilder("nmaxplayers").aliases("setmaxplayers", "maxplayers").plugin(this).build(),
             new MaxPlayersCommand(this));
 
+        // Discord bridge — WebSocket client to the companion bot.
+        discordBridge = new VelocityDiscordBridge(server, logger, dataDir);
+        discordBridge.start();
+
         logger.info("SMP Core Velocity loaded — chat/perm/roster relay active.");
     }
 
@@ -105,16 +117,35 @@ public class SMPCoreVelocity {
             lastServer.put(player.getUniqueId(), event.getServer().getServerInfo().getName());
         }
         if (event.getPreviousServer().isEmpty()) {
-            Component msg = mm.deserialize("<gray>[<green>+</green>]</gray> <white>" + player.getUsername() + "</white> <gray>a rejoint le réseau</gray>");
-            server.getAllPlayers().forEach(p -> p.sendMessage(msg));
+            UUID uuid = player.getUniqueId();
+            String name = player.getUsername();
+            ScheduledTask task = server.getScheduler().buildTask(this, () -> {
+                pendingJoin.remove(uuid);
+                if (player.isActive()) {
+                    announced.add(uuid);
+                    Component msg = mm.deserialize("<gray>[<green>+</green>]</gray> <white>" + name + "</white> <gray>a rejoint le réseau</gray>");
+                    server.getAllPlayers().forEach(p -> p.sendMessage(msg));
+                }
+            }).delay(2, TimeUnit.SECONDS).schedule();
+            pendingJoin.put(uuid, task);
         }
     }
 
     @Subscribe
     public void onDisconnect(DisconnectEvent event) {
         Player player = event.getPlayer();
-        Component msg = mm.deserialize("<gray>[<red>-</red>]</gray> <white>" + player.getUsername() + "</white> <gray>a quitté le réseau</gray>");
-        server.getAllPlayers().forEach(p -> p.sendMessage(msg));
+        UUID uuid = player.getUniqueId();
+
+        ScheduledTask pending = pendingJoin.remove(uuid);
+        if (pending != null) {
+            pending.cancel();
+            return;
+        }
+
+        if (announced.remove(uuid)) {
+            Component msg = mm.deserialize("<gray>[<red>-</red>]</gray> <white>" + player.getUsername() + "</white> <gray>a quitté le réseau</gray>");
+            server.getAllPlayers().forEach(p -> p.sendMessage(msg));
+        }
     }
 
     public ProxyServer getServer() { return server; }
