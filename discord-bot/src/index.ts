@@ -16,6 +16,7 @@ import { initAuditLog } from './bot/modules/auditLog.js';
 import { initWelcome } from './bot/modules/welcome.js';
 import { initDailyRecap } from './bot/modules/dailyRecap.js';
 import { initAiMention } from './bot/modules/aiMention.js';
+import { initPresenceRotation } from './bot/modules/presenceRotation.js';
 import { initAlerts } from './host/alerts.js';
 import { mcbot } from './mcbot/index.js';
 import { initBrain } from './mcbot/brain.js';
@@ -44,6 +45,9 @@ import game from './bot/commands/game.js';
 import restart from './bot/commands/restart.js';
 import suggest from './bot/commands/suggest.js';
 import ticket from './bot/commands/ticket.js';
+import stats from './bot/commands/stats.js';
+import backup from './bot/commands/backup.js';
+import serverip from './bot/commands/serverip.js';
 
 async function main(): Promise<void> {
   logger.info(
@@ -83,6 +87,9 @@ async function main(): Promise<void> {
     restart,
     suggest,
     ticket,
+    stats,
+    backup,
+    serverip,
   ]) {
     register(cmd);
   }
@@ -106,6 +113,7 @@ async function main(): Promise<void> {
   initWelcome(client);
   initDailyRecap(client);
   initAiMention(client);
+  initPresenceRotation(client);
   initAlerts(client);
   initJoinDelivery();
   initRoleSync(client);
