@@ -1,12 +1,16 @@
 package fr.smp.core.managers;
 
 import fr.smp.core.SMPCore;
+import fr.smp.core.enchants.CustomEnchant;
+import fr.smp.core.enchants.EnchantEngine;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Registry;
+import org.bukkit.block.ShulkerBox;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.BlastingRecipe;
 import org.bukkit.inventory.CampfireRecipe;
 import org.bukkit.inventory.CookingRecipe;
@@ -21,6 +25,9 @@ import org.bukkit.inventory.SmithingTransformRecipe;
 import org.bukkit.inventory.SmokingRecipe;
 import org.bukkit.inventory.StonecuttingRecipe;
 import org.bukkit.inventory.TransmuteRecipe;
+import org.bukkit.inventory.meta.BlockStateMeta;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,6 +60,10 @@ public class WorthManager {
     private double recipeMultiplier = 1.0;
     private double roundingStep = 0.01;
 
+    private boolean enchantPricingEnabled = false;
+    private final Map<String, Double> vanillaEnchantPrices = new HashMap<>();
+    private final Map<String, Double> customEnchantPrices = new HashMap<>();
+
     public WorthManager(SMPCore plugin) {
         this.plugin = plugin;
     }
@@ -73,6 +84,7 @@ public class WorthManager {
         FileConfiguration config = YamlConfiguration.loadConfiguration(configFile);
         loadConfiguration(config);
         loadOverridesBackfill();
+        loadEnchantPricing();
         recalculate();
         exportGeneratedWorths();
         exportMissingWorths();
@@ -101,12 +113,45 @@ public class WorthManager {
     }
 
     public double worth(ItemStack stack) {
-        if (stack == null || stack.getType().isAir()) return 0;
-        return worth(stack.getType()) * stack.getAmount();
+        return roundForDisplay(rawWorth(stack));
     }
 
     public boolean hasWorth(Material material) {
         return worth(material) > 0;
+    }
+
+    private double rawWorth(ItemStack stack) {
+        if (stack == null || stack.getType().isAir()) return 0;
+        Material material = stack.getType();
+        int amount = Math.max(1, stack.getAmount());
+        double perItem = rawWorth(material);
+
+        if (material == Material.ENCHANTED_BOOK) {
+            double bookWorth = bookEnchantWorth(stack);
+            if (bookWorth > 0) perItem = bookWorth;
+        }
+
+        perItem += itemEnchantWorth(stack);
+
+        if (isShulkerBox(material)) {
+            perItem += rawShulkerContents(stack);
+        }
+        return perItem * amount;
+    }
+
+    private double rawShulkerContents(ItemStack stack) {
+        if (!(stack.getItemMeta() instanceof BlockStateMeta stateMeta)) return 0;
+        if (!(stateMeta.getBlockState() instanceof ShulkerBox shulker)) return 0;
+
+        double total = 0;
+        for (ItemStack content : shulker.getInventory().getContents()) {
+            total += rawWorth(content);
+        }
+        return total;
+    }
+
+    private boolean isShulkerBox(Material material) {
+        return material != null && material.name().endsWith("SHULKER_BOX");
     }
 
     public void set(Material material, double value) {
@@ -535,6 +580,91 @@ public class WorthManager {
                     PLAYER_HEAD -> true;
             default -> false;
         };
+    }
+
+    private void loadEnchantPricing() {
+        vanillaEnchantPrices.clear();
+        customEnchantPrices.clear();
+        enchantPricingEnabled = false;
+
+        ConfigurationSection section = plugin.getConfig().getConfigurationSection("enchant-pricing");
+        if (section == null) return;
+
+        enchantPricingEnabled = section.getBoolean("enabled", true);
+        if (!enchantPricingEnabled) return;
+
+        ConfigurationSection vanilla = section.getConfigurationSection("vanilla");
+        if (vanilla != null) {
+            for (String key : vanilla.getKeys(false)) {
+                double price = vanilla.getDouble(key, 0);
+                if (price > 0) vanillaEnchantPrices.put(key.toUpperCase(Locale.ROOT), price);
+            }
+        }
+
+        ConfigurationSection custom = section.getConfigurationSection("custom");
+        if (custom != null) {
+            for (String key : custom.getKeys(false)) {
+                double price = custom.getDouble(key, 0);
+                if (price > 0) customEnchantPrices.put(key.toLowerCase(Locale.ROOT), price);
+            }
+        }
+
+        plugin.getLogger().info("Enchant pricing loaded: " + vanillaEnchantPrices.size() + " vanilla, " +
+                customEnchantPrices.size() + " custom enchants.");
+    }
+
+    private double itemEnchantWorth(ItemStack stack) {
+        if (!enchantPricingEnabled || stack == null || !stack.hasItemMeta()) return 0;
+        double total = 0;
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) return 0;
+
+        if (stack.getType() != Material.ENCHANTED_BOOK) {
+            for (Map.Entry<Enchantment, Integer> entry : meta.getEnchants().entrySet()) {
+                String key = entry.getKey().getKey().getKey().toUpperCase(Locale.ROOT);
+                double base = vanillaEnchantPrices.getOrDefault(key, 0.0);
+                total += base * entry.getValue();
+            }
+        }
+
+        if (!(stack.getItemMeta() instanceof EnchantmentStorageMeta)) {
+            Map<CustomEnchant, Integer> customs = EnchantEngine.customOn(stack);
+            for (Map.Entry<CustomEnchant, Integer> entry : customs.entrySet()) {
+                double base = customEnchantPrices.getOrDefault(entry.getKey().id(), 0.0);
+                total += base * entry.getValue();
+            }
+        }
+
+        return total;
+    }
+
+    private double bookEnchantWorth(ItemStack stack) {
+        if (!enchantPricingEnabled || stack == null || stack.getType() != Material.ENCHANTED_BOOK || !stack.hasItemMeta()) return 0;
+
+        EnchantEngine.BookPayload payload = EnchantEngine.readBook(stack);
+        if (payload != null) {
+            CustomEnchant ce = payload.enchant();
+            int level = payload.level();
+            if (ce.isOvercap() && ce.vanilla() != null) {
+                String key = ce.vanilla().getKey().getKey().toUpperCase(Locale.ROOT);
+                double base = vanillaEnchantPrices.getOrDefault(key, 0.0);
+                return base * level;
+            }
+            double base = customEnchantPrices.getOrDefault(ce.id(), 0.0);
+            return base * level;
+        }
+
+        if (stack.getItemMeta() instanceof EnchantmentStorageMeta esm) {
+            double total = 0;
+            for (Map.Entry<Enchantment, Integer> entry : esm.getStoredEnchants().entrySet()) {
+                String key = entry.getKey().getKey().getKey().toUpperCase(Locale.ROOT);
+                double base = vanillaEnchantPrices.getOrDefault(key, 0.0);
+                total += base * entry.getValue();
+            }
+            return total;
+        }
+
+        return 0;
     }
 
     private void exportGeneratedWorths() {
