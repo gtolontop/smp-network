@@ -27,18 +27,21 @@ public class RtpCommand implements CommandExecutor {
             return true;
         }
         if (args.length == 0) {
+            plugin.getLogger().info("[RTP] " + p.getName() + " ouvert GUI RTP");
             new RtpGUI(plugin).open(p);
             return true;
         }
         if (plugin.rtp() != null) {
             long cd = plugin.rtp().cooldownLeft(p);
             if (cd > 0) {
+                plugin.getLogger().info("[RTP] " + p.getName() + " bloqué cooldown (" + cd + "s)");
                 p.sendMessage(Msg.err("Cooldown: <white>" + Msg.duration(cd) + "</white>"));
                 return true;
             }
         }
         String target = args[0].toLowerCase();
         if (target.equals("end") && !plugin.endToggle().enabled() && !p.hasPermission("smp.admin")) {
+            plugin.getLogger().info("[RTP] " + p.getName() + " bloqué: End désactivé");
             p.sendMessage(Msg.err("<red>L'End est désactivé.</red>"));
             return true;
         }
@@ -55,6 +58,7 @@ public class RtpCommand implements CommandExecutor {
 
         // Cross-server: on non-survival backends, delegate to survival.
         if (!plugin.isMainSurvival()) {
+            plugin.getLogger().info("[RTP] " + p.getName() + " -> survival (cross-server RTP " + target + ")");
             plugin.pendingTp().set(p.getUniqueId(), new PendingTeleportManager.Pending(
                     PendingTeleportManager.Kind.RTP,
                     worldName, 0, 0, 0, 0, 0,
@@ -66,9 +70,11 @@ public class RtpCommand implements CommandExecutor {
 
         World w = plugin.resolveWorld(worldName, env);
         if (w == null) {
+            plugin.getLogger().warning("[RTP] " + p.getName() + " -> monde introuvable: " + worldName);
             p.sendMessage(Msg.err("Monde introuvable."));
             return true;
         }
+        plugin.getLogger().info("[RTP] " + p.getName() + " -> " + worldName + " (recherche en cours...)");
         p.sendMessage(Msg.info("<aqua>Recherche d'un lieu sûr...</aqua>"));
         plugin.rtp().teleport(p, w);
         return true;
