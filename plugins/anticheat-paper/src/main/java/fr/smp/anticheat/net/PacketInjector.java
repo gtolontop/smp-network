@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
@@ -63,11 +64,12 @@ public final class PacketInjector implements Listener {
     public void onQuit(PlayerQuitEvent e) {
         Player p = e.getPlayer();
         uninject(p);
-        // Clear per-player state to prevent unbounded growth over long uptimes —
-        // each view holds a watched map + chunk index that would otherwise leak.
-        UUID id = p.getUniqueId();
-        if (plugin.visibility() != null) plugin.visibility().clear(id);
-        if (plugin.xray() != null) plugin.xray().clearPlayer(id);
+        clearPlayerState(p);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChangedWorld(PlayerChangedWorldEvent e) {
+        clearPlayerState(e.getPlayer());
     }
 
     private void inject(Player player) {
@@ -100,6 +102,16 @@ public final class PacketInjector implements Listener {
             });
         } catch (Throwable ignored) {
         }
+    }
+
+    private void clearPlayerState(Player player) {
+        // Visibility watches are keyed only by player + packed block position. If we
+        // keep them across a dimension switch, old-world chunk coords collide with the
+        // new world and the xray reconciler wastes time on stale watches forever.
+        UUID id = player.getUniqueId();
+        if (plugin.entities() != null) plugin.entities().clearViewer(id);
+        if (plugin.visibility() != null) plugin.visibility().clear(id);
+        if (plugin.xray() != null) plugin.xray().clearPlayer(id);
     }
 
     /** Send a packet to the given player, bypassing this filter (used for re-sending corrected views). */
