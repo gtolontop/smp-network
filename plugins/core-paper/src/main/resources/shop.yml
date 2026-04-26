@@ -212,15 +212,6 @@ categories:
         buy: 240
         sell: -1
         stack: 1
-      blaze_spawner:
-        material: SPAWNER
-        display-material: BLAZE_SPAWN_EGG
-        spawner-type: BLAZE
-        name: "Spawner Blaze"
-        currency: SHARDS
-        buy: 300
-        sell: -1
-        stack: 1
       witch_spawner:
         material: SPAWNER
         display-material: WITCH_SPAWN_EGG
@@ -246,5 +237,14 @@ categories:
         name: "Spawner Golem de fer"
         currency: SHARDS
         buy: 400
+        sell: -1
+        stack: 1
+      magma_cube_spawner:
+        material: SPAWNER
+        display-material: MAGMA_CUBE_SPAWN_EGG
+        spawner-type: MAGMA_CUBE
+        name: "Spawner Cube de Magma"
+        currency: SHARDS
+        buy: 800
         sell: -1
         stack: 1
