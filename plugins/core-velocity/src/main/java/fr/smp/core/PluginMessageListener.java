@@ -4,6 +4,7 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.PluginMessageEvent;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -59,6 +60,30 @@ public class PluginMessageListener {
                     });
                     relayToOtherBackends(sourceServer, out);
                 }
+                case "here" -> {
+                    String sourceServer = in.readUTF();
+                    String playerName = in.readUTF();
+                    String rendered = in.readUTF();
+                    byte[] out = encode(w -> {
+                        w.writeUTF("here");
+                        w.writeUTF(sourceServer);
+                        w.writeUTF(playerName);
+                        w.writeUTF(rendered);
+                    });
+                    relayToOtherBackends(sourceServer, out);
+                }
+                case "chat-lock" -> {
+                    String sourceServer = in.readUTF();
+                    boolean locked = in.readBoolean();
+                    String issuer = in.readUTF();
+                    byte[] out = encode(w -> {
+                        w.writeUTF("chat-lock");
+                        w.writeUTF(sourceServer);
+                        w.writeBoolean(locked);
+                        w.writeUTF(issuer);
+                    });
+                    relayToOtherBackends(sourceServer, out);
+                }
                 case "permreload" -> {
                     String sourceServer = in.readUTF();
                     byte[] out = encode(w -> {
@@ -77,6 +102,36 @@ public class PluginMessageListener {
                         entries.add(new RosterEntry(name, sourceServer, prefix));
                     }
                     plugin.putRoster(sourceServer, entries);
+                }
+                case "auth-notify" -> {
+                    String uuidStr = in.readUTF();
+                    try {
+                        java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
+                        plugin.markAuthenticated(uuid);
+                        plugin.getLogger().info("Marked {} as authenticated (auth-notify from backend)", uuidStr);
+                    } catch (IllegalArgumentException e) {
+                        plugin.getLogger().warn("Invalid UUID in auth-notify: {}", uuidStr);
+                    }
+                }
+                case "mod-kick" -> {
+                    String playerName = in.readUTF();
+                    String reason = in.readUTF();
+                    var mm = plugin.getMiniMessage();
+                    plugin.getServer().getPlayer(playerName).ifPresent(p ->
+                        p.disconnect(mm.deserialize("<red><bold>Kick</bold></red>\n<gray>" + reason + "</gray>"))
+                    );
+                }
+                case "mod-ban-kick" -> {
+                    String playerName = in.readUTF();
+                    String reason = in.readUTF();
+                    String duration = in.readUTF();
+                    var mm = plugin.getMiniMessage();
+                    plugin.getServer().getPlayer(playerName).ifPresent(p ->
+                        p.disconnect(mm.deserialize("<red><bold>Banni</bold></red>\n<gray>" +
+                                (reason.isEmpty() ? "non spécifié" : reason) + "</gray>\n" +
+                                ("<permanent>".equals(duration) ? "<dark_red>Permanent</dark_red>"
+                                        : "<gray>Durée: </gray><white>" + duration + "</white>")))
+                    );
                 }
                 case "forward" -> {
                     String targetPlayer = in.readUTF();
