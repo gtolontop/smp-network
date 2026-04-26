@@ -95,8 +95,7 @@ commands:
   # keyall:
   #   description: "Keyall countdown"
   end:
-    description: "Enable/disable the End dimension (admin)"
-    permission: smp.admin
+    description: "Teleport to the End (players) / Enable-disable (admin)"
   phantom:
     description: "Enable/disable phantom spawning (admin)"
     permission: smp.admin
