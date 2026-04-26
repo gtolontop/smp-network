@@ -2,10 +2,12 @@ package fr.smp.anticheat.config;
 
 import fr.smp.anticheat.movement.MovementProfile;
 import fr.smp.anticheat.xray.XrayProfile;
+import net.minecraft.world.level.block.Block;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.craftbukkit.block.CraftBlockType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
@@ -24,6 +26,8 @@ public final class AntiCheatConfig {
 
     private boolean containersEnabled;
     private Set<NamespacedKey> hiddenBlockEntityTypes;
+    private Set<Material> containerMaterials;
+    private Set<Block> containerBlockTypes;
     private double containerRevealDistance;
 
     private boolean entityEspEnabled;
@@ -70,10 +74,21 @@ public final class AntiCheatConfig {
         var cont = c.getConfigurationSection("containers");
         containersEnabled = cont != null && cont.getBoolean("enabled", true);
         hiddenBlockEntityTypes = new HashSet<>();
+        containerMaterials = EnumSet.noneOf(Material.class);
         if (cont != null) {
             for (String s : cont.getStringList("hidden-types")) {
-                hiddenBlockEntityTypes.add(NamespacedKey.minecraft(s.toLowerCase(Locale.ROOT)));
+                String lower = s.toLowerCase(Locale.ROOT);
+                hiddenBlockEntityTypes.add(NamespacedKey.minecraft(lower));
+                // Mirror the BE-type list into Material form so XrayModule can tell
+                // "this is a container — never skip masking on hasOpenFace" apart from
+                // ore-style blocks where the exposure-skip keeps cave UX legit.
+                Material m = Material.matchMaterial(lower);
+                if (m != null) containerMaterials.add(m);
             }
+        }
+        containerBlockTypes = new HashSet<>(containerMaterials.size());
+        for (Material material : containerMaterials) {
+            containerBlockTypes.add(CraftBlockType.bukkitToMinecraft(material));
         }
         containerRevealDistance = cont != null ? cont.getDouble("reveal-distance", 6.0) : 6.0;
 
@@ -181,6 +196,8 @@ public final class AntiCheatConfig {
 
     public boolean containersEnabled() { return containersEnabled; }
     public Set<NamespacedKey> hiddenBlockEntityTypes() { return hiddenBlockEntityTypes; }
+    public Set<Material> containerMaterials() { return containerMaterials; }
+    public Set<Block> containerBlockTypes() { return containerBlockTypes; }
     public double containerRevealDistance() { return containerRevealDistance; }
 
     public boolean entityEspEnabled() { return entityEspEnabled; }
