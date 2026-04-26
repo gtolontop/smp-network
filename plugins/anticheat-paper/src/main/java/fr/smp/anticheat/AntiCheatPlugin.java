@@ -1,5 +1,6 @@
 package fr.smp.anticheat;
 
+import fr.smp.anticheat.clients.ClientDetectionModule;
 import fr.smp.anticheat.command.AntiCheatCommand;
 import fr.smp.anticheat.config.AntiCheatConfig;
 import fr.smp.anticheat.containers.ContainerEspModule;
@@ -22,6 +23,7 @@ public final class AntiCheatPlugin extends JavaPlugin {
     private ContainerEspModule containerModule;
     private EntityEspModule entityModule;
     private MovementModule movementModule;
+    private ClientDetectionModule clientsModule;
     private BypassManager bypass;
 
     @Override
@@ -31,26 +33,42 @@ public final class AntiCheatPlugin extends JavaPlugin {
         acConfig = new AntiCheatConfig(this);
         bypass = new BypassManager();
 
-        visibility = new VisibilityEngine(this, acConfig);
+        // Identifier le type de serveur pour désactiver les modules "monde" sur lobby.
+        String serverType = ClientDetectionModule.resolveServerType();
+        boolean isLobby = "lobby".equalsIgnoreCase(serverType);
+        getLogger().info("AntiCheat server-type=" + serverType);
 
-        xrayModule = new XrayModule(this, acConfig, visibility);
-        containerModule = new ContainerEspModule(this, acConfig, visibility);
-        entityModule = new EntityEspModule(this, acConfig, visibility);
-        movementModule = new MovementModule(this, acConfig);
-
-        packetInjector = new PacketInjector(this, xrayModule, containerModule, entityModule);
-        packetInjector.start();
-
-        entityModule.start();
-        movementModule.start();
-        visibility.start();
-        xrayModule.start();
+        clientsModule = new ClientDetectionModule(this);
 
         var pm = getServer().getPluginManager();
-        pm.registerEvents(packetInjector, this);
-        pm.registerEvents(movementModule, this);
-        pm.registerEvents(entityModule, this);
-        pm.registerEvents(new BlockChangeListener(this), this);
+        pm.registerEvents(clientsModule, this);
+        if (clientsModule.freecam() != null) {
+            pm.registerEvents(clientsModule.freecam(), this);
+        }
+
+        if (!isLobby) {
+            // Modules "monde" — n'ont aucun sens sur un lobby adventure-mode. Les désactiver
+            // évite aussi que l'anti-xray obfusque les chest/lectern du lobby et casse le GUI.
+            visibility = new VisibilityEngine(this, acConfig);
+
+            xrayModule = new XrayModule(this, acConfig, visibility);
+            containerModule = new ContainerEspModule(this, acConfig, visibility);
+            entityModule = new EntityEspModule(this, acConfig, visibility);
+            movementModule = new MovementModule(this, acConfig);
+
+            packetInjector = new PacketInjector(this, xrayModule, containerModule, entityModule);
+            packetInjector.start();
+
+            entityModule.start();
+            movementModule.start();
+            visibility.start();
+            xrayModule.start();
+
+            pm.registerEvents(packetInjector, this);
+            pm.registerEvents(movementModule, this);
+            pm.registerEvents(entityModule, this);
+            pm.registerEvents(new BlockChangeListener(this), this);
+        }
 
         if (getCommand("ac") != null) {
             AntiCheatCommand cmd = new AntiCheatCommand(this);
@@ -58,10 +76,11 @@ public final class AntiCheatPlugin extends JavaPlugin {
             getCommand("ac").setTabCompleter(cmd);
         }
 
-        getLogger().info("AntiCheat enabled (xray=" + acConfig.xrayEnabled()
-                + ", containers=" + acConfig.containersEnabled()
-                + ", entityEsp=" + acConfig.entityEspEnabled()
-                + ", movement=" + acConfig.movementEnabled() + ")");
+        getLogger().info("AntiCheat enabled (xray=" + (xrayModule != null && acConfig.xrayEnabled())
+                + ", containers=" + (containerModule != null && acConfig.containersEnabled())
+                + ", entityEsp=" + (entityModule != null && acConfig.entityEspEnabled())
+                + ", movement=" + (movementModule != null && acConfig.movementEnabled())
+                + ", clients=" + clientsModule.enabled() + ")");
     }
 
     @Override
@@ -81,5 +100,6 @@ public final class AntiCheatPlugin extends JavaPlugin {
     public ContainerEspModule containers() { return containerModule; }
     public EntityEspModule entities() { return entityModule; }
     public MovementModule movement() { return movementModule; }
+    public ClientDetectionModule clients() { return clientsModule; }
     public BypassManager bypass() { return bypass; }
 }
