@@ -83,7 +83,7 @@ public class ScoreboardManager {
     public void start() {
         new BukkitRunnable() {
             @Override public void run() { tickAll(); }
-        }.runTaskTimer(plugin, 20L, 20L);
+        }.runTaskTimer(plugin, 25L, 40L);
     }
 
     public void tickKeyallReset() {
