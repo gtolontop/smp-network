@@ -1,117 +1,250 @@
 # =========================================
-#  SMPCore — Shop (DonutSMP-inspired)
-#  Each category = one slot in the main shop GUI.
-#  Items: { buy: <price | -1 if disabled>, sell: <price | -1>, stack: <count> }
+#  SMPCore — Shop
+#  Each category uses its configured slot in the main GUI.
+#  Items support:
+#    material, display-material, name, buy, sell, stack, currency, spawner-type
+#  currency: MONEY (default) or SHARDS
 # =========================================
 
 categories:
 
+  food:
+    name: "<gradient:#f59e0b:#fde68a><bold>Nourriture</bold></gradient>"
+    icon: COOKED_BEEF
+    slot: 21
+    description: "<gray>Des stacks de bouffe prêtes à partir.</gray>"
+    items:
+      potato_stack:
+        material: POTATO
+        name: "Pommes de terre"
+        buy: 4800
+        sell: -1
+        stack: 64
+      sweet_berries_stack:
+        material: SWEET_BERRIES
+        name: "Fruits rouges"
+        buy: 5600
+        sell: -1
+        stack: 64
+      melon_slices_stack:
+        material: MELON_SLICE
+        name: "Tranches de pastèque"
+        buy: 3200
+        sell: -1
+        stack: 64
+      carrot_stack:
+        material: CARROT
+        name: "Carottes"
+        buy: 4800
+        sell: -1
+        stack: 64
+      apple_stack:
+        material: APPLE
+        name: "Pommes"
+        buy: 7000
+        sell: -1
+        stack: 64
+      cooked_chicken_stack:
+        material: COOKED_CHICKEN
+        name: "Poulets cuits"
+        buy: 6000
+        sell: -1
+        stack: 64
+      steak_stack:
+        material: COOKED_BEEF
+        name: "Steaks"
+        buy: 7200
+        sell: -1
+        stack: 64
+      golden_carrot_stack:
+        material: GOLDEN_CARROT
+        name: "Carottes dorées"
+        buy: 9000
+        sell: -1
+        stack: 64
+      golden_apple_stack:
+        material: GOLDEN_APPLE
+        name: "Pommes d'or"
+        buy: 10000
+        sell: -1
+        stack: 64
+
   blocks:
-    name: "Blocks"
+    name: "<gradient:#86efac:#22c55e><bold>Blocs</bold></gradient>"
     icon: GRASS_BLOCK
-    slot: 10
-    description: "<gray>Blocs de construction.</gray>"
+    slot: 23
+    description: "<gray>Les blocs déco relous à récupérer sans silk touch.</gray>"
     items:
-      STONE:            { buy: 2,    sell: 0.1,  stack: 64 }
-      COBBLESTONE:      { buy: 2,    sell: 0.1,  stack: 64 }
-      DIRT:             { buy: 1,    sell: 0.05, stack: 64 }
-      GRASS_BLOCK:      { buy: 8,    sell: 1,    stack: 16 }
-      SAND:             { buy: 3,    sell: 0.2,  stack: 64 }
-      GRAVEL:           { buy: 3,    sell: 0.2,  stack: 64 }
-      OBSIDIAN:         { buy: 40,   sell: 3,    stack: 16 }
-      GLASS:            { buy: 8,    sell: 0.5,  stack: 64 }
-      NETHERRACK:       { buy: 3,    sell: 0.1,  stack: 64 }
-      END_STONE:        { buy: 15,   sell: 1,    stack: 32 }
+      glass_stack:
+        material: GLASS
+        name: "Verre"
+        buy: 950
+        sell: -1
+        stack: 64
+      grass_block_stack:
+        material: GRASS_BLOCK
+        name: "Blocs d'herbe"
+        buy: 1600
+        sell: -1
+        stack: 64
+      mycelium_stack:
+        material: MYCELIUM
+        name: "Mycélium"
+        buy: 2200
+        sell: -1
+        stack: 64
+      podzol_stack:
+        material: PODZOL
+        name: "Podzol"
+        buy: 1800
+        sell: -1
+        stack: 64
+      ice_stack:
+        material: ICE
+        name: "Glace"
+        buy: 3000
+        sell: -1
+        stack: 64
+      end_stone_stack:
+        material: END_STONE
+        name: "End stone"
+        buy: 2500
+        sell: -1
+        stack: 64
+      stone_stack:
+        material: STONE
+        name: "Stone"
+        buy: 850
+        sell: -1
+        stack: 64
+      cobblestone_stack:
+        material: COBBLESTONE
+        name: "Cobblestone"
+        buy: 650
+        sell: -1
+        stack: 64
 
-  ores:
-    name: "Ores & Ingots"
-    icon: DIAMOND
-    slot: 12
-    description: "<gray>Ingots précieux.</gray>"
-    items:
-      COAL:             { buy: 10,   sell: 1,    stack: 32 }
-      IRON_INGOT:       { buy: 50,   sell: 5,    stack: 32 }
-      GOLD_INGOT:       { buy: 80,   sell: 8,    stack: 32 }
-      COPPER_INGOT:     { buy: 20,   sell: 2,    stack: 32 }
-      DIAMOND:          { buy: 500,  sell: 50,   stack: 8 }
-      EMERALD:          { buy: 250,  sell: 25,   stack: 8 }
-      NETHERITE_INGOT:  { buy: 5000, sell: 500,  stack: 1 }
-      LAPIS_LAZULI:     { buy: 20,   sell: 2,    stack: 64 }
-      REDSTONE:         { buy: 15,   sell: 1.5,  stack: 64 }
-      QUARTZ:           { buy: 20,   sell: 2,    stack: 64 }
-
-  farm:
-    name: "Farming"
-    icon: WHEAT
-    slot: 14
-    description: "<gray>Récoltes.</gray>"
-    items:
-      WHEAT:            { buy: 5,    sell: 0.5,  stack: 64 }
-      CARROT:           { buy: 5,    sell: 0.5,  stack: 64 }
-      POTATO:           { buy: 5,    sell: 0.5,  stack: 64 }
-      BEETROOT:         { buy: 5,    sell: 0.5,  stack: 64 }
-      SUGAR_CANE:       { buy: 3,    sell: 0.3,  stack: 64 }
-      MELON:            { buy: 20,   sell: 2,    stack: 16 }
-      PUMPKIN:          { buy: 20,   sell: 2,    stack: 16 }
-      BREAD:            { buy: 10,   sell: 1,    stack: 16 }
-      GOLDEN_CARROT:    { buy: 40,   sell: 4,    stack: 16 }
-      GOLDEN_APPLE:     { buy: 500,  sell: 50,   stack: 4 }
-
-  mobs:
-    name: "Mob Drops"
-    icon: ROTTEN_FLESH
-    slot: 16
-    description: "<gray>Loot de créatures.</gray>"
-    items:
-      ROTTEN_FLESH:     { buy: 1,    sell: 0.1,  stack: 64 }
-      BONE:             { buy: 5,    sell: 0.5,  stack: 64 }
-      GUNPOWDER:        { buy: 30,   sell: 3,    stack: 32 }
-      STRING:           { buy: 5,    sell: 0.5,  stack: 64 }
-      SLIME_BALL:       { buy: 20,   sell: 2,    stack: 32 }
-      BLAZE_ROD:        { buy: 80,   sell: 8,    stack: 8 }
-      ENDER_PEARL:      { buy: 150,  sell: 15,   stack: 8 }
-      GHAST_TEAR:       { buy: 500,  sell: 50,   stack: 4 }
-      SHULKER_SHELL:    { buy: 1200, sell: 120,  stack: 2 }
-
-  tools:
-    name: "Tools & Gear"
-    icon: NETHERITE_PICKAXE
-    slot: 28
-    description: "<gray>Pioches & armes.</gray>"
-    items:
-      IRON_PICKAXE:     { buy: 150,  sell: -1,   stack: 1 }
-      DIAMOND_PICKAXE:  { buy: 1500, sell: -1,   stack: 1 }
-      DIAMOND_SWORD:    { buy: 1200, sell: -1,   stack: 1 }
-      DIAMOND_AXE:      { buy: 1200, sell: -1,   stack: 1 }
-      DIAMOND_SHOVEL:   { buy: 800,  sell: -1,   stack: 1 }
-      SHIELD:           { buy: 200,  sell: -1,   stack: 1 }
-      BOW:              { buy: 200,  sell: -1,   stack: 1 }
-      ARROW:            { buy: 2,    sell: 0.1,  stack: 64 }
-      FISHING_ROD:      { buy: 300,  sell: -1,   stack: 1 }
-
-  potions:
-    name: "Potions & Enchant"
-    icon: EXPERIENCE_BOTTLE
+  pvp:
+    name: "<gradient:#fb7185:#f97316><bold>PVP</bold></gradient>"
+    icon: TOTEM_OF_UNDYING
     slot: 30
-    description: "<gray>Magie & bouteilles.</gray>"
+    description: "<gray>Du matos utilitaire vendu à prix abusés.</gray>"
     items:
-      EXPERIENCE_BOTTLE: { buy: 50,   sell: 5,    stack: 16 }
-      GLASS_BOTTLE:     { buy: 5,    sell: 0.5,  stack: 16 }
-      BLAZE_POWDER:     { buy: 40,   sell: 4,    stack: 16 }
-      NETHER_WART:      { buy: 15,   sell: 1.5,  stack: 32 }
-      GLOWSTONE_DUST:   { buy: 20,   sell: 2,    stack: 32 }
-      REDSTONE:         { buy: 15,   sell: 1.5,  stack: 64 }
-      MAGMA_CREAM:      { buy: 50,   sell: 5,    stack: 8 }
+      shulker_box:
+        material: SHULKER_BOX
+        name: "Shulker box"
+        buy: 10000
+        sell: -1
+        stack: 1
+      dragon_breath:
+        material: DRAGON_BREATH
+        name: "Souffle de dragon"
+        buy: 14000
+        sell: -1
+        stack: 16
+      bow:
+        material: BOW
+        name: "Arc"
+        buy: 4200
+        sell: -1
+        stack: 1
+      arrows:
+        material: ARROW
+        name: "Flèches"
+        buy: 2400
+        sell: -1
+        stack: 64
+      shield:
+        material: SHIELD
+        name: "Bouclier"
+        buy: 3000
+        sell: -1
+        stack: 1
+      ender_pearls:
+        material: ENDER_PEARL
+        name: "Perles de l'End"
+        buy: 2800
+        sell: -1
+        stack: 64
+      water_bucket:
+        material: WATER_BUCKET
+        name: "Seau d'eau"
+        buy: 1800
+        sell: -1
+        stack: 1
+      lava_bucket:
+        material: LAVA_BUCKET
+        name: "Seau de lave"
+        buy: 2400
+        sell: -1
+        stack: 1
 
-  rares:
-    name: "Rares"
-    icon: NETHER_STAR
+  spawners:
+    name: "<gradient:#60a5fa:#a78bfa><bold>Spawners</bold></gradient>"
+    icon: SPAWNER
     slot: 32
-    description: "<gray>Objets uniques.</gray>"
+    description: "<gray>Achetables uniquement en <aqua>saphirs</aqua>.</gray>"
     items:
-      ELYTRA:           { buy: 50000, sell: 5000, stack: 1 }
-      TOTEM_OF_UNDYING: { buy: 15000, sell: 1500, stack: 1 }
-      NETHER_STAR:      { buy: 35000, sell: 3500, stack: 1 }
-      TRIDENT:          { buy: 8000,  sell: 800,  stack: 1 }
-      HEART_OF_THE_SEA: { buy: 8000,  sell: 800,  stack: 1 }
-      ENCHANTED_GOLDEN_APPLE: { buy: 25000, sell: 2500, stack: 1 }
+      zombie_spawner:
+        material: SPAWNER
+        display-material: ZOMBIE_SPAWN_EGG
+        spawner-type: ZOMBIE
+        name: "Spawner Zombie"
+        currency: SHARDS
+        buy: 200
+        sell: -1
+        stack: 1
+      skeleton_spawner:
+        material: SPAWNER
+        display-material: SKELETON_SPAWN_EGG
+        spawner-type: SKELETON
+        name: "Spawner Squelette"
+        currency: SHARDS
+        buy: 220
+        sell: -1
+        stack: 1
+      spider_spawner:
+        material: SPAWNER
+        display-material: SPIDER_SPAWN_EGG
+        spawner-type: SPIDER
+        name: "Spawner Araignée"
+        currency: SHARDS
+        buy: 240
+        sell: -1
+        stack: 1
+      blaze_spawner:
+        material: SPAWNER
+        display-material: BLAZE_SPAWN_EGG
+        spawner-type: BLAZE
+        name: "Spawner Blaze"
+        currency: SHARDS
+        buy: 300
+        sell: -1
+        stack: 1
+      witch_spawner:
+        material: SPAWNER
+        display-material: WITCH_SPAWN_EGG
+        spawner-type: WITCH
+        name: "Spawner Witch"
+        currency: SHARDS
+        buy: 340
+        sell: -1
+        stack: 1
+      enderman_spawner:
+        material: SPAWNER
+        display-material: ENDERMAN_SPAWN_EGG
+        spawner-type: ENDERMAN
+        name: "Spawner Enderman"
+        currency: SHARDS
+        buy: 360
+        sell: -1
+        stack: 1
+      iron_golem_spawner:
+        material: SPAWNER
+        display-material: IRON_GOLEM_SPAWN_EGG
+        spawner-type: IRON_GOLEM
+        name: "Spawner Golem de fer"
+        currency: SHARDS
+        buy: 400
+        sell: -1
+        stack: 1
