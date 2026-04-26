@@ -13,7 +13,6 @@ import org.bukkit.potion.PotionEffect;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +21,7 @@ import java.util.UUID;
 /**
  * Saves/loads cross-server player state via flat YAML files under shared-data.
  * Synced: inventory, ender chest, xp, health, food, potion effects,
- * gamemode, flight, air, fire ticks, fall distance, advancement progress is
+ * selected survival state, flight, air, fire ticks, fall distance, advancement progress is
  * left to vanilla (stored server-local).
  */
 public class SyncManager {
@@ -30,10 +29,12 @@ public class SyncManager {
     private final SMPCore plugin;
     private final File dataDir;
     private final boolean enabled;
+    private final boolean clearOnMissing;
 
     public SyncManager(SMPCore plugin) {
         this.plugin = plugin;
         this.enabled = plugin.getConfig().getBoolean("sync.enabled", true);
+        this.clearOnMissing = plugin.getConfig().getBoolean("sync.clear-on-missing", false);
         String relative = plugin.getConfig().getString("sync.directory", "../shared-data/players");
         File base = new File(plugin.getServer().getWorldContainer(), relative);
         this.dataDir = base;
@@ -46,15 +47,22 @@ public class SyncManager {
     }
 
     public boolean isEnabled() { return enabled; }
+    public File getSyncDataDir() { return dataDir; }
 
     private File fileFor(UUID uuid) {
         return new File(dataDir, uuid.toString() + ".yml");
     }
 
-    public void save(Player player) {
-        if (!enabled) return;
-        if (player.hasPermission("smp.sync.bypass")) return;
+    private File backupFor(UUID uuid) {
+        return new File(dataDir, uuid.toString() + ".yml.bak");
+    }
 
+    /**
+     * Snapshot the player's full syncable state into a fresh YamlConfiguration.
+     * Safe to call on the main thread only. Reused by {@link #save(Player)} and
+     * by InventoryHistoryManager for rollback snapshots.
+     */
+    public YamlConfiguration captureYaml(Player player) {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("name", player.getName());
         yaml.set("updated", System.currentTimeMillis());
@@ -82,7 +90,9 @@ public class SyncManager {
         yaml.set("stats.fireTicks", player.getFireTicks());
         yaml.set("stats.fallDistance", player.getFallDistance());
 
-        yaml.set("gamemode", player.getGameMode().name());
+        if (!plugin.isLobby()) {
+            yaml.set("gamemode", player.getGameMode().name());
+        }
         yaml.set("flight.allowed", player.getAllowFlight());
         yaml.set("flight.flying", player.isFlying());
         yaml.set("flight.speed", player.getFlySpeed());
@@ -93,15 +103,43 @@ public class SyncManager {
             effects.add(e.serialize());
         }
         yaml.set("effects", effects);
+        return yaml;
+    }
+
+    public void save(Player player) {
+        if (!enabled) return;
+        if (player.hasPermission("smp.sync.bypass")) return;
+
+        YamlConfiguration yaml = captureYaml(player);
 
         File target = fileFor(player.getUniqueId());
+        File backup = backupFor(player.getUniqueId());
         File tmp = new File(target.getAbsolutePath() + ".tmp");
         try {
+            // Backup the current file BEFORE overwriting so we never lose data.
+            if (target.exists()) {
+                Files.copy(target.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to refresh sync backup for " + player.getName() + ": " + e.getMessage());
+        }
+        try {
             yaml.save(tmp);
-            Files.move(tmp.toPath(), target.toPath(),
-                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            try {
+                Files.move(tmp.toPath(), target.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException atomic) {
+                // ATOMIC_MOVE not supported on this filesystem — fall back to a
+                // regular replace-move so the data is never silently lost.
+                plugin.getLogger().fine("Atomic move unavailable for " + player.getName() + ", falling back to regular move.");
+                Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
             plugin.getLogger().warning("Failed to save sync data for " + player.getName() + ": " + e.getMessage());
+        } finally {
+            if (tmp.exists() && !tmp.delete()) {
+                tmp.deleteOnExit();
+            }
         }
     }
 
@@ -110,22 +148,35 @@ public class SyncManager {
         if (!enabled) return;
         if (player.hasPermission("smp.sync.bypass")) return;
 
-        File f = fileFor(player.getUniqueId());
-        if (!f.exists()) return;
+        YamlConfiguration yaml = loadSnapshot(player);
+        if (yaml == null) {
+            if (clearOnMissing) {
+                applyDefaults(player);
+            }
+            return;
+        }
+        applyYaml(player, yaml);
+    }
 
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(f);
-
+    /**
+     * Apply a previously captured YAML snapshot to a live player. Used by
+     * {@link #load(Player)} and by InventoryHistoryManager to rollback. Must
+     * run on the main thread.
+     */
+    @SuppressWarnings("unchecked")
+    public void applyYaml(Player player, YamlConfiguration yaml) {
         PlayerInventory inv = player.getInventory();
-        inv.clear();
 
         List<?> contents = yaml.getList("inventory.contents");
+        List<?> armor = yaml.getList("inventory.armor");
+        List<?> ender = yaml.getList("enderchest");
+        inv.clear();
         if (contents != null) {
             ItemStack[] arr = contents.stream()
                 .map(o -> o instanceof ItemStack i ? i : null)
                 .toArray(ItemStack[]::new);
             inv.setContents(arr);
         }
-        List<?> armor = yaml.getList("inventory.armor");
         if (armor != null) {
             ItemStack[] arr = armor.stream()
                 .map(o -> o instanceof ItemStack i ? i : null)
@@ -136,7 +187,6 @@ public class SyncManager {
         if (offhand != null) inv.setItemInOffHand(offhand);
         inv.setHeldItemSlot(Math.max(0, Math.min(8, yaml.getInt("inventory.heldSlot", 0))));
 
-        List<?> ender = yaml.getList("enderchest");
         if (ender != null) {
             player.getEnderChest().clear();
             ItemStack[] arr = ender.stream()
@@ -162,7 +212,7 @@ public class SyncManager {
         player.setFallDistance((float) yaml.getDouble("stats.fallDistance", 0.0));
 
         String gm = yaml.getString("gamemode");
-        if (gm != null) {
+        if (shouldApplyGamemode(yaml, gm)) {
             try { player.setGameMode(GameMode.valueOf(gm)); } catch (IllegalArgumentException ignored) {}
         }
         if (yaml.contains("flight.allowed")) player.setAllowFlight(yaml.getBoolean("flight.allowed"));
@@ -183,6 +233,108 @@ public class SyncManager {
                     } catch (Exception ignored) { }
                 }
             }
+        }
+        player.updateInventory();
+    }
+
+    private YamlConfiguration loadSnapshot(Player player) {
+        File primary = fileFor(player.getUniqueId());
+        YamlConfiguration primaryYaml = tryLoad(primary);
+        if (isValidSnapshot(primaryYaml)) {
+            return primaryYaml;
+        }
+        if (primary.exists()) {
+            plugin.getLogger().warning("Invalid sync snapshot for " + player.getName()
+                    + " in " + primary.getName() + ", trying backup.");
+        }
+
+        File backup = backupFor(player.getUniqueId());
+        YamlConfiguration backupYaml = tryLoad(backup);
+        if (isValidSnapshot(backupYaml)) {
+            plugin.getLogger().warning("Recovered sync data for " + player.getName()
+                    + " from backup snapshot.");
+            return backupYaml;
+        }
+        if (primary.exists() || backup.exists()) {
+            plugin.getLogger().warning("No valid sync snapshot found for " + player.getName()
+                    + "; leaving current in-memory state untouched.");
+        }
+        return null;
+    }
+
+    private YamlConfiguration tryLoad(File file) {
+        if (!file.exists()) {
+            return null;
+        }
+        return YamlConfiguration.loadConfiguration(file);
+    }
+
+    private boolean isValidSnapshot(YamlConfiguration yaml) {
+        return yaml != null
+                && yaml.contains("inventory.contents")
+                && yaml.contains("inventory.armor")
+                && yaml.contains("enderchest");
+    }
+
+    private boolean shouldApplyGamemode(YamlConfiguration yaml, String gamemode) {
+        if (gamemode == null || gamemode.isBlank()) {
+            return false;
+        }
+        if (plugin.isLobby()) {
+            return false;
+        }
+        String sourceServer = yaml.getString("source-server", "");
+        return !sourceServer.equalsIgnoreCase("lobby");
+    }
+
+    private void applyDefaults(Player player) {
+        PlayerInventory inv = player.getInventory();
+        inv.clear();
+        inv.setArmorContents(null);
+        inv.setItemInOffHand(null);
+        inv.setHeldItemSlot(0);
+
+        if (plugin.getConfig().getBoolean("sync.defaults.clear-enderchest", true)) {
+            player.getEnderChest().clear();
+        }
+
+        player.setLevel(plugin.getConfig().getInt("sync.defaults.xp-level", 0));
+        player.setExp((float) plugin.getConfig().getDouble("sync.defaults.xp-exp", 0.0));
+        player.setTotalExperience(plugin.getConfig().getInt("sync.defaults.xp-total", 0));
+
+        double maxHealth = 20.0;
+        var maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr != null) maxHealth = maxHealthAttr.getValue();
+
+        double health = plugin.getConfig().getDouble("sync.defaults.health", maxHealth);
+        player.setHealth(Math.max(0.5, Math.min(health, maxHealth)));
+        player.setFoodLevel(plugin.getConfig().getInt("sync.defaults.food", 20));
+        player.setSaturation((float) plugin.getConfig().getDouble("sync.defaults.saturation", 20.0));
+        player.setExhaustion((float) plugin.getConfig().getDouble("sync.defaults.exhaustion", 0.0));
+        player.setRemainingAir(plugin.getConfig().getInt("sync.defaults.remaining-air", player.getMaximumAir()));
+        player.setFireTicks(plugin.getConfig().getInt("sync.defaults.fire-ticks", 0));
+        player.setFallDistance((float) plugin.getConfig().getDouble("sync.defaults.fall-distance", 0.0));
+
+        String gamemode = plugin.getConfig().getString("sync.defaults.gamemode", "");
+        if (gamemode != null && !gamemode.isBlank()) {
+            try {
+                player.setGameMode(GameMode.valueOf(gamemode.toUpperCase()));
+            } catch (IllegalArgumentException ignored) { }
+        }
+
+        boolean allowFlight = plugin.getConfig().getBoolean("sync.defaults.allow-flight", false);
+        player.setAllowFlight(allowFlight);
+        player.setFlying(allowFlight && plugin.getConfig().getBoolean("sync.defaults.flying", false));
+
+        if (plugin.getConfig().contains("sync.defaults.fly-speed")) {
+            player.setFlySpeed((float) plugin.getConfig().getDouble("sync.defaults.fly-speed"));
+        }
+        if (plugin.getConfig().contains("sync.defaults.walk-speed")) {
+            player.setWalkSpeed((float) plugin.getConfig().getDouble("sync.defaults.walk-speed"));
+        }
+
+        for (PotionEffect effect : player.getActivePotionEffects()) {
+            player.removePotionEffect(effect.getType());
         }
         player.updateInventory();
     }
