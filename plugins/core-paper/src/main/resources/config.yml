@@ -196,7 +196,7 @@ economy:
 # ------ Auction House ------
 auction:
   ttl-hours: 48
-  max-per-player: 25
+  max-per-player: 50
   fee-percent: 5.0
 
 # ------ Bounty ------
