@@ -18,9 +18,8 @@ public enum SpawnerType {
             new Drop(Material.POTATO, 1, 1, 8)
     )),
     SKELETON("Squelette", "<white>", Material.SKELETON_SPAWN_EGG, Material.BONE, List.of(
-            new Drop(Material.BONE, 1, 2, 55),
-            new Drop(Material.ARROW, 1, 2, 40),
-            new Drop(Material.IRON_HELMET, 1, 1, 2)
+            new Drop(Material.BONE, 1, 2, 60),
+            new Drop(Material.ARROW, 1, 2, 40)
     )),
     CREEPER("Creeper", "<dark_green>", Material.CREEPER_SPAWN_EGG, Material.GUNPOWDER, List.of(
             new Drop(Material.GUNPOWDER, 1, 2, 100)
@@ -87,6 +86,11 @@ public enum SpawnerType {
     SHEEP("Mouton", "<white>", Material.SHEEP_SPAWN_EGG, Material.WHITE_WOOL, List.of(
             new Drop(Material.MUTTON, 1, 2, 55),
             new Drop(Material.WHITE_WOOL, 1, 1, 45)
+    )),
+    SILVERFISH("Poisson d'Argent", "<gray>", Material.SILVERFISH_SPAWN_EGG, Material.STONE, List.of(
+            new Drop(Material.COBBLESTONE, 1, 2, 55),
+            new Drop(Material.STONE, 1, 1, 35),
+            new Drop(Material.EXPERIENCE_BOTTLE, 1, 1, 10)
     ));
 
     /** Une entrée de loot: matériau, quantité min-max, poids relatif. */
