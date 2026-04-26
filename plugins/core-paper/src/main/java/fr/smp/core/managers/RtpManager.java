@@ -58,6 +58,7 @@ public class RtpManager {
     private void tryOnce(Player p, World world, int remaining, boolean cooldown, CompletableFuture<Boolean> out) {
         if (remaining <= 0) {
             p.sendMessage(Msg.err("Impossible de trouver un lieu sûr. Réessaie."));
+            plugin.getLogger().warning("[RTP] " + p.getName() + " -> " + world.getName() + " ÉCHEC (aucun lieu sûr trouvé)");
             out.complete(false);
             return;
         }
@@ -83,6 +84,13 @@ public class RtpManager {
                     if (cooldown) setCooldown(p);
                     plugin.logs().log(LogCategory.RTP, p, "rtp -> " + world.getName() + " " +
                             safe.getBlockX() + "," + safe.getBlockY() + "," + safe.getBlockZ());
+                    plugin.getLogger().info("[RTP] " + p.getName() + " atterri à "
+                            + safe.getBlockX() + "," + safe.getBlockY() + "," + safe.getBlockZ()
+                            + " dans " + world.getName());
+                } else {
+                    plugin.getLogger().warning("[RTP] " + p.getName() + " -> téléportation refusée à "
+                            + safe.getBlockX() + "," + safe.getBlockY() + "," + safe.getBlockZ()
+                            + " dans " + world.getName());
                 }
                 out.complete(ok);
             });
