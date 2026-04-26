@@ -10,6 +10,8 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.CreatureSpawner;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -121,14 +123,44 @@ public class SpawnerListener implements Listener {
         SpawnerManager mgr = plugin.spawners();
         if (mgr == null) return;
         SpawnerManager.Spawner s = mgr.at(b.getLocation());
+        Player p = event.getPlayer();
         if (s == null) {
-            // Spawner non-tracké: empêche les drops XP natifs en survie.
+            // Spawner non-tracké (donjon / vanilla). Empêche les drops XP natifs,
+            // et si le joueur casse avec une pioche, lui donne un spawner
+            // custom du type correspondant (récupérable).
+            event.setExpToDrop(0);
+            event.setDropItems(false);
+            if (p.getGameMode() == GameMode.CREATIVE) return;
+            ItemStack tool = p.getInventory().getItemInMainHand();
+            if (tool == null || !isPickaxe(tool.getType())) return;
+            EntityType et = detectSpawnerEntity(b);
+            SpawnerType type = et != null ? SpawnerType.fromId(et.name()) : null;
+            if (type == null) {
+                p.sendMessage(Msg.err("Spawner " + (et != null ? et.name().toLowerCase() : "inconnu")
+                        + " non récupérable (type non supporté)."));
+                return;
+            }
+            ItemStack drop = mgr.makeSpawnerItem(type, 1);
+            Map<Integer, ItemStack> overflow = p.getInventory().addItem(drop);
+            int droppedPickup = 0;
+            Location pickupDrop = b.getLocation().add(0.5, 0.5, 0.5);
+            for (ItemStack it : overflow.values()) {
+                b.getWorld().dropItemNaturally(pickupDrop, it);
+                droppedPickup += it.getAmount();
+            }
+            p.sendMessage(Msg.ok("<green>Spawner " + type.colorTag() + type.display()
+                    + "<green> récupéré."
+                    + (droppedPickup > 0 ? " <gray>(inventaire plein, lâché au sol)</gray>" : "")
+                    + "</green>"));
+            p.playSound(p.getLocation(), org.bukkit.Sound.BLOCK_AMETHYST_BLOCK_BREAK, 1f, 0.8f);
+            plugin.logs().log(LogCategory.SPAWNER, p,
+                    "spawner pickup type=" + type.name()
+                            + " dropped=" + droppedPickup + " at " + coords(b.getLocation()));
             return;
         }
         event.setExpToDrop(0);
         event.setDropItems(false);
 
-        Player p = event.getPlayer();
         Location loc = b.getLocation().add(0.5, 0.5, 0.5);
 
         // Shift+casse: retire 64 du stack sans détruire le bloc (si stack > 64).
@@ -139,7 +171,7 @@ public class SpawnerListener implements Listener {
             ItemStack chunk = mgr.makeSpawnerItem(s.type, 64);
             if (p.getGameMode() != GameMode.CREATIVE) {
                 Map<Integer, ItemStack> overflow = p.getInventory().addItem(chunk);
-                overflow.values().forEach(it -> p.getWorld().dropItemNaturally(loc, it));
+                overflow.values().forEach(it -> p.getWorld().dropItemNaturally(p.getLocation(), it));
             }
             p.sendMessage(Msg.ok("<green>-64 spawners. Restant: <yellow>×"
                     + s.stack + "</yellow>.</green>"));
@@ -155,16 +187,25 @@ public class SpawnerListener implements Listener {
 
         // Donne un item spawner au joueur (avec stack PDC)
         ItemStack spawnerItem = mgr.makeSpawnerItem(s.type, s.stack);
+        SpawnerType type = s.type;
+        int stack = s.stack;
         mgr.remove(b.getLocation());
 
+        int dropped = 0;
         if (p.getGameMode() != GameMode.CREATIVE) {
             Map<Integer, ItemStack> overflow = p.getInventory().addItem(spawnerItem);
-            overflow.values().forEach(it -> p.getWorld().dropItemNaturally(loc, it));
+            for (ItemStack it : overflow.values()) {
+                b.getWorld().dropItemNaturally(loc, it);
+                dropped += it.getAmount();
+            }
         }
-        p.sendMessage(Msg.ok("<green>Spawner récupéré (<yellow>×" + s.stack + "</yellow>).</green>"));
+        p.sendMessage(Msg.ok("<green>Spawner récupéré (<yellow>×" + stack + "</yellow>)."
+                + (dropped > 0 ? " <gray>(inventaire plein, lâché au sol)</gray>" : "")
+                + "</green>"));
         p.playSound(p.getLocation(), org.bukkit.Sound.BLOCK_AMETHYST_BLOCK_BREAK, 1f, 0.8f);
         plugin.logs().log(LogCategory.SPAWNER, p,
-                "spawner break type=" + s.type.name() + " stack=" + s.stack + " at " + coords(b.getLocation()));
+                "spawner break type=" + type.name() + " stack=" + stack
+                        + " dropped=" + dropped + " at " + coords(b.getLocation()));
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -242,5 +283,31 @@ public class SpawnerListener implements Listener {
 
     private static String coords(Location l) {
         return l.getWorld().getName() + "(" + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ() + ")";
+    }
+
+    private static boolean isPickaxe(Material m) {
+        return m == Material.WOODEN_PICKAXE || m == Material.STONE_PICKAXE
+                || m == Material.IRON_PICKAXE || m == Material.GOLDEN_PICKAXE
+                || m == Material.DIAMOND_PICKAXE || m == Material.NETHERITE_PICKAXE;
+    }
+
+    /**
+     * Détecte le type de mob d'un spawner naturel. Paper 1.21+ n'alimente plus
+     * toujours le champ legacy `spawnedType` pour les spawners générés par
+     * worldgen — on lit {@code getPotentialSpawns()} en fallback.
+     */
+    private static EntityType detectSpawnerEntity(Block b) {
+        if (!(b.getState() instanceof CreatureSpawner cs)) return null;
+        EntityType et = cs.getSpawnedType();
+        if (et != null) return et;
+        try {
+            var potentials = cs.getPotentialSpawns();
+            if (potentials != null && !potentials.isEmpty()) {
+                var entry = potentials.iterator().next();
+                var snapshot = entry.getSnapshot();
+                if (snapshot != null) return snapshot.getEntityType();
+            }
+        } catch (Throwable ignored) {}
+        return null;
     }
 }
