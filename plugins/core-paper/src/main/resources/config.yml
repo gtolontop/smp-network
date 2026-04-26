@@ -109,6 +109,12 @@ hub-spawn:
 sync:
   enabled: true
   directory: "../shared-data/players"
+  # Rolling inventory history → /invrollback list|peek|apply|snap <joueur>
+  # Only active on non-lobby servers. Stored in the shared SQLite (inv_snapshots).
+  history:
+    enabled: true
+    interval-minutes: 5       # auto-snapshot cadence for every online player
+    keep-per-player: 50       # retention cap; older snapshots are pruned
 
 # ------ RTP ------
 rtp:
@@ -149,6 +155,34 @@ homes:
   base-slots: 5               # default max homes (override via smp.homes.<N>)
   max-slots: 5                # hard cap, matches the single-row Homes GUI
 
+# ------ Cooldowns (seconds) ------
+# Bypass: smp.cooldown.bypass.<key> or smp.cooldown.bypass.*
+cooldowns:
+  home: 10
+  tpa: 10
+  tpaccept: 10
+  pay: 5
+
+# ------ Machine boosts ------
+# Survival automation is intentionally fast: crafters burst multiple crafts
+# from one trigger, and cooking blocks process recipes almost instantly.
+machines:
+  enabled: true
+  crafters:
+    enabled: true
+    crafts-per-pulse: 16
+    ticks-between-crafts: 1
+    require-power: false
+  dispensers:
+    enabled: true
+    actions-per-pulse: 16
+    ticks-between-actions: 1
+    require-power: false
+  furnaces:
+    enabled: true
+    cook-speed-multiplier: 200.0
+    fuel-time-multiplier: 64.0
+
 # ------ Teams ------
 teams:
   creation-cost: 500
@@ -187,6 +221,7 @@ keyall:
 # ------ World toggles ------
 world:
   end-enabled: true           # /end on|off|toggle (admin only)
+  phantoms-enabled: true      # /phantom on|off|toggle (admin only)
   disable-locator-bar: true   # try to disable the vanilla locator bar HUD (gamerule if available)
 
 # ------ Weather ------
@@ -206,16 +241,72 @@ afk:
 # vanilla appliqués à un niveau supérieur au cap normal.
 customenchants:
   table:
-    # Probabilité à coût 30 (étoiles). Réduite linéairement pour les coûts plus bas.
-    custom-chance-at-30: 0.30
-    overcap-chance-at-30: 0.10
+    custom-chance-at-30: 0.08
+    overcap-chance-at-30: 0.03
   mob-drop:
     enabled: true
-    chance: 0.015               # 1.5% par mob hostile tué
-    overcap-ratio: 0.20         # 20% des drops sont des overcap, 80% custom
+    chance: 0.005
+    overcap-ratio: 0.10
   anvil:
-    book-cost: 6                # coût XP pour appliquer un livre d'enchant custom
-    elytra-fusion-cost: 15      # coût XP pour fusionner plastron + élytre
+    book-cost: 6
+    elytra-fusion-cost: 15
+
+enchant-pricing:
+  enabled: true
+  vanilla:
+    PROTECTION: 30
+    FIRE_PROTECTION: 25
+    FEATHER_FALLING: 20
+    BLAST_PROTECTION: 25
+    PROJECTILE_PROTECTION: 25
+    RESPIRATION: 20
+    AQUA_AFFINITY: 50
+    THORNS: 15
+    DEPTH_STRIDER: 25
+    FROST_WALKER: 40
+    SOUL_SPEED: 60
+    SWIFT_SNEAK: 60
+    SHARPNESS: 35
+    SMITE: 25
+    BANE_OF_ARTHROPODS: 25
+    KNOCKBACK: 20
+    FIRE_ASPECT: 30
+    LOOTING: 40
+    SWEEPING_EDGE: 25
+    EFFICIENCY: 30
+    SILK_TOUCH: 80
+    UNBREAKING: 25
+    FORTUNE: 45
+    POWER: 30
+    FLAME: 50
+    PUNCH: 20
+    INFINITY: 100
+    LUCK_OF_THE_SEA: 35
+    LURE: 30
+    LOYALTY: 25
+    IMPALING: 25
+    RIPTIDE: 35
+    CHANNELING: 60
+    MULTISHOT: 50
+    QUICK_CHARGE: 30
+    PIERCING: 25
+    MENDING: 120
+    BINDING_CURSE: 0
+    VANISHING_CURSE: 0
+    WIND_BURST: 50
+    DENSITY: 30
+    BREACH: 40
+  custom:
+    filonage: 500
+    carriere: 400
+    bucheron: 450
+    excavateur: 350
+    moisson: 300
+    replantage: 200
+    fonte: 350
+    aimant: 250
+    vitalite: 300
+    ame_liee: 800
 
 # ------ Resource packs ------
 # Envoie tous les packs configurés au joueur à l'entrée sur la survie, et
