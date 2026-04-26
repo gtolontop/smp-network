@@ -8,7 +8,8 @@
 
 export const PROTOCOL_VERSION = 1;
 
-export type Origin = 'velocity' | 'lobby' | 'survival' | 'bot';
+export type PeerOrigin = string;
+export type Origin = PeerOrigin | 'bot';
 
 // -- control ----------------------------------------------------------------
 
@@ -16,7 +17,7 @@ export interface HelloPacket {
   kind: 'hello';
   v: number;
   token: string;
-  origin: Exclude<Origin, 'bot'>;
+  origin: PeerOrigin;
   software: string;
   mcVersion: string;
 }
@@ -127,7 +128,7 @@ export interface ServerLifecycleEvent {
 export interface ConsoleCommand {
   kind: 'console';
   id: string;
-  target: Exclude<Origin, 'bot'>;
+  target: PeerOrigin;
   command: string;
 }
 
@@ -140,14 +141,14 @@ export interface ConsoleResult {
 
 export interface BroadcastCommand {
   kind: 'broadcast';
-  target: Exclude<Origin, 'bot'> | 'all';
+  target: PeerOrigin | 'all';
   message: string;
   prefix?: string;
 }
 
 export interface ChatInjectCommand {
   kind: 'chat_inject';
-  target: Exclude<Origin, 'bot'> | 'all';
+  target: PeerOrigin | 'all';
   author: string;
   message: string;
   avatarUrl?: string;
@@ -174,6 +175,23 @@ export interface RpcResult {
   error?: string;
 }
 
+// -- account linking (plugin -> bot -> plugin) ------------------------------
+
+export interface LinkAttemptPacket {
+  kind: 'link_attempt';
+  code: string;
+  uuid: string;
+  name: string;
+}
+
+export interface LinkResultPacket {
+  kind: 'link_result';
+  uuid: string;
+  ok: boolean;
+  discordTag: string;
+  error?: string;
+}
+
 // -- union ------------------------------------------------------------------
 
 export type Packet =
@@ -190,6 +208,8 @@ export type Packet =
   | AdvancementEvent
   | RareDropEvent
   | ServerLifecycleEvent
+  | LinkAttemptPacket
+  | LinkResultPacket
   | ConsoleCommand
   | ConsoleResult
   | BroadcastCommand
