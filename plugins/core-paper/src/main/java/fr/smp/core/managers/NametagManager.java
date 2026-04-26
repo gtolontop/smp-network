@@ -15,27 +15,20 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Renders a [TAG] prefix above each player's head by driving a single shared
- * scoreboard-team per game-team on the main scoreboard.
+ * Renders a rank prefix + [TAG] above each player's head using per-player
+ * scoreboard teams on the main scoreboard.
  *
- * Why main scoreboard: nametags above players always use the main scoreboard,
- * so we must write the prefix/suffix there — it does not matter that
- * {@link ScoreboardManager} hands each player their own sidebar scoreboard.
- *
- * Previous implementation walked every {@code smp_*} scoreboard-team per player
- * per refresh ({@code O(N * M)}), which scaled badly with many teams. We now
- * remember the scoreboard-team each player is currently assigned to and only
- * act when it changes — {@code O(changed players)} instead.
+ * Each player gets their own scoreboard team so the prefix (grade + team tag)
+ * is unique per player. The prefix is only updated when it changes to avoid
+ * redundant packet sends.
  */
 public class NametagManager {
 
     private static final MiniMessage MM = MiniMessage.miniMessage();
 
     private final SMPCore plugin;
-    /** uuid → bukkit scoreboard-team name the player is currently assigned to. */
     private final Map<UUID, String> currentTeamByPlayer = new HashMap<>();
-    /** bukkit scoreboard-team name → last prefix string sent (to skip redundant prefix writes). */
-    private final Map<String, String> currentPrefixByTeam = new HashMap<>();
+    private final Map<UUID, String> currentPrefixByPlayer = new HashMap<>();
 
     public NametagManager(SMPCore plugin) {
         this.plugin = plugin;
@@ -58,44 +51,36 @@ public class NametagManager {
         apply(Bukkit.getScoreboardManager().getMainScoreboard(), p);
     }
 
-    /**
-     * Called from JoinListener / quit so we stop tracking someone who left and don't
-     * leak their entry in the currentTeamByPlayer map over long uptimes.
-     */
     public void forget(UUID uuid) {
         currentTeamByPlayer.remove(uuid);
+        currentPrefixByPlayer.remove(uuid);
     }
 
     private void apply(Scoreboard main, Player p) {
-        // Hunted players are managed by HuntedManager (smp_hunted team with [CHASSÉ] prefix + red glow).
         if (plugin.hunted() != null && plugin.hunted().isHunted(p.getUniqueId())) return;
 
-        PlayerData d = plugin.players().get(p);
-        String teamId = d != null ? d.teamId() : null;
-        String bukkitTeamName = teamId != null ? ("smp_" + safe(teamId)) : "smp_noteam";
+        UUID uuid = p.getUniqueId();
+        String bukkitTeamName = "smp_p" + safe(p.getName());
         if (bukkitTeamName.length() > 16) bukkitTeamName = bukkitTeamName.substring(0, 16);
 
-        // Compute the prefix we want.
-        String wantPrefixKey;
-        Component prefix;
-        if (teamId != null) {
-            TeamManager.Team gt = plugin.teams().get(teamId);
-            if (gt != null) {
-                String raw = gt.color() + "[" + gt.tag() + "]<reset> ";
-                wantPrefixKey = raw;
-                prefix = MM.deserialize(raw);
-            } else {
-                wantPrefixKey = "";
-                prefix = Component.empty();
-            }
-        } else {
-            wantPrefixKey = "";
-            prefix = Component.empty();
+        String rank = "";
+        if (plugin.permissions() != null) {
+            rank = plugin.permissions().prefixOf(uuid);
+            if (rank == null) rank = "";
         }
 
-        // Move the player if their scoreboard-team changed. We only walk teams when we
-        // know we need to remove the player from a stale assignment.
-        String previousTeam = currentTeamByPlayer.get(p.getUniqueId());
+        String teamTag = "";
+        PlayerData d = plugin.players().get(p);
+        if (d != null && d.teamId() != null) {
+            TeamManager.Team gt = plugin.teams().get(d.teamId());
+            if (gt != null) {
+                teamTag = gt.color() + "[" + gt.tag() + "]<reset> ";
+            }
+        }
+
+        String wantPrefix = rank + teamTag;
+
+        String previousTeam = currentTeamByPlayer.get(uuid);
         if (previousTeam != null && !previousTeam.equals(bukkitTeamName)) {
             Team old = main.getTeam(previousTeam);
             if (old != null && old.hasEntry(p.getName())) {
@@ -106,16 +91,14 @@ public class NametagManager {
         Team team = main.getTeam(bukkitTeamName);
         if (team == null) team = main.registerNewTeam(bukkitTeamName);
 
-        // Only update prefix when it has actually changed — this is the packet-heavy
-        // part. Prior code deserialised + set prefix every 60 ticks per player.
-        String lastPrefixKey = currentPrefixByTeam.get(bukkitTeamName);
-        if (lastPrefixKey == null || !lastPrefixKey.equals(wantPrefixKey)) {
-            team.prefix(prefix);
-            currentPrefixByTeam.put(bukkitTeamName, wantPrefixKey);
+        String lastPrefix = currentPrefixByPlayer.get(uuid);
+        if (lastPrefix == null || !lastPrefix.equals(wantPrefix)) {
+            team.prefix(wantPrefix.isEmpty() ? Component.empty() : MM.deserialize(wantPrefix));
+            currentPrefixByPlayer.put(uuid, wantPrefix);
         }
 
         if (!team.hasEntry(p.getName())) team.addEntry(p.getName());
-        currentTeamByPlayer.put(p.getUniqueId(), bukkitTeamName);
+        currentTeamByPlayer.put(uuid, bukkitTeamName);
     }
 
     private String safe(String s) {
