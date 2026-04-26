@@ -16,7 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.BiConsumer;
+import java.util.function.LongConsumer;
 
 /**
  * Per-player visibility tracker with a chunk-keyed spatial index.
@@ -47,7 +47,9 @@ public final class VisibilityEngine {
     }
 
     public void start() {
-        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 1L, 1L);
+        // 2L period: anti-ESP/anti-xray reveal cadence. 20Hz → 10Hz halves the
+        // per-player chunk scan without any perceivable reveal lag.
+        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 1L, 2L);
     }
 
     public void shutdown() {
@@ -64,30 +66,41 @@ public final class VisibilityEngine {
     }
 
     /**
-     * Watch a position for visibility changes. The callback is retained but NOT fired
-     * by the engine — consumers (XrayModule) poll cached state themselves. We keep the
-     * callback parameter for API compat only.
+     * Watch a position for visibility changes. Idempotent per (player, packedPos).
+     * Returns the Watched node so callers can mutate flags (e.g. xrayMasked) without a
+     * second lookup.
      */
-    public void watch(Player player, long packedPos, BiConsumer<Boolean, Long> onChange) {
+    public Watched watch(Player player, long packedPos) {
         PlayerView v = view(player);
-        if (v.watched.putIfAbsent(packedPos, new Watched(onChange, false, 0L)) == null) {
+        Watched fresh = new Watched(packedPos, false, 0L);
+        Watched existing = v.watched.putIfAbsent(packedPos, fresh);
+        Watched w = existing == null ? fresh : existing;
+        if (existing == null) {
             long chunkKey = chunkKey(unpackX(packedPos) >> 4, unpackZ(packedPos) >> 4);
-            v.byChunk.computeIfAbsent(chunkKey, k -> ConcurrentHashMap.newKeySet()).add(packedPos);
+            v.byChunk.computeIfAbsent(chunkKey, k -> ConcurrentHashMap.newKeySet()).add(w);
         }
         v.pending.add(packedPos);
+        return w;
     }
 
     public void unwatch(Player player, long packedPos) {
         PlayerView v = views.get(player.getUniqueId());
         if (v == null) return;
-        if (v.watched.remove(packedPos) != null) {
+        Watched removed = v.watched.remove(packedPos);
+        if (removed != null) {
             long chunkKey = chunkKey(unpackX(packedPos) >> 4, unpackZ(packedPos) >> 4);
-            Set<Long> set = v.byChunk.get(chunkKey);
+            Set<Watched> set = v.byChunk.get(chunkKey);
             if (set != null) {
-                set.remove(packedPos);
+                set.remove(removed);
                 if (set.isEmpty()) v.byChunk.remove(chunkKey);
             }
         }
+    }
+
+    /** Direct lookup by packedPos — used by Netty-thread callers that only have coords. */
+    public Watched watchedAt(Player player, long packedPos) {
+        PlayerView v = views.get(player.getUniqueId());
+        return v == null ? null : v.watched.get(packedPos);
     }
 
     /** Synchronous LoS test. Costly — only for one-shot decisions. Main thread only. */
@@ -109,6 +122,23 @@ public final class VisibilityEngine {
     }
 
     /**
+     * Drain watched positions whose cached visibility changed since the last drain.
+     * XrayModule uses this to react only to real visibility transitions instead of
+     * sweeping every nearby watch on a fixed timer.
+     */
+    public int drainDirty(Player player, int max, LongConsumer consumer) {
+        PlayerView v = views.get(player.getUniqueId());
+        if (v == null) return 0;
+        int processed = 0;
+        Long key;
+        while (processed < max && (key = v.dirty.poll()) != null) {
+            consumer.accept(key);
+            processed++;
+        }
+        return processed;
+    }
+
+    /**
      * Force re-evaluation of all watched positions within {@code radius} blocks of
      * (wx,wy,wz). Called from block break/place/explosion listeners so LoS changes are
      * picked up immediately. Iterates only chunks overlapping the sphere — NOT all
@@ -127,16 +157,14 @@ public final class VisibilityEngine {
             if (v == null || v.byChunk.isEmpty()) continue;
             for (int cx = cxMin; cx <= cxMax; cx++) {
                 for (int cz = czMin; cz <= czMax; cz++) {
-                    Set<Long> set = v.byChunk.get(chunkKey(cx, cz));
+                    Set<Watched> set = v.byChunk.get(chunkKey(cx, cz));
                     if (set == null || set.isEmpty()) continue;
-                    for (long k : set) {
-                        int kx = unpackX(k), ky = unpackY(k), kz = unpackZ(k);
+                    for (Watched w : set) {
+                        int kx = unpackX(w.key), ky = unpackY(w.key), kz = unpackZ(w.key);
                         int dx = kx - wx, dy = ky - wy, dz = kz - wz;
                         if (dx * dx + dy * dy + dz * dz > r2) continue;
-                        Watched w = v.watched.get(k);
-                        if (w == null) continue;
                         w.lastChecked = 0L;
-                        v.pending.add(k);
+                        v.pending.add(w.key);
                         touched++;
                     }
                 }
@@ -188,11 +216,7 @@ public final class VisibilityEngine {
             while (processed < budget && (key = v.pending.poll()) != null) {
                 Watched w = v.watched.get(key);
                 if (w == null) continue;
-                int bx = unpackX(key), by = unpackY(key), bz = unpackZ(key);
-                if (world.getMinHeight() > by || by >= world.getMaxHeight()) continue;
-                boolean visible = raytrace(eye, bx, by, bz);
-                w.lastChecked = now;
-                w.lastVisible = visible;
+                refreshVisibility(v, w, world, eye, now);
                 processed++;
             }
 
@@ -208,22 +232,31 @@ public final class VisibilityEngine {
             outer:
             for (int dcx = -r; dcx <= r; dcx++) {
                 for (int dcz = -r; dcz <= r; dcz++) {
-                    Set<Long> set = v.byChunk.get(chunkKey(pcx + dcx, pcz + dcz));
+                    Set<Watched> set = v.byChunk.get(chunkKey(pcx + dcx, pcz + dcz));
                     if (set == null || set.isEmpty()) continue;
-                    for (long k : set) {
+                    for (Watched w : set) {
                         if (processed >= budget) break outer;
-                        Watched w = v.watched.get(k);
-                        if (w == null) continue;
                         if (now - w.lastChecked < ttl) continue;
-                        int bx = unpackX(k), by = unpackY(k), bz = unpackZ(k);
-                        if (world.getMinHeight() > by || by >= world.getMaxHeight()) continue;
-                        boolean visible = raytrace(eye, bx, by, bz);
-                        w.lastChecked = now;
-                        w.lastVisible = visible;
+                        refreshVisibility(v, w, world, eye, now);
                         processed++;
                     }
                 }
             }
+        }
+    }
+
+    private void refreshVisibility(PlayerView view, Watched watched, World world, Location eye, long now) {
+        int bx = unpackX(watched.key);
+        int by = unpackY(watched.key);
+        int bz = unpackZ(watched.key);
+        if (world.getMinHeight() > by || by >= world.getMaxHeight()) return;
+        boolean previousVisible = watched.lastVisible;
+        long previousCheck = watched.lastChecked;
+        boolean visible = raytrace(eye, bx, by, bz);
+        watched.lastChecked = now;
+        watched.lastVisible = visible;
+        if (previousCheck == 0L || previousVisible != visible) {
+            view.dirty.add(watched.key);
         }
     }
 
@@ -270,17 +303,32 @@ public final class VisibilityEngine {
 
     public static final class PlayerView {
         public final ConcurrentMap<Long, Watched> watched = new ConcurrentHashMap<>();
-        public final ConcurrentMap<Long, Set<Long>> byChunk = new ConcurrentHashMap<>();
+        public final ConcurrentMap<Long, Set<Watched>> byChunk = new ConcurrentHashMap<>();
         public final ConcurrentLinkedDeque<Long> pending = new ConcurrentLinkedDeque<>();
+        public final ConcurrentLinkedDeque<Long> dirty = new ConcurrentLinkedDeque<>();
     }
 
+    /**
+     * Per-(player, pos) tracking node. The packed {@link #key} is embedded so that
+     * iteration over {@link PlayerView#byChunk} yields everything a reconcile loop
+     * needs without a secondary {@code watched.get(key)} CHM lookup per position —
+     * that second lookup was the single dominant cost of xray reconcile on the
+     * profiler (TreeBin.find ~28 ms/tick with ~5k watches per player).
+     *
+     * {@code xrayMasked} replaces the old per-player {@code Map<Long, Material>}
+     * that stored the mask state — the material was never read, only tested for
+     * presence, so a volatile boolean on the Watched itself is both cheaper
+     * (field read vs CHM.containsKey) and colocated with the reconcile's
+     * per-position work.
+     */
     public static final class Watched {
-        public final BiConsumer<Boolean, Long> callback;
+        public final long key;
         public volatile boolean lastVisible;
         public volatile long lastChecked;
+        public volatile boolean xrayMasked;
 
-        public Watched(BiConsumer<Boolean, Long> callback, boolean lastVisible, long lastChecked) {
-            this.callback = callback;
+        public Watched(long key, boolean lastVisible, long lastChecked) {
+            this.key = key;
             this.lastVisible = lastVisible;
             this.lastChecked = lastChecked;
         }
