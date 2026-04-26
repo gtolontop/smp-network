@@ -65,10 +65,19 @@ commands:
   baltop:
     description: "Top richest players (GUI)"
     aliases: [moneytop, richlist]
+  leaderboard:
+    description: "Browse all available leaderboards"
+    aliases: [lb, tops]
   sell:
     description: "Sell items (hand | all)"
+  sellall:
+    description: "Vend tout l'inventaire vendable en une commande"
+    aliases: [sa]
+  worth:
+    description: "Affiche la valeur de l'item en main"
+    aliases: [valeur, prix]
   shop:
-    description: "Open the shop GUI"
+    description: "Open the shop GUI. Admin: /shop on|off|toggle|reload"
   home:
     description: "Teleport to a home"
   homes:
@@ -87,6 +96,9 @@ commands:
   #   description: "Keyall countdown"
   end:
     description: "Enable/disable the End dimension (admin)"
+    permission: smp.admin
+  phantom:
+    description: "Enable/disable phantom spawning (admin)"
     permission: smp.admin
   heads:
     description: "Open the heads explorer GUI"
@@ -110,6 +122,9 @@ commands:
   playtime:
     description: "Show detailed playtime (AFK included) for you or another player"
     aliases: [pt]
+  stat:
+    description: "Affiche les statistiques détaillées d'un joueur"
+    aliases: [stats, statsplayer]
   ping:
     description: "Check network latency for yourself or another player"
   saphir:
@@ -122,6 +137,10 @@ commands:
     description: "Toggle vanish mode with movement safeguards"
     aliases: [v]
     permission: smp.vanish
+  fullbright:
+    description: "Toggle permanent client-side night vision"
+    aliases: [fb]
+    permission: smp.fullbright
   kick:
     description: "Kick a player with optional reason"
     permission: smp.moderation
@@ -131,6 +150,10 @@ commands:
   unban:
     description: "Unban a player"
     permission: smp.moderation
+  banlist:
+    description: "List all active bans (GUI)"
+    permission: smp.moderation
+    aliases: [bans, bl]
   mute:
     description: "Mute a player. Duration format: 1d2h30m (empty = permanent)"
     permission: smp.moderation
@@ -142,6 +165,10 @@ commands:
     aliases: [scoreboard]
   spawner:
     description: "Gérer les spawners custom (give/types)"
+    permission: smp.admin
+  voidstone:
+    description: "Administer voidstones (give/materials)"
+    aliases: [vstone]
     permission: smp.admin
   ce:
     description: "Custom enchants admin — list, book, apply, clear"
@@ -160,6 +187,10 @@ commands:
   online:
     description: "List all players across the network (OP)"
     aliases: [netlist, nlist, gplayers]
+    permission: smp.admin
+  skin:
+    description: "Manage cracked skins: info / reset / random / take"
+    aliases: [skins]
     permission: smp.admin
   gate:
     description: "Portcullis / animated gates — create, list, delete, force open/close"
@@ -185,6 +216,59 @@ commands:
     description: "Hologrammes TextDisplay : create / remove / list / lines / addline / setline / delline / tp / here"
     aliases: [hologram, holograms, hd]
     permission: smp.admin
+  admin:
+    description: "Toggle entre une poche admin (creative + fly, inv séparé) et ta poche joueur"
+    aliases: [adminmode, am]
+    permission: smp.admin
+  god:
+    description: "Toggle god mode (invincibilité)"
+    aliases: [godmode, tgm]
+    permission: smp.admin
+  heal:
+    description: "Soigne complètement un joueur (vie + faim + effets)"
+    aliases: [healme]
+    permission: smp.admin
+  fly:
+    description: "Toggle le vol pour un joueur"
+    aliases: [flymode]
+    permission: smp.admin
+  speed:
+    description: "Définit la vitesse de marche/vol (0-10)"
+    aliases: [speedset, fspeed]
+    permission: smp.admin
+  furnace:
+    description: "Cuit instantanément l'item en main"
+    aliases: [smelt, cook]
+    permission: smp.admin
+  send:
+    description: "Envoyer des joueurs vers un autre serveur (send <joueur> | all | allhere | server | me)"
+    aliases: [transfer]
+    permission: smp.admin
+  infoadmin:
+    description: "Affiche toutes les infos admin sur un joueur (IP, ban, mute, historique, etc.)"
+    aliases: [ia, whois]
+    permission: smp.admin
+  chat:
+    description: "Verrouille ou déverrouille le chat global"
+    aliases: [chatlevel, chaton, chatoff]
+    permission: smp.moderation
+  invrollback:
+    description: "Historique d'inventaires : list / peek / apply / snap"
+    aliases: [invroll, invhistory, invhist]
+    permission: smp.admin
+  repair:
+    description: "Repair item durability: hand, player hand, or all"
+    aliases: [fix, fixall]
+    permission: smp.admin
+  rename:
+    description: "Renomme l'item en main (MiniMessage). Sans argument = reset."
+    aliases: [renommer]
+  nick:
+    description: "Définir ou supprimer ton surnom affiché"
+    aliases: [nickname]
+  link:
+    description: "Lier ton compte Discord à Minecraft"
+    aliases: [discordlink]
 
 permissions:
   smp.admin:
@@ -210,6 +294,12 @@ permissions:
   smp.chat.format:
     description: "Use formatting codes (&l bold, &n underline, etc.)"
     default: op
+  smp.chat.antispam.bypass:
+    description: "Ignore the auto anti-spam (rate-limit + duplicate flood)"
+    default: op
+  smp.chat.bypass-lock:
+    description: "Parler même quand le chat est verrouillé"
+    default: op
   smp.perm.manage:
     description: "Manage the permissions system"
     default: op
@@ -225,3 +315,6 @@ permissions:
   smp.vanish.see:
     description: "See other vanished staff even when hidden"
     default: op
+  smp.fullbright:
+    description: "Use /fullbright"
+    default: true
