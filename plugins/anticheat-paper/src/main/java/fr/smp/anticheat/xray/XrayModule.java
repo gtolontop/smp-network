@@ -24,7 +24,6 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -48,11 +47,13 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class XrayModule {
 
+    private static final int DIRTY_RECONCILE_BUDGET = 256;
+    private static final int CHUNK_SCAN_BUDGET_PER_TICK = 4;
+
     private final AntiCheatPlugin plugin;
     private final AntiCheatConfig cfg;
     private final VisibilityEngine visibility;
 
-    private final ConcurrentMap<UUID, ConcurrentMap<Long, Material>> playerHidden = new ConcurrentHashMap<>();
     // Positions we are currently revealing. The outbound filter consults this set on
     // the Netty thread and lets the packet pass through unchanged (i.e. no re-mask).
     // Without this, a reveal BlockUpdatePacket sent from onVisibilityChange / reveal-
@@ -62,8 +63,14 @@ public final class XrayModule {
     // client keeps seeing netherrack. Happened in the nether because ancient_debris
     // sites are often cold watches: no prior LoS sample before the user broke a
     // neighbor, so cachedLoS was null and the filter re-masked the reveal packet.
-    private final ConcurrentMap<UUID, java.util.Set<Long>> pendingReveals = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<UUID, java.util.Set<Long>> pendingReveals = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<UUID, ReconcileState> reconcileStates = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentLinkedDeque<QueuedChunkScan> queuedChunkScans =
+            new java.util.concurrent.ConcurrentLinkedDeque<>();
+    private final java.util.concurrent.ConcurrentMap<UUID, java.util.Set<QueuedChunkKey>> queuedChunkScanKeys =
+            new ConcurrentHashMap<>();
     private BukkitTask revealTask;
+    private BukkitTask chunkScanTask;
 
     public XrayModule(AntiCheatPlugin plugin, AntiCheatConfig cfg, VisibilityEngine visibility) {
         this.plugin = plugin;
@@ -85,12 +92,20 @@ public final class XrayModule {
      * O(allWatchesForPlayer).
      */
     public void start() {
-        if (revealTask != null) return;
-        int period = Math.max(1, cfg.xrayReconcileTicks());
-        revealTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickReveal, period, period);
+        if (chunkScanTask == null) {
+            chunkScanTask = Bukkit.getScheduler().runTaskTimer(plugin, this::drainQueuedChunkScans, 1L, 1L);
+        }
+        if (revealTask == null) {
+            int period = Math.max(1, cfg.xrayReconcileTicks());
+            revealTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickReveal, period, period);
+        }
     }
 
     public void stop() {
+        if (chunkScanTask != null) {
+            chunkScanTask.cancel();
+            chunkScanTask = null;
+        }
         if (revealTask != null) {
             revealTask.cancel();
             revealTask = null;
@@ -98,28 +113,44 @@ public final class XrayModule {
     }
 
     private void tickReveal() {
+        long now = System.currentTimeMillis();
         for (Player player : Bukkit.getOnlinePlayers()) {
             try {
                 if (plugin.bypass().isBypassed(player)) continue;
                 XrayProfile profile = cfg.xrayProfile(player.getWorld().getEnvironment());
                 if (!profile.enabled) continue;
-                reconcilePlayer(player, profile);
+                reconcileDirty(player, profile, now);
+                if (shouldRunFullSweep(player, profile)) {
+                    reconcilePlayerSweep(player, profile, now);
+                    rememberSweep(player);
+                }
             } catch (Throwable t) {
                 plugin.getLogger().fine("tickReveal error for " + player.getName() + ": " + t.getMessage());
             }
         }
     }
 
-    private void reconcilePlayer(Player player, XrayProfile profile) {
+    private void reconcileDirty(Player player, XrayProfile profile, long now) {
         VisibilityEngine.PlayerView view = visibility.view(player);
         if (view.byChunk.isEmpty()) return;
-        UUID id = player.getUniqueId();
-        ConcurrentMap<Long, Material> map = playerHidden.get(id);
         double px = player.getX(), py = player.getY() + 1.5, pz = player.getZ();
         double rd = profile.revealDistance;
         double rd2 = rd * rd;
-        long now = System.currentTimeMillis();
-        int freshBudget = 32;
+
+        visibility.drainDirty(player, DIRTY_RECONCILE_BUDGET, key -> {
+            VisibilityEngine.Watched watched = view.watched.get(key);
+            if (watched == null) return;
+            reconcileWatch(player, profile, watched, px, py, pz, rd2, now, false, null);
+        });
+    }
+
+    private void reconcilePlayerSweep(Player player, XrayProfile profile, long now) {
+        VisibilityEngine.PlayerView view = visibility.view(player);
+        if (view.byChunk.isEmpty()) return;
+        double px = player.getX(), py = player.getY() + 1.5, pz = player.getZ();
+        double rd = profile.revealDistance;
+        double rd2 = rd * rd;
+        int[] freshBudget = {32};
 
         // Chunk-scoped iteration: only watches in chunks close enough to matter. Far
         // chunks stay masked (client still sees the block as stone, and when the
@@ -130,56 +161,89 @@ public final class XrayModule {
         int pcz = player.getLocation().getBlockZ() >> 4;
         int chunkR = (int) Math.ceil(rd / 16.0) + 2;
 
+        // Hot loop: iterate Watched refs directly from byChunk. Previously this did two
+        // CHM lookups per position (view.watched.get(key) + playerHidden[id].containsKey(key))
+        // which dominated the tick profile at ~75 ms with a few players. Key + masked
+        // flag now live on Watched itself — zero CHM ops inside the loop body.
         for (int dcx = -chunkR; dcx <= chunkR; dcx++) {
             for (int dcz = -chunkR; dcz <= chunkR; dcz++) {
                 var set = view.byChunk.get(VisibilityEngine.chunkKey(pcx + dcx, pcz + dcz));
                 if (set == null || set.isEmpty()) continue;
-                for (long key : set) {
-                    VisibilityEngine.Watched w = view.watched.get(key);
-                    if (w == null) continue;
-                    int wx = VisibilityEngine.unpackX(key);
-                    int wy = VisibilityEngine.unpackY(key);
-                    int wz = VisibilityEngine.unpackZ(key);
-                    double dx = px - (wx + 0.5), dy = py - (wy + 0.5), dz = pz - (wz + 0.5);
-                    double d2 = dx * dx + dy * dy + dz * dz;
-                    boolean inRange = d2 <= rd2;
-                    boolean cachedLos = w.lastVisible;
-                    boolean isMasked = map != null && map.containsKey(key);
-
-                    if (!inRange) {
-                        if (!isMasked) onVisibilityChange(player, profile, wx, wy, wz, false);
-                        continue;
-                    }
-
-                    if (isMasked && cachedLos) {
-                        onVisibilityChange(player, profile, wx, wy, wz, true);
-                        continue;
-                    }
-
-                    if (!isMasked && cachedLos) continue;
-
-                    // cachedLos == false. Fresh-raytrace guarded by a small budget so one
-                    // player in a dense ore field doesn't monopolise the main thread.
-                    if (freshBudget <= 0) continue;
-                    freshBudget--;
-                    boolean fresh = visibility.hasLineOfSight(player, wx, wy, wz);
-                    w.lastVisible = fresh;
-                    w.lastChecked = now;
-
-                    if (fresh == !isMasked) continue;
-                    onVisibilityChange(player, profile, wx, wy, wz, fresh);
+                for (VisibilityEngine.Watched w : set) {
+                    reconcileWatch(player, profile, w, px, py, pz, rd2, now, true, freshBudget);
                 }
             }
         }
     }
 
+    private void reconcileWatch(Player player,
+                                XrayProfile profile,
+                                VisibilityEngine.Watched watched,
+                                double px, double py, double pz,
+                                double revealDistanceSquared,
+                                long now,
+                                boolean allowFreshRaytrace,
+                                int[] freshBudgetHolder) {
+        long key = watched.key;
+        int wx = VisibilityEngine.unpackX(key);
+        int wy = VisibilityEngine.unpackY(key);
+        int wz = VisibilityEngine.unpackZ(key);
+        double dx = px - (wx + 0.5);
+        double dy = py - (wy + 0.5);
+        double dz = pz - (wz + 0.5);
+        double d2 = dx * dx + dy * dy + dz * dz;
+        boolean inRange = d2 <= revealDistanceSquared;
+        boolean cachedLos = watched.lastVisible;
+        boolean isMasked = watched.xrayMasked;
+
+        if (!inRange) {
+            if (!isMasked) onVisibilityChange(player, profile, wx, wy, wz, false);
+            return;
+        }
+
+        if (isMasked && cachedLos) {
+            onVisibilityChange(player, profile, wx, wy, wz, true);
+            return;
+        }
+
+        if (!isMasked && !cachedLos) {
+            onVisibilityChange(player, profile, wx, wy, wz, false);
+            return;
+        }
+
+        if (!allowFreshRaytrace || !isMasked || !profile.maskCaveOres) return;
+        if (freshBudgetHolder == null || freshBudgetHolder[0] <= 0) return;
+
+        // Fresh-raytrace is only needed for the expensive paranoid mode where even
+        // cave-exposed blocks stay masked and movement alone can reveal them.
+        freshBudgetHolder[0]--;
+        boolean fresh = visibility.hasLineOfSight(player, wx, wy, wz);
+        watched.lastVisible = fresh;
+        watched.lastChecked = now;
+        if (fresh == !isMasked) return;
+        onVisibilityChange(player, profile, wx, wy, wz, fresh);
+    }
+
+    private boolean shouldRunFullSweep(Player player, XrayProfile profile) {
+        ReconcileState state = reconcileStates.computeIfAbsent(player.getUniqueId(), id -> new ReconcileState());
+        int pcx = player.getLocation().getBlockX() >> 4;
+        int pcz = player.getLocation().getBlockZ() >> 4;
+        if (!state.hasSweep) return true;
+        if (profile.maskCaveOres) return true;
+        return state.lastChunkX != pcx || state.lastChunkZ != pcz;
+    }
+
+    private void rememberSweep(Player player) {
+        ReconcileState state = reconcileStates.computeIfAbsent(player.getUniqueId(), id -> new ReconcileState());
+        state.lastChunkX = player.getLocation().getBlockX() >> 4;
+        state.lastChunkZ = player.getLocation().getBlockZ() >> 4;
+        state.hasSweep = true;
+    }
+
     public ClientboundLevelChunkWithLightPacket rewriteChunk(Player player, ClientboundLevelChunkWithLightPacket pkt) {
         XrayProfile profile = cfg.xrayProfile(player.getWorld().getEnvironment());
         if (!profile.enabled) return pkt;
-        int chunkX = pkt.getX();
-        int chunkZ = pkt.getZ();
-        UUID id = player.getUniqueId();
-        plugin.getServer().getScheduler().runTask(plugin, () -> scanAndMask(player, id, profile, chunkX, chunkZ));
+        enqueueChunkScan(player, pkt.getX(), pkt.getZ());
         return pkt;
     }
 
@@ -188,8 +252,8 @@ public final class XrayModule {
             XrayProfile profile = cfg.xrayProfile(player.getWorld().getEnvironment());
             if (!profile.enabled) return pkt;
             BlockState state = pkt.getBlockState();
-            Material mat = CraftBlockType.minecraftToBukkit(state.getBlock());
-            if (!profile.hiddenBlocks.contains(mat)) return pkt;
+            Block block = state.getBlock();
+            if (!profile.hiddenBlockTypes.contains(block)) return pkt;
             BlockPos pos = pkt.getPos();
             int wx = pos.getX(), wy = pos.getY(), wz = pos.getZ();
             if (wy < profile.minY || wy > profile.maxY) return pkt;
@@ -206,8 +270,8 @@ public final class XrayModule {
             // netherrack, which was exactly the reported symptom.
             java.util.Set<Long> pending = pendingReveals.get(id);
             if (pending != null && pending.remove(key)) {
-                ConcurrentMap<Long, Material> existing = playerHidden.get(id);
-                if (existing != null) existing.remove(key);
+                VisibilityEngine.Watched existing = visibility.watchedAt(player, key);
+                if (existing != null) existing.xrayMasked = false;
                 return pkt;
             }
 
@@ -217,17 +281,20 @@ public final class XrayModule {
             // placed blocks always hit this path and stay visible without any raytrace
             // dance. Also fixes the "I place from an angle, block shows as stone" bug
             // where a subsequent LoS raytrace false-negative would re-mask it.
-            if (!profile.maskCaveOres && hasOpenFaceFromLevel(player, wx, wy, wz)) {
-                ConcurrentMap<Long, Material> existing = playerHidden.get(id);
-                if (existing != null) existing.remove(key);
+            // Containers excluded: see scanAndMask for the reasoning (no BE ⇒ invisible).
+            if (!profile.maskCaveOres
+                    && !cfg.containerBlockTypes().contains(block)
+                    && hasOpenFaceFromLevel(player, wx, wy, wz)) {
+                VisibilityEngine.Watched existing = visibility.watchedAt(player, key);
+                if (existing != null) existing.xrayMasked = false;
                 return pkt;
             }
 
             // If the position is already both in-range AND has cached LoS, let the real
             // block through. Safe against a placed ore showing up for one frame.
             if (isRevealed(player, profile, wx, wy, wz)) {
-                ConcurrentMap<Long, Material> existing = playerHidden.get(id);
-                if (existing != null) existing.remove(key);
+                VisibilityEngine.Watched existing = visibility.watchedAt(player, key);
+                if (existing != null) existing.xrayMasked = false;
                 return pkt;
             }
 
@@ -235,15 +302,9 @@ public final class XrayModule {
             // are reconciled by the tick loops. Without this, a /setblock or player-placed
             // spawner/chest was masked once and then stuck as stone forever because no
             // watch existed for the engine to reveal it later.
-            ConcurrentMap<Long, Material> map =
-                    playerHidden.computeIfAbsent(id, k -> new ConcurrentHashMap<>());
             Material rep = pickReplacement(player, wx, wy, wz);
-            Material prev = map.putIfAbsent(key, rep);
-            if (prev == null) {
-                final int fwx = wx, fwy = wy, fwz = wz;
-                visibility.watch(player, key,
-                        (visible, k) -> onVisibilityChange(player, profile, fwx, fwy, fwz, visible));
-            }
+            VisibilityEngine.Watched w = visibility.watch(player, key);
+            w.xrayMasked = true;
             BlockState fake = blockStateOf(rep);
             return new ClientboundBlockUpdatePacket(pos, fake);
         } catch (Throwable t) {
@@ -292,10 +353,8 @@ public final class XrayModule {
 
         int minY = Math.max(level.getMinY(), profile.minY);
         int maxY = Math.min(level.getMaxY(), profile.maxY);
-        Set<Material> hiddenBlocks = profile.hiddenBlocks;
-
-        ConcurrentMap<Long, Material> orePositions =
-                playerHidden.computeIfAbsent(id, k -> new ConcurrentHashMap<>());
+        Set<Block> hiddenBlocks = profile.hiddenBlockTypes;
+        Set<Block> containerBlocks = cfg.containerBlockTypes();
 
         List<long[]> packed = new ArrayList<>();
         LevelChunkSection[] sections = chunk.getSections();
@@ -313,8 +372,7 @@ public final class XrayModule {
                     for (int dx = 0; dx < 16; dx++) {
                         BlockState state = sec.getBlockState(dx, dy, dz);
                         Block b = state.getBlock();
-                        Material mat = CraftBlockType.minecraftToBukkit(b);
-                        if (!hiddenBlocks.contains(mat)) continue;
+                        if (!hiddenBlocks.contains(b)) continue;
                         int wx = (chunkX << 4) + dx;
                         int wz = (chunkZ << 4) + dz;
                         // Skip ores that already touch air — they are naturally visible
@@ -322,12 +380,20 @@ public final class XrayModule {
                         // UX for legitimate players. Xray is still blocked for any ore
                         // buried in solid rock (the common cheat target). Nether / end can
                         // opt back in via mask-cave-ores: true in config.
-                        if (!profile.maskCaveOres && hasOpenFace(chunk, level, wx, wy, wz)) {
+                        //
+                        // Containers are explicitly excluded from this skip: their BE data
+                        // is always stripped from the chunk packet by ContainerEspModule,
+                        // and a chest/barrel/etc. block renders via BlockEntityRenderer —
+                        // no BE ⇒ invisible block. If we ALSO skip masking them when
+                        // exposed, the client sees chest ID + no BE = ghost/invisible
+                        // chest. Always masking exposed containers keeps them as stone
+                        // until LoS reveals both block + BE together.
+                        if (!profile.maskCaveOres
+                                && !containerBlocks.contains(b)
+                                && hasOpenFace(chunk, level, wx, wy, wz)) {
                             skippedExposed++;
                             continue;
                         }
-                        long key = VisibilityEngine.pack(wx, wy, wz);
-                        orePositions.put(key, mat);
                         packed.add(new long[]{wx, wy, wz});
                     }
                 }
@@ -350,7 +416,8 @@ public final class XrayModule {
             sp.connection.send(new ClientboundBlockUpdatePacket(new BlockPos(wx, wy, wz), fake));
 
             long key = VisibilityEngine.pack(wx, wy, wz);
-            visibility.watch(player, key, (visible, k) -> onVisibilityChange(player, profile, wx, wy, wz, visible));
+            VisibilityEngine.Watched w = visibility.watch(player, key);
+            w.xrayMasked = true;
         }
 
         if (profile.fakeOreInjection && profile.fakeOreDensity > 0) {
@@ -387,24 +454,24 @@ public final class XrayModule {
             ServerLevel level = (ServerLevel) sp.level();
             BlockPos pos = new BlockPos(wx, wy, wz);
             boolean reveal = visible && isRevealed(player, profile, wx, wy, wz);
-            ConcurrentMap<Long, Material> map = playerHidden.get(player.getUniqueId());
             long packedPos = VisibilityEngine.pack(wx, wy, wz);
+            VisibilityEngine.Watched w = visibility.watchedAt(player, packedPos);
             if (plugin.getConfig().getBoolean("debug", false)) {
                 plugin.getLogger().info("[xray-reveal] " + player.getName()
                         + " pos=(" + wx + "," + wy + "," + wz + ")"
                         + " env=" + player.getWorld().getEnvironment()
                         + " visible=" + visible
                         + " reveal=" + reveal
-                        + " wasMasked=" + (map != null && map.containsKey(packedPos)));
+                        + " wasMasked=" + (w != null && w.xrayMasked));
             }
             if (reveal) {
-                // IMPORTANT: remove from masked map BEFORE sending packets. The outbound
-                // BE packet we are about to enqueue will be read back by this same filter
+                // IMPORTANT: clear masked flag BEFORE sending packets. The outbound BE
+                // packet we are about to enqueue will be read back by this same filter
                 // on the Netty thread (ContainerEspModule.rewriteBlockEntity), which
-                // consults isMasked() to decide drop-or-pass. If we removed afterwards,
+                // consults isMasked() to decide drop-or-pass. If we cleared afterwards,
                 // the BE packet would be dropped and e.g. a revealed spawner would show
                 // as an empty cage because its spawn-entity NBT never reached the client.
-                if (map != null) map.remove(packedPos);
+                if (w != null) w.xrayMasked = false;
                 // Mark the reveal packet as authoritative so the filter doesn't re-mask.
                 pendingReveals.computeIfAbsent(player.getUniqueId(),
                         k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(packedPos);
@@ -420,9 +487,15 @@ public final class XrayModule {
                 // neighbor would otherwise mask a block the player can still plainly
                 // see. If the block has any air-facing face, it's naturally visible and
                 // we must not mask it (bug: "I placed X, broke a block nearby, X
-                // despawned into stone").
-                if (!profile.maskCaveOres && hasOpenFaceFromLevel(player, wx, wy, wz)) {
-                    if (map != null && map.remove(packedPos) != null) {
+                // despawned into stone"). Containers are excluded: their BE is stripped
+                // on chunk send by ContainerEspModule, so "real block + no BE" would
+                // render as an invisible chest. Force-mask containers as stone whenever
+                // visibility goes false.
+                Block realBlock = level.getBlockState(pos).getBlock();
+                boolean isContainer = cfg.containerBlockTypes().contains(realBlock);
+                if (!isContainer && !profile.maskCaveOres && hasOpenFaceFromLevel(player, wx, wy, wz)) {
+                    if (w != null && w.xrayMasked) {
+                        w.xrayMasked = false;
                         pendingReveals.computeIfAbsent(player.getUniqueId(),
                                 k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(packedPos);
                         sp.connection.send(new ClientboundBlockUpdatePacket(level, pos));
@@ -435,7 +508,7 @@ public final class XrayModule {
                     return;
                 }
                 Material rep = pickReplacement(player, wx, wy, wz);
-                if (map != null) map.put(packedPos, rep);
+                if (w != null) w.xrayMasked = true;
                 sp.connection.send(new ClientboundBlockUpdatePacket(pos, blockStateOf(rep)));
             }
         } catch (Throwable t) {
@@ -460,8 +533,9 @@ public final class XrayModule {
     }
 
     public void clearPlayer(UUID id) {
-        playerHidden.remove(id);
         pendingReveals.remove(id);
+        reconcileStates.remove(id);
+        queuedChunkScanKeys.remove(id);
     }
 
     /**
@@ -473,13 +547,12 @@ public final class XrayModule {
      */
     public void revealOnInteract(Player player, int wx, int wy, int wz) {
         UUID id = player.getUniqueId();
-        ConcurrentMap<Long, Material> map = playerHidden.get(id);
-        if (map == null) return;
         long key = VisibilityEngine.pack(wx, wy, wz);
-        // Already removed here — any outbound BE packet for this pos will now see
+        // Already cleared here — any outbound BE packet for this pos will now see
         // isMasked()=false in ContainerEspModule and pass through.
-        Material masked = map.remove(key);
-        if (masked == null) return;
+        VisibilityEngine.Watched w = visibility.watchedAt(player, key);
+        if (w == null || !w.xrayMasked) return;
+        w.xrayMasked = false;
         try {
             ServerPlayer sp = ((CraftPlayer) player).getHandle();
             ServerLevel level = (ServerLevel) sp.level();
@@ -493,20 +566,16 @@ public final class XrayModule {
                 if (update != null) sp.connection.send(update);
             }
             // Also mark cache as visible so tickReveal doesn't immediately re-mask us.
-            VisibilityEngine.PlayerView view = visibility.view(player);
-            VisibilityEngine.Watched w = view.watched.get(key);
-            if (w != null) {
-                w.lastVisible = true;
-                w.lastChecked = System.currentTimeMillis();
-            }
+            w.lastVisible = true;
+            w.lastChecked = System.currentTimeMillis();
         } catch (Throwable ignored) {
         }
     }
 
     /** Returns true if this exact position is currently masked for this player. */
     public boolean isMasked(Player player, int wx, int wy, int wz) {
-        ConcurrentMap<Long, Material> map = playerHidden.get(player.getUniqueId());
-        return map != null && map.containsKey(VisibilityEngine.pack(wx, wy, wz));
+        VisibilityEngine.Watched w = visibility.watchedAt(player, VisibilityEngine.pack(wx, wy, wz));
+        return w != null && w.xrayMasked;
     }
 
     /**
@@ -538,24 +607,72 @@ public final class XrayModule {
         int minY = level.getMinY();
         int maxY = level.getMaxY();
         int[][] deltas = {{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (int[] d : deltas) {
             int nx = wx + d[0], ny = wy + d[1], nz = wz + d[2];
             if (ny < minY || ny >= maxY) return true;
             BlockState neighbor;
             int ncx = nx >> 4, ncz = nz >> 4;
+            cursor.set(nx, ny, nz);
             if (ncx == cx && ncz == cz) {
-                neighbor = chunk.getBlockState(new BlockPos(nx, ny, nz));
+                neighbor = chunk.getBlockState(cursor);
             } else {
                 LevelChunk nc = level.getChunkSource().getChunkNow(ncx, ncz);
                 // Unknown neighbor chunk — conservatively assume solid so we don't miss
                 // a masking opportunity. The border ores will re-evaluate on subsequent
                 // rescans if the neighbor chunk loads.
                 if (nc == null) continue;
-                neighbor = nc.getBlockState(new BlockPos(nx, ny, nz));
+                neighbor = nc.getBlockState(cursor);
             }
-            Material nmat = CraftBlockType.minecraftToBukkit(neighbor.getBlock());
-            if (!nmat.isOccluding()) return true;
+            if (!neighbor.isRedstoneConductor(level, cursor)) return true;
         }
         return false;
     }
+
+    private void enqueueChunkScan(Player player, int chunkX, int chunkZ) {
+        UUID playerId = player.getUniqueId();
+        QueuedChunkKey key = new QueuedChunkKey(player.getWorld().getUID(), VisibilityEngine.chunkKey(chunkX, chunkZ));
+        java.util.Set<QueuedChunkKey> queued = queuedChunkScanKeys.computeIfAbsent(
+                playerId, ignored -> java.util.concurrent.ConcurrentHashMap.newKeySet());
+        if (!queued.add(key)) return;
+        queuedChunkScans.add(new QueuedChunkScan(playerId, key, chunkX, chunkZ));
+    }
+
+    private void drainQueuedChunkScans() {
+        int processed = 0;
+        while (processed < CHUNK_SCAN_BUDGET_PER_TICK) {
+            QueuedChunkScan queued = queuedChunkScans.poll();
+            if (queued == null) return;
+            try {
+                Player player = Bukkit.getPlayer(queued.playerId());
+                if (player == null || !player.isOnline()) continue;
+                if (!player.getWorld().getUID().equals(queued.key().worldId())) continue;
+                if (plugin.bypass().isBypassed(player)) continue;
+
+                XrayProfile profile = cfg.xrayProfile(player.getWorld().getEnvironment());
+                if (!profile.enabled) continue;
+
+                scanAndMask(player, queued.playerId(), profile, queued.chunkX(), queued.chunkZ());
+                processed++;
+            } finally {
+                java.util.Set<QueuedChunkKey> perPlayer = queuedChunkScanKeys.get(queued.playerId());
+                if (perPlayer != null) {
+                    perPlayer.remove(queued.key());
+                    if (perPlayer.isEmpty()) {
+                        queuedChunkScanKeys.remove(queued.playerId(), perPlayer);
+                    }
+                }
+            }
+        }
+    }
+
+    private static final class ReconcileState {
+        private int lastChunkX;
+        private int lastChunkZ;
+        private boolean hasSweep;
+    }
+
+    private record QueuedChunkKey(UUID worldId, long chunkKey) {}
+
+    private record QueuedChunkScan(UUID playerId, QueuedChunkKey key, int chunkX, int chunkZ) {}
 }
