@@ -62,18 +62,37 @@ export async function initChatBridge(client: Client): Promise<void> {
   client.on('messageCreate', async (msg: Message) => {
     if (msg.author.bot || msg.webhookId) return;
     if (msg.channelId !== channelId) return;
-    const content = msg.cleanContent.trim();
+    const content = (msg.cleanContent || msg.content).trim();
     if (!content) return;
-    hub.broadcast(
+    const author = msg.member?.displayName ?? msg.author.username;
+    const message = truncate(content, 256);
+    const avatarUrl = msg.author.displayAvatarURL({ size: 64 });
+
+    // Prefer routing inbound Discord chat through Velocity so the proxy can
+    // fan it out once across the whole network. If the proxy bridge is down,
+    // fall back to direct Paper injection.
+    const sentViaProxy = hub.send('velocity', {
+      kind: 'chat_inject',
+      target: 'velocity',
+      author,
+      message,
+      avatarUrl,
+    });
+    if (sentViaProxy) return;
+
+    const sent = hub.broadcast(
       {
         kind: 'chat_inject',
         target: 'all',
-        author: msg.member?.displayName ?? msg.author.username,
-        message: truncate(content, 256),
-        avatarUrl: msg.author.displayAvatarURL({ size: 64 }),
+        author,
+        message,
+        avatarUrl,
       },
       (p) => p.origin !== 'velocity',
     );
+    if (sent === 0) {
+      log.warn({ channelId, author }, 'discord chat dropped: no connected backend available');
+    }
   });
 
   log.info({ channelId }, 'chat bridge ready');
