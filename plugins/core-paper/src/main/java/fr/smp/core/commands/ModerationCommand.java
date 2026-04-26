@@ -34,7 +34,13 @@ public class ModerationCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.hasPermission("smp.moderation")) {
+        String required = switch (mode) {
+            case "kick"   -> "smp.moderation.kick";
+            case "mute"   -> "smp.moderation.mute";
+            case "unmute" -> "smp.moderation.mute";
+            default       -> "smp.moderation";
+        };
+        if (!sender.hasPermission("smp.moderation") && !sender.hasPermission(required)) {
             sender.sendMessage(Msg.err("Permission refusée.")); return true;
         }
         switch (mode) {
@@ -50,12 +56,22 @@ public class ModerationCommand implements CommandExecutor {
 
     private void handleKick(CommandSender sender, String[] args) {
         if (args.length < 1) { sender.sendMessage(Msg.err("/kick <joueur> [raison]")); return; }
-        Player t = Bukkit.getPlayerExact(args[0]);
-        if (t == null) { sender.sendMessage(Msg.err("Joueur hors-ligne.")); return; }
         String reason = args.length > 1 ? joinFrom(args, 1) : "Aucune raison";
-        plugin.moderation().recordKick(t.getUniqueId(), t.getName(), issuerOf(sender), reason);
-        t.kick(MM.deserialize("<red><bold>Kick</bold></red>\n<gray>" + reason + "</gray>"));
-        sender.sendMessage(Msg.ok("<red>Kick " + t.getName() + "</red>: <gray>" + reason + "</gray>"));
+        Player t = Bukkit.getPlayerExact(args[0]);
+        if (t != null) {
+            plugin.moderation().recordKick(t.getUniqueId(), t.getName(), issuerOf(sender), reason);
+            t.kick(MM.deserialize("<red><bold>Kick</bold></red>\n<gray>" + reason + "</gray>"));
+            sender.sendMessage(Msg.ok("<red>Kick " + t.getName() + "</red>: <gray>" + reason + "</gray>"));
+            return;
+        }
+        UUID uuid = plugin.players().resolveUuid(args[0]);
+        if (uuid == null) { sender.sendMessage(Msg.err("Joueur hors-ligne.")); return; }
+        String targetName = nameOf(uuid, args[0]);
+        plugin.moderation().recordKick(uuid, targetName, issuerOf(sender), reason);
+        if (plugin.getMessageChannel() != null) {
+            plugin.getMessageChannel().sendModKick(args[0], reason);
+        }
+        sender.sendMessage(Msg.ok("<red>Kick " + targetName + "</red>: <gray>" + reason + "</gray>"));
     }
 
     private void handleBan(CommandSender sender, String[] args) {
@@ -64,22 +80,34 @@ public class ModerationCommand implements CommandExecutor {
         if (target == null) { sender.sendMessage(Msg.err("Joueur inconnu.")); return; }
         String targetName = nameOf(target, args[0]);
         long durationSec = 0; int reasonStart = 1;
+        String durationStr = "permanent";
         if (args.length >= 2) {
             long parsed = ModerationManager.parseDuration(args[1]);
-            if (parsed >= 0) { durationSec = parsed; reasonStart = 2; }
+            if (parsed >= 0) { durationSec = parsed; reasonStart = 2; durationStr = args[1]; }
         }
         String reason = args.length > reasonStart ? joinFrom(args, reasonStart) : null;
-        plugin.moderation().ban(target, targetName, issuerOf(sender), reason, durationSec);
+        String ip = null;
         Player online = Bukkit.getPlayer(target);
+        if (online != null) {
+            ip = online.getAddress().getAddress().getHostAddress();
+        } else {
+            ip = plugin.moderation().resolveLastIp(targetName);
+        }
+        plugin.moderation().ban(target, targetName, issuerOf(sender), reason, durationSec, ip);
         if (online != null) {
             online.kick(MM.deserialize("<red><bold>Banni</bold></red>\n<gray>" +
                     (reason != null ? reason : "non spécifié") + "</gray>\n" +
                     (durationSec <= 0 ? "<dark_red>Permanent</dark_red>"
-                                      : "<gray>Durée: </gray><white>" + args[1] + "</white>")));
+                                      : "<gray>Durée: </gray><white>" + durationStr + "</white>")));
+        } else if (plugin.getMessageChannel() != null) {
+            plugin.getMessageChannel().sendModBanKick(targetName,
+                    reason != null ? reason : "",
+                    durationSec <= 0 ? "<permanent>" : durationStr);
         }
         sender.sendMessage(Msg.ok("<red>Ban</red> <white>" + targetName + "</white> " +
-                (durationSec <= 0 ? "<dark_red>permanent</dark_red>" : "<gray>pour " + args[1] + "</gray>") +
-                (reason != null ? " <gray>(" + reason + ")</gray>" : "")));
+                (durationSec <= 0 ? "<dark_red>permanent</dark_red>" : "<gray>pour " + durationStr + "</gray>") +
+                (reason != null ? " <gray>(" + reason + ")</gray>" : "") +
+                (ip != null ? " <dark_gray>(IP: " + ip + ")</dark_gray>" : "")));
     }
 
     private void handleUnban(CommandSender sender, String[] args) {
@@ -96,9 +124,10 @@ public class ModerationCommand implements CommandExecutor {
         if (target == null) { sender.sendMessage(Msg.err("Joueur inconnu.")); return; }
         String targetName = nameOf(target, args[0]);
         long durationSec = 0; int reasonStart = 1;
+        String durationStr = "permanent";
         if (args.length >= 2) {
             long parsed = ModerationManager.parseDuration(args[1]);
-            if (parsed >= 0) { durationSec = parsed; reasonStart = 2; }
+            if (parsed >= 0) { durationSec = parsed; reasonStart = 2; durationStr = args[1]; }
         }
         String reason = args.length > reasonStart ? joinFrom(args, reasonStart) : null;
         plugin.moderation().mute(target, targetName, issuerOf(sender), reason, durationSec);
@@ -107,6 +136,9 @@ public class ModerationCommand implements CommandExecutor {
             Component notice = MM.deserialize("<red><bold>Mute</bold></red> <gray>" +
                     (reason != null ? reason : "") + "</gray>");
             online.sendMessage(notice);
+        } else if (plugin.getMessageChannel() != null) {
+            plugin.getMessageChannel().sendModMuteNotify(targetName,
+                    reason != null ? reason : "", durationStr);
         }
         sender.sendMessage(Msg.ok("<red>Mute</red> <white>" + targetName + "</white>"));
     }
@@ -116,6 +148,12 @@ public class ModerationCommand implements CommandExecutor {
         UUID target = plugin.players().resolveUuid(args[0]);
         if (target == null) { sender.sendMessage(Msg.err("Joueur inconnu.")); return; }
         plugin.moderation().unmute(target, issuerOf(sender));
+        Player online = Bukkit.getPlayer(target);
+        if (online != null) {
+            online.sendMessage(MM.deserialize("<green><bold>Unmute</bold></green> <gray>Tu n'es plus muet.</gray>"));
+        } else if (plugin.getMessageChannel() != null) {
+            plugin.getMessageChannel().sendModUnmuteNotify(args[0]);
+        }
         sender.sendMessage(Msg.ok("<green>Unmute " + args[0] + ".</green>"));
     }
 
