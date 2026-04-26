@@ -38,6 +38,18 @@ public class EndToggleManager implements Listener {
     public void setEnabled(boolean v) {
         plugin.getConfig().set("world.end-enabled", v);
         plugin.saveConfig();
+        if (v) broadcastEndOpen();
+    }
+
+    private void broadcastEndOpen() {
+        MiniMessage mm = MiniMessage.miniMessage();
+        Title title = Title.title(
+                mm.deserialize("<gradient:gold:yellow><bold>L'END EST OUVERT !</bold></gradient>"),
+                mm.deserialize("<gray>Utilisez <yellow>/end</yellow> pour vous y rendre !</gray>"),
+                Title.Times.times(Duration.ofMillis(500), Duration.ofSeconds(4), Duration.ofMillis(1000))
+        );
+        Bukkit.getOnlinePlayers().forEach(p -> p.showTitle(title));
+        Bukkit.broadcast(Msg.mm("<gold><bold>✦</bold></gold> <yellow>L'End vient d'être ouvert !</yellow> <gray>(<yellow>/end</yellow>)</gray>"));
     }
 
     private boolean isEnd(World w) {
