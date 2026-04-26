@@ -6,7 +6,6 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.Ageable;
@@ -17,9 +16,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDropItemEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayDeque;
@@ -38,7 +35,7 @@ public class EnchantBreakListener implements Listener {
 
     private static final ThreadLocal<Boolean> REENTRY = ThreadLocal.withInitial(() -> false);
     private static final int VEIN_LIMIT = 128;
-    private static final int TREE_LIMIT = 256;
+    private static final int TREE_LIMIT = 1024;
 
     private final SMPCore plugin;
 
@@ -108,7 +105,8 @@ public class EnchantBreakListener implements Listener {
 
         boolean smelt = EnchantEngine.levelOf(tool, CustomEnchant.SMELT) > 0;
         boolean magnet= EnchantEngine.levelOf(tool, CustomEnchant.MAGNET) > 0;
-        if (!smelt && !magnet) return;
+        boolean voidstone = plugin.voidstones() != null && plugin.voidstones().hasVoidstone(p.getInventory());
+        if (!smelt && !magnet && !voidstone) return;
 
         List<Item> items = e.getItems();
         if (items == null || items.isEmpty()) return;
@@ -124,14 +122,29 @@ public class EnchantBreakListener implements Listener {
                 }
             }
         }
+        if (voidstone) {
+            plugin.voidstones().absorbDrops(p.getInventory(), items);
+        }
         if (magnet) {
-            for (Item it : items) {
-                ItemStack s = it.getItemStack();
-                var leftover = p.getInventory().addItem(s);
+            for (var it = items.listIterator(); it.hasNext(); ) {
+                Item drop = it.next();
+                if (drop == null) {
+                    it.remove();
+                    continue;
+                }
+
+                ItemStack stack = drop.getItemStack();
+                if (stack == null || stack.getType().isAir() || stack.getAmount() <= 0) {
+                    it.remove();
+                    continue;
+                }
+
+                ItemStack toInsert = stack.clone();
+                var leftover = p.getInventory().addItem(toInsert);
                 if (leftover.isEmpty()) {
                     it.remove();
                 } else {
-                    it.setItemStack(leftover.values().iterator().next());
+                    drop.setItemStack(leftover.values().iterator().next());
                 }
             }
         }
@@ -199,7 +212,7 @@ public class EnchantBreakListener implements Listener {
                 if (!isLogHere && !isLeafHere && b != origin) continue;
 
                 // Expand only through logs; let leaves break naturally afterward.
-                for (int dx = -1; dx <= 1; dx++) for (int dy = 0; dy <= 1; dy++) for (int dz = -1; dz <= 1; dz++) {
+                for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++) for (int dz = -1; dz <= 1; dz++) {
                     if (dx == 0 && dy == 0 && dz == 0) continue;
                     Block n = b.getRelative(dx, dy, dz);
                     Location key = n.getLocation();
@@ -288,24 +301,24 @@ public class EnchantBreakListener implements Listener {
     //  Helpers
     // ════════════════════════════════════════════════════════════════════
 
-    /** Break a block as if the player did it, respecting durability + Unbreaking. */
+    /**
+     * Break a block as if the player swung on it: fires BlockBreakEvent (so
+     * claim/anti-grief plugins get their shot), handles tool durability +
+     * Unbreaking, drops items AND drops the XP orb — which the older
+     * breakNaturally path was silently skipping, making Quarry/Excavator/
+     * VeinMiner eat all the experience from the extra blocks.
+     * The REENTRY guard in {@link #onBreak} keeps this from recursing.
+     */
     private boolean tryBreak(Player p, Block b, ItemStack tool) {
         if (b.getType().isAir()) return false;
         if (b.getType().getHardness() < 0) return false; // bedrock-like
-        // Simulate a BlockBreakEvent so claims/anti-grief plugins still get a shot.
-        BlockBreakEvent simulated = new BlockBreakEvent(b, p);
-        plugin.getServer().getPluginManager().callEvent(simulated);
-        if (simulated.isCancelled()) return false;
 
-        // Capture crop replant info before breakNaturally wipes the block state.
         boolean replantCrop = isMatureCrop(b)
                 && EnchantEngine.levelOf(tool, CustomEnchant.REPLANT) > 0;
         Material cropType = replantCrop ? b.getType() : null;
         Location cropLoc  = replantCrop ? b.getLocation() : null;
 
-        // Drop as if broken with this tool (Silk/Fortune on tool apply).
-        boolean broken = b.breakNaturally(tool, true);
-        damageTool(p, tool);
+        boolean broken = p.breakBlock(b);
 
         if (broken && replantCrop) {
             scheduleReplant(p, cropLoc, cropType);
@@ -363,19 +376,6 @@ public class EnchantBreakListener implements Listener {
         });
     }
 
-    private void damageTool(Player p, ItemStack tool) {
-        if (!(tool.getItemMeta() instanceof Damageable d)) return;
-        int unb = tool.getEnchantmentLevel(org.bukkit.enchantments.Enchantment.UNBREAKING);
-        // Vanilla chance to skip damage: 1/(unb+1)
-        if (unb > 0 && Math.random() < (double) unb / (unb + 1.0)) return;
-        d.setDamage(d.getDamage() + 1);
-        tool.setItemMeta((org.bukkit.inventory.meta.ItemMeta) d);
-        if (d.getDamage() >= tool.getType().getMaxDurability()) {
-            p.getInventory().setItemInMainHand(null);
-            p.playSound(p.getLocation(), org.bukkit.Sound.ENTITY_ITEM_BREAK, 1f, 1f);
-        }
-    }
-
     private static boolean isOre(Material m) {
         String n = m.name();
         return n.endsWith("_ORE") || m == Material.ANCIENT_DEBRIS || m == Material.RAW_IRON_BLOCK
@@ -404,7 +404,7 @@ public class EnchantBreakListener implements Listener {
             Material.NETHERRACK, Material.END_STONE, Material.OBSIDIAN,
             Material.BASALT, Material.SMOOTH_BASALT, Material.BLACKSTONE,
             Material.GILDED_BLACKSTONE, Material.CALCITE, Material.TUFF,
-            Material.COBBLESTONE, Material.COBBLED_DEEPSLATE,
+            Material.COBBLESTONE, Material.MOSSY_COBBLESTONE, Material.COBBLED_DEEPSLATE,
             Material.SANDSTONE, Material.CHISELED_SANDSTONE, Material.CUT_SANDSTONE, Material.SMOOTH_SANDSTONE,
             Material.RED_SANDSTONE, Material.CHISELED_RED_SANDSTONE, Material.CUT_RED_SANDSTONE, Material.SMOOTH_RED_SANDSTONE,
             Material.TERRACOTTA, Material.WHITE_TERRACOTTA, Material.ORANGE_TERRACOTTA, Material.MAGENTA_TERRACOTTA,
