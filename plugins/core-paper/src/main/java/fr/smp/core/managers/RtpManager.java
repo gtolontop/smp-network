@@ -45,13 +45,17 @@ public class RtpManager {
     }
 
     public CompletableFuture<Boolean> teleport(Player p, World world) {
+        return teleport(p, world, true);
+    }
+
+    public CompletableFuture<Boolean> teleport(Player p, World world, boolean cooldown) {
         CompletableFuture<Boolean> result = new CompletableFuture<>();
         int attempts = plugin.getConfig().getInt("rtp.max-attempts", 16);
-        tryOnce(p, world, attempts, result);
+        tryOnce(p, world, attempts, cooldown, result);
         return result;
     }
 
-    private void tryOnce(Player p, World world, int remaining, CompletableFuture<Boolean> out) {
+    private void tryOnce(Player p, World world, int remaining, boolean cooldown, CompletableFuture<Boolean> out) {
         if (remaining <= 0) {
             p.sendMessage(Msg.err("Impossible de trouver un lieu sûr. Réessaie."));
             out.complete(false);
@@ -71,12 +75,12 @@ public class RtpManager {
         world.getChunkAtAsync(x >> 4, z >> 4, true).thenAccept(chunk -> {
             Location safe = findSafe(world, x, z);
             if (safe == null || !wb.isInside(safe)) {
-                tryOnce(p, world, remaining - 1, out);
+                tryOnce(p, world, remaining - 1, cooldown, out);
                 return;
             }
             p.teleportAsync(safe).thenAccept(ok -> {
                 if (ok) {
-                    setCooldown(p);
+                    if (cooldown) setCooldown(p);
                     plugin.logs().log(LogCategory.RTP, p, "rtp -> " + world.getName() + " " +
                             safe.getBlockX() + "," + safe.getBlockY() + "," + safe.getBlockZ());
                 }
