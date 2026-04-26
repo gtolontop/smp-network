@@ -260,8 +260,8 @@ environment:
   void-damage-min-build-height-offset: -64.0
   water-over-lava-flow-speed: 5
 feature-seeds:
-  generate-random-seeds-for-all: false
-  generate-random-seeds-if-needed: false
+  generate-random-seeds-for-all: true
+  generate-random-seeds-if-needed: true
 fishing-time-range:
   maximum: 600
   minimum: 100
