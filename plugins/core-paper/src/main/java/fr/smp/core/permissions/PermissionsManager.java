@@ -56,7 +56,6 @@ public class PermissionsManager {
             "smp.admin",
             "smp.chat.color",
             "smp.chat.format",
-            "smp.sync.bypass",
             "smp.rtp.bypass",
             "smp.homes.20",
             "smp.perm.manage",
@@ -195,6 +194,9 @@ public class PermissionsManager {
         Set<String> effective = resolvePermissions(u);
         boolean admin = isEffectivelyAdmin(u);
         for (String p : effective) att.setPermission(p, true);
+        for (String p : plugin.getConfig().getStringList("permissions.extra-default-perms")) {
+            att.setPermission(p, true);
+        }
         attachments.put(player.getUniqueId(), att);
 
         // Vanilla op sync: admin group -> OP true, otherwise OP false.
