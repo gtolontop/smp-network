@@ -18,7 +18,7 @@ echo   Starting Lobby server (Paper)
 echo   Java: %JAVA%
 echo ============================================
 
-start "Lobby Server" cmd /k "cd /d %BASE_DIR%\lobby && "%JAVA%" --enable-native-access=ALL-UNNAMED -Xms1G -Xmx2G -jar paper.jar --nogui"
+start "Lobby Server" cmd /k "cd /d %BASE_DIR%\lobby && "%JAVA%" --enable-native-access=ALL-UNNAMED -Xms1G -Xmx1G -jar paper.jar --nogui"
 
 echo.
 echo Lobby lance dans sa propre fenetre.
