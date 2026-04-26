@@ -2,7 +2,9 @@ package fr.smp.core.discord;
 
 import com.google.gson.JsonObject;
 import fr.smp.core.SMPCore;
+import fr.smp.core.commands.LinkCommand;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitScheduler;
@@ -33,6 +35,7 @@ public class RpcHandler {
             case "chat_inject" -> handleChatInject(pkt);
             case "tell" -> handleTell(pkt);
             case "rpc" -> handleRpc(pkt);
+            case "link_result" -> handleLinkResult(pkt);
             default -> { /* ignore unknown kinds */ }
         }
     }
@@ -60,8 +63,13 @@ public class RpcHandler {
         String message = pkt.has("message") ? pkt.get("message").getAsString() : "";
         String prefix = pkt.has("prefix") ? pkt.get("prefix").getAsString() : "Annonce";
         if (message.isEmpty()) return;
-        Bukkit.getScheduler().runTask(plugin, () ->
-                Bukkit.broadcast(Component.text("§b[" + prefix + "] §f" + message)));
+        Component line = Component.text()
+                .append(Component.text("[", NamedTextColor.AQUA))
+                .append(Component.text(prefix, NamedTextColor.AQUA))
+                .append(Component.text("] ", NamedTextColor.AQUA))
+                .append(Component.text(message, NamedTextColor.WHITE))
+                .build();
+        Bukkit.getScheduler().runTask(plugin, () -> Bukkit.broadcast(line));
     }
 
     private void handleChatInject(JsonObject pkt) {
@@ -70,8 +78,13 @@ public class RpcHandler {
         String author = pkt.has("author") ? pkt.get("author").getAsString() : "Discord";
         String message = pkt.has("message") ? pkt.get("message").getAsString() : "";
         if (message.isEmpty()) return;
-        Bukkit.getScheduler().runTask(plugin, () ->
-                Bukkit.broadcast(Component.text("§9[Discord] §f" + author + " §7» §f" + message)));
+        Component line = Component.text()
+                .append(Component.text("[Discord] ", NamedTextColor.BLUE))
+                .append(Component.text(author, NamedTextColor.WHITE))
+                .append(Component.text(" » ", NamedTextColor.GRAY))
+                .append(Component.text(message, NamedTextColor.WHITE))
+                .build();
+        Bukkit.getScheduler().runTask(plugin, () -> Bukkit.broadcast(line));
     }
 
     private void handleTell(JsonObject pkt) {
@@ -81,10 +94,23 @@ public class RpcHandler {
         Bukkit.getScheduler().runTask(plugin, () -> {
             try {
                 Player p = Bukkit.getPlayer(UUID.fromString(uuid));
-                if (p != null) p.sendMessage(Component.text("§d" + message));
+                if (p != null) p.sendMessage(Component.text(message, NamedTextColor.LIGHT_PURPLE));
             } catch (IllegalArgumentException ignored) {
             }
         });
+    }
+
+    private void handleLinkResult(JsonObject pkt) {
+        String uuidStr = pkt.has("uuid") ? pkt.get("uuid").getAsString() : "";
+        boolean ok = pkt.has("ok") && pkt.get("ok").getAsBoolean();
+        String discordTag = pkt.has("discordTag") ? pkt.get("discordTag").getAsString() : "";
+        String error = pkt.has("error") ? pkt.get("error").getAsString() : "";
+        if (uuidStr.isEmpty()) return;
+        try {
+            UUID uuid = UUID.fromString(uuidStr);
+            LinkCommand.resolveLinkResult(uuid, ok, discordTag, error);
+        } catch (IllegalArgumentException ignored) {
+        }
     }
 
     private void handleRpc(JsonObject pkt) {
