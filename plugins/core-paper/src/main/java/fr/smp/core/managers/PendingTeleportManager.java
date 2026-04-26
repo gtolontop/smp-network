@@ -17,7 +17,18 @@ public class PendingTeleportManager {
     public enum Kind { LOC, RTP, SPAWN }
 
     public record Pending(Kind kind, String world, double x, double y, double z,
-                          float yaw, float pitch, long createdAt) {}
+                          float yaw, float pitch, long createdAt, String targetServer) {
+
+        public Pending(Kind kind, String world, double x, double y, double z,
+                       float yaw, float pitch, long createdAt) {
+            this(kind, world, x, y, z, yaw, pitch, createdAt, null);
+        }
+
+        public boolean targets(String serverType) {
+            return targetServer == null || targetServer.isBlank()
+                    || targetServer.equalsIgnoreCase(serverType);
+        }
+    }
 
     private final SMPCore plugin;
     private final File dir;
@@ -43,6 +54,7 @@ public class PendingTeleportManager {
         y.set("yaw", (double) p.yaw());
         y.set("pitch", (double) p.pitch());
         y.set("createdAt", p.createdAt());
+        y.set("targetServer", p.targetServer());
         try { y.save(fileFor(uuid)); }
         catch (IOException e) { plugin.getLogger().warning("pending-tp save: " + e.getMessage()); }
     }
@@ -61,7 +73,8 @@ public class PendingTeleportManager {
                 y.getDouble("z"),
                 (float) y.getDouble("yaw"),
                 (float) y.getDouble("pitch"),
-                y.getLong("createdAt"));
+                y.getLong("createdAt"),
+                y.getString("targetServer"));
     }
 
     public Pending consume(UUID uuid) {
