@@ -56,7 +56,11 @@ public class HomeCommand implements CommandExecutor {
                 if (slot < 1 || slot > max) {
                     p.sendMessage(Msg.err("Slot 1-" + max + " seulement.")); return true;
                 }
-                plugin.homes().set(p.getUniqueId(), slot, p.getLocation());
+                Location setLoc = p.getLocation();
+                plugin.homes().set(p.getUniqueId(), slot, setLoc);
+                plugin.getLogger().info("[HOME] " + p.getName() + " défini home#" + slot
+                        + " à " + setLoc.getBlockX() + "," + setLoc.getBlockY() + "," + setLoc.getBlockZ()
+                        + " (" + setLoc.getWorld().getName() + ")");
                 p.sendMessage(Msg.ok("<green>Home <yellow>" + slot + "</yellow> défini.</green>"));
             }
             case "delhome" -> {
@@ -66,6 +70,7 @@ public class HomeCommand implements CommandExecutor {
                     p.sendMessage(Msg.err("/delhome <slot>")); return true;
                 }
                 plugin.homes().delete(p.getUniqueId(), slot);
+                plugin.getLogger().info("[HOME] " + p.getName() + " supprimé home#" + slot);
                 p.sendMessage(Msg.ok("<red>Home " + slot + " supprimé.</red>"));
             }
         }
@@ -79,7 +84,9 @@ public class HomeCommand implements CommandExecutor {
         }
         String homeServer = home.server();
         if (homeServer != null && !homeServer.equalsIgnoreCase(plugin.getServerType())) {
-            // Cross-server teleport: persist pending + transfer
+            plugin.getLogger().info("[HOME] " + p.getName() + " -> home#" + home.slot()
+                    + " cross-server " + homeServer
+                    + " (" + (int)home.x() + "," + (int)home.y() + "," + (int)home.z() + "@" + home.world() + ")");
             plugin.pendingTp().set(p.getUniqueId(), new PendingTeleportManager.Pending(
                     PendingTeleportManager.Kind.LOC,
                     home.world(), home.x(), home.y(), home.z(),
@@ -91,11 +98,16 @@ public class HomeCommand implements CommandExecutor {
         }
         Location loc = home.toLocation();
         if (loc == null) {
+            plugin.getLogger().warning("[HOME] " + p.getName() + " -> home#" + home.slot()
+                    + " monde introuvable: " + home.world());
             p.sendMessage(Msg.err("Le monde <white>" + home.world() + "</white> n'est pas chargé ici."));
             return;
         }
         p.teleportAsync(loc);
         if (plugin.cooldowns() != null) plugin.cooldowns().set(p, "home");
+        plugin.getLogger().info("[HOME] " + p.getName() + " -> home#" + home.slot()
+                + " à " + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ()
+                + " (" + loc.getWorld().getName() + ")");
         p.sendMessage(Msg.ok("<aqua>Téléporté à home " + home.slot() + ".</aqua>"));
     }
 }
