@@ -174,7 +174,8 @@ public class Database {
               first_join INTEGER NOT NULL,
               last_seen INTEGER NOT NULL,
               team_id TEXT,
-              scoreboard INTEGER NOT NULL DEFAULT 1
+              scoreboard INTEGER NOT NULL DEFAULT 1,
+              fullbright INTEGER NOT NULL DEFAULT 0
             )
             """,
             """
@@ -282,6 +283,17 @@ public class Database {
             )
             """,
             """
+            CREATE TABLE IF NOT EXISTS mod_ip_bans (
+              ip TEXT PRIMARY KEY,
+              uuid TEXT NOT NULL,
+              name TEXT NOT NULL,
+              issuer TEXT NOT NULL,
+              reason TEXT,
+              issued_at INTEGER NOT NULL,
+              expires_at INTEGER NOT NULL
+            )
+            """,
+            """
             CREATE TABLE IF NOT EXISTS mod_history (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               uuid TEXT NOT NULL,
@@ -362,6 +374,16 @@ public class Database {
             )
             """,
             """
+            CREATE TABLE IF NOT EXISTS player_skins (
+              name_lower TEXT PRIMARY KEY,
+              mode TEXT NOT NULL,                -- default | random | taken
+              skin_owner TEXT NOT NULL,
+              skin_value TEXT NOT NULL,
+              skin_signature TEXT,
+              updated_at INTEGER NOT NULL
+            )
+            """,
+            """
             CREATE TABLE IF NOT EXISTS gates (
               name TEXT PRIMARY KEY,
               server TEXT NOT NULL,
@@ -398,6 +420,17 @@ public class Database {
               lines TEXT NOT NULL
             )
             """,
+            """
+            CREATE TABLE IF NOT EXISTS inv_snapshots (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              uuid TEXT NOT NULL,
+              name TEXT NOT NULL,
+              source TEXT NOT NULL,           -- periodic | quit | manual | preapply | shutdown
+              server TEXT NOT NULL,
+              created_at INTEGER NOT NULL,
+              yaml TEXT NOT NULL
+            )
+            """,
             "CREATE INDEX IF NOT EXISTS idx_auctions_seller ON auctions(seller, sold)",
             "CREATE INDEX IF NOT EXISTS idx_auctions_active ON auctions(sold, expires_at)",
             "CREATE INDEX IF NOT EXISTS idx_mailbox_uuid ON mailbox(uuid)",
@@ -405,7 +438,9 @@ public class Database {
             "CREATE INDEX IF NOT EXISTS idx_team_members_uuid ON team_members(uuid)",
             "CREATE INDEX IF NOT EXISTS idx_waypoints_owner ON waypoints(owner_type, owner_id)",
             "CREATE INDEX IF NOT EXISTS idx_mod_history_uuid ON mod_history(uuid, created_at DESC)",
-            "CREATE INDEX IF NOT EXISTS idx_spawner_loot_id ON spawner_loot(spawner_id)"
+            "CREATE INDEX IF NOT EXISTS idx_mod_ip_bans_uuid ON mod_ip_bans(uuid)",
+            "CREATE INDEX IF NOT EXISTS idx_spawner_loot_id ON spawner_loot(spawner_id)",
+            "CREATE INDEX IF NOT EXISTS idx_inv_snapshots_uuid ON inv_snapshots(uuid, created_at DESC)"
         };
 
         try (Connection c = DriverManager.getConnection(url);
@@ -419,6 +454,8 @@ public class Database {
         try (Connection c = DriverManager.getConnection(url);
              Statement s = c.createStatement()) {
             try { s.execute("ALTER TABLE players ADD COLUMN shards_last_mc_min INTEGER NOT NULL DEFAULT -1"); }
+            catch (SQLException ignored) {}
+            try { s.execute("ALTER TABLE players ADD COLUMN fullbright INTEGER NOT NULL DEFAULT 0"); }
             catch (SQLException ignored) {}
             try { s.execute("ALTER TABLE homes ADD COLUMN server TEXT"); }
             catch (SQLException ignored) {}
@@ -449,6 +486,8 @@ public class Database {
             try { s.execute("ALTER TABLE hunted_state ADD COLUMN target_name TEXT"); }
             catch (SQLException ignored) {}
             try { s.execute("ALTER TABLE hunted_state ADD COLUMN target_kills INTEGER NOT NULL DEFAULT 0"); }
+            catch (SQLException ignored) {}
+            try { s.execute("ALTER TABLE players ADD COLUMN nickname TEXT"); }
             catch (SQLException ignored) {}
         } catch (SQLException ignored) {}
     }
