@@ -2,6 +2,9 @@ package fr.smp.core.managers;
 
 import fr.smp.core.SMPCore;
 import fr.smp.core.utils.Msg;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.title.Title;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -12,6 +15,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+
+import java.time.Duration;
 
 /**
  * Runtime-switchable End dimension access. Stored in config `world.end-enabled`.
