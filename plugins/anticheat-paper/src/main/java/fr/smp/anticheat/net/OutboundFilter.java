@@ -9,7 +9,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
@@ -20,6 +20,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permissible;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -39,7 +41,6 @@ import java.util.UUID;
 public final class OutboundFilter extends ChannelDuplexHandler {
 
     private final AntiCheatPlugin plugin;
-    private final UUID playerId;
     private final Player player;
     private final XrayModule xray;
     private final ContainerEspModule containers;
@@ -52,7 +53,6 @@ public final class OutboundFilter extends ChannelDuplexHandler {
                           EntityEspModule entities) {
         this.plugin = plugin;
         this.player = player;
-        this.playerId = player.getUniqueId();
         this.xray = xray;
         this.containers = containers;
         this.entities = entities;
@@ -68,7 +68,9 @@ public final class OutboundFilter extends ChannelDuplexHandler {
         Packet<?> out = raw;
         Player pl = this.player;
         try {
-            if (out instanceof ClientboundLevelChunkWithLightPacket chunk) {
+            if (out instanceof ClientboundBundlePacket bundle && entities.enabled()) {
+                out = filterBundle(pl, bundle);
+            } else if (out instanceof ClientboundLevelChunkWithLightPacket chunk) {
                 if (xray.enabled()) out = xray.rewriteChunk(pl, chunk);
                 if (out instanceof ClientboundLevelChunkWithLightPacket c2 && containers.enabled()) {
                     out = containers.rewriteChunk(pl, c2);
@@ -85,16 +87,15 @@ public final class OutboundFilter extends ChannelDuplexHandler {
                 if (xray.enabled()) {
                     out = xray.rewriteSectionUpdate(pl, sbu);
                 }
-            } else if (out instanceof ClientboundAddEntityPacket add) {
-                if (entities.enabled() && entities.shouldDropAdd(pl, add)) {
-                    return;
-                }
             }
         } catch (Throwable t) {
             plugin.getLogger().warning("Filter error: " + t.getMessage());
             out = raw;
         }
 
+        if (out != null && entities.enabled() && entities.shouldDropPacket(pl, out)) {
+            return;
+        }
         if (out == null) return;
         super.write(ctx, out, promise);
     }
@@ -131,5 +132,20 @@ public final class OutboundFilter extends ChannelDuplexHandler {
 
     private boolean hasBypass(Permissible p) {
         return plugin.bypass().isBypassed(p);
+    }
+
+    private Packet<?> filterBundle(Player player, ClientboundBundlePacket bundle) {
+        List<Packet<? super net.minecraft.network.protocol.game.ClientGamePacketListener>> kept = new ArrayList<>();
+        boolean changed = false;
+        for (Packet<? super net.minecraft.network.protocol.game.ClientGamePacketListener> subPacket : bundle.subPackets()) {
+            if (entities.shouldDropPacket(player, subPacket)) {
+                changed = true;
+                continue;
+            }
+            kept.add(subPacket);
+        }
+        if (!changed) return bundle;
+        if (kept.isEmpty()) return null;
+        return new ClientboundBundlePacket(kept);
     }
 }
