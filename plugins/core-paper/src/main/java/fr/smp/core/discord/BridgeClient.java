@@ -157,15 +157,24 @@ public class BridgeClient {
 
     public void shutdown() {
         closing.set(true);
-        if (ws != null) {
+        WebSocketClient socket = ws;
+        ws = null;
+        if (socket != null) {
             try {
                 JsonObject bye = new JsonObject();
                 bye.addProperty("kind", "lifecycle");
                 bye.addProperty("state", "stopping");
-                ws.send(bye.toString());
-            } catch (Throwable ignored) {
+                if (socket.isOpen()) {
+                    socket.send(bye.toString());
+                }
+            } catch (Throwable err) {
+                plugin.getLogger().log(Level.FINE, "Bridge socket stop-notify failed", err);
             }
-            ws.close();
+            try {
+                socket.close();
+            } catch (Throwable err) {
+                plugin.getLogger().log(Level.WARNING, "Bridge socket close failed during shutdown", err);
+            }
         }
     }
 
