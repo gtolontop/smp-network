@@ -1,9 +1,11 @@
 import mineflayer from 'mineflayer';
 import type { Bot as MfBot } from 'mineflayer';
-import { pathfinder, Movements, goals } from 'mineflayer-pathfinder';
+import pathfinderPkg from 'mineflayer-pathfinder';
+const { pathfinder, Movements, goals } = pathfinderPkg;
 
 import { config } from '../config.js';
 import { child } from '../utils/logger.js';
+import { AuthDriver } from './auth.js';
 
 const log = child({ mod: 'mcbot' });
 
@@ -21,6 +23,7 @@ export class McBotController {
   private reconnectTimer: NodeJS.Timeout | undefined;
   private following: string | undefined;
   private uptimeSince: number | undefined;
+  private auth: AuthDriver | undefined;
   private readonly listeners = new Set<(b: MfBot) => void>();
 
   start(): void {
@@ -99,6 +102,15 @@ export class McBotController {
       checkTimeoutInterval: 60_000,
     });
     bot.loadPlugin(pathfinder);
+
+    // Attach the auth driver before spawn so we catch the /register or /login
+    // prompt the server pushes at join time.
+    this.auth = new AuthDriver({
+      username: config.mcbot.username,
+      password: config.mcbot.password,
+      log,
+    });
+    this.auth.attach(bot);
 
     bot.once('spawn', () => {
       this.bot = bot;
