@@ -4,8 +4,8 @@ import { randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
 
 import type {
-  Origin,
   Packet,
+  PeerOrigin,
   PlayerMeta,
   RpcResult,
   TelemetryPacket,
@@ -13,7 +13,7 @@ import type {
 
 export interface Peer {
   id: string;
-  origin: Exclude<Origin, 'bot'>;
+  origin: PeerOrigin;
   software: string;
   mcVersion: string;
   socket: WebSocket;
@@ -54,11 +54,11 @@ export class Hub extends EventEmitter<HubEvents> {
     return [...this.peers.values()];
   }
 
-  byOrigin(origin: Exclude<Origin, 'bot'>): Peer | undefined {
+  byOrigin(origin: PeerOrigin): Peer | undefined {
     return this.list().find((p) => p.origin === origin);
   }
 
-  isOnline(origin: Exclude<Origin, 'bot'>): boolean {
+  isOnline(origin: PeerOrigin): boolean {
     return this.byOrigin(origin) !== undefined;
   }
 
@@ -80,7 +80,7 @@ export class Hub extends EventEmitter<HubEvents> {
     return this.allRoster().find((p) => p.name.toLowerCase() === lower);
   }
 
-  send(origin: Exclude<Origin, 'bot'>, packet: Packet): boolean {
+  send(origin: PeerOrigin, packet: Packet): boolean {
     const peer = this.byOrigin(origin);
     if (!peer) return false;
     peer.socket.send(JSON.stringify(packet));
@@ -99,7 +99,7 @@ export class Hub extends EventEmitter<HubEvents> {
 
   /** Dispatch an RPC and resolve with the paired reply. */
   async rpc(
-    origin: Exclude<Origin, 'bot'>,
+    origin: PeerOrigin,
     method: string,
     args: Record<string, unknown> = {},
     timeoutMs = 5000,
