@@ -73,6 +73,10 @@ public class HomeCommand implements CommandExecutor {
     }
 
     private void teleportHome(Player p, HomeManager.Home home) {
+        if (plugin.cooldowns() != null && plugin.cooldowns().isOnCooldown(p, "home")) {
+            p.sendMessage(Msg.err("Cooldown: <white>" + Msg.duration(plugin.cooldowns().remaining(p, "home")) + "</white>"));
+            return;
+        }
         String homeServer = home.server();
         if (homeServer != null && !homeServer.equalsIgnoreCase(plugin.getServerType())) {
             // Cross-server teleport: persist pending + transfer
@@ -80,7 +84,7 @@ public class HomeCommand implements CommandExecutor {
                     PendingTeleportManager.Kind.LOC,
                     home.world(), home.x(), home.y(), home.z(),
                     home.yaw(), home.pitch(),
-                    System.currentTimeMillis()));
+                    System.currentTimeMillis(), homeServer));
             p.sendMessage(Msg.info("<aqua>Transfert vers <white>" + homeServer + "</white>...</aqua>"));
             plugin.getMessageChannel().sendTransfer(p, homeServer);
             return;
@@ -91,6 +95,7 @@ public class HomeCommand implements CommandExecutor {
             return;
         }
         p.teleportAsync(loc);
+        if (plugin.cooldowns() != null) plugin.cooldowns().set(p, "home");
         p.sendMessage(Msg.ok("<aqua>Téléporté à home " + home.slot() + ".</aqua>"));
     }
 }
