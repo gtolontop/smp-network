@@ -30,10 +30,14 @@ public class SpawnCommand implements CommandExecutor {
                 p.sendMessage(Msg.err("Hub non configuré. Utilise <yellow>/sethubspawn</yellow> ici."));
                 return true;
             }
+            plugin.getLogger().info("[SPAWN] " + p.getName() + " -> hub "
+                    + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ()
+                    + " (" + l.getWorld().getName() + ")");
             p.teleportAsync(l).thenAccept(ok -> {
                 if (ok) p.sendMessage(Msg.ok("<green>Téléporté au hub.</green>"));
             });
         } else {
+            plugin.getLogger().info("[SPAWN] " + p.getName() + " -> lobby (transfer depuis " + plugin.getServerType() + ")");
             p.sendMessage(Msg.info("<aqua>Connexion au lobby...</aqua>"));
             plugin.getMessageChannel().sendTransfer(p, "lobby");
         }
