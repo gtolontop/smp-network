@@ -2,6 +2,7 @@ package fr.smp.core.enchants;
 
 import fr.smp.core.SMPCore;
 import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.ItemEnchantments;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -99,8 +100,12 @@ public final class EnchantEngine {
         level = Math.max(1, Math.min(ce.maxLevel(), level));
 
         if (ce.isOvercap()) {
-            meta.addEnchant(ce.vanilla(), level, true);
-            item.setItemMeta(meta);
+            // Paper 1.21+: ItemMeta.addEnchant(unsafe=true) is clamped at some
+            // codec/validation layers (notably the anvil result slot in Paper
+            // 26.x), which silently downgrades Fortune IV → III, Eff VI → V,
+            // etc. Writing the ENCHANTMENTS data component directly bypasses
+            // that clamping — the data component codec accepts any int level.
+            setVanillaEnchantUnsafe(item, ce.vanilla(), level);
             renderLore(item);
             return;
         }
@@ -118,7 +123,7 @@ public final class EnchantEngine {
         ItemMeta meta = item.getItemMeta();
         meta.getPersistentDataContainer().remove(KEY_CE);
         item.setItemMeta(meta);
-        stripLore(item);
+        renderLore(item);
     }
 
     // ═══ Books ══════════════════════════════════════════════════════════
@@ -129,15 +134,6 @@ public final class EnchantEngine {
         EnchantmentStorageMeta meta = (EnchantmentStorageMeta) book.getItemMeta();
         if (meta == null) return book;
 
-        // Glow/preview via stored vanilla enchants.
-        if (ce.isOvercap()) {
-            meta.addStoredEnchant(ce.vanilla(), level, true);
-        } else {
-            // Dummy glow — stores Unbreaking 1 purely for the enchanted-book
-            // icon to look enchanted. It won't transfer on anvil because we
-            // handle the merge ourselves in the anvil listener.
-            meta.addStoredEnchant(Enchantment.UNBREAKING, 1, true);
-        }
         meta.addItemFlags(ItemFlag.HIDE_STORED_ENCHANTS);
 
         meta.displayName(MM.deserialize(
@@ -152,7 +148,7 @@ public final class EnchantEngine {
             lore.add(MM.deserialize("<!italic><gray>Zone: <aqua>" + side + "x" + side + "</aqua>.</gray>"));
         }
         if (ce == CustomEnchant.VITAL) {
-            lore.add(MM.deserialize("<!italic><gray>Bonus: <red>+" + (level * 2) + " ♥</red> d'absorption.</gray>"));
+            lore.add(MM.deserialize("<!italic><gray>Bonus: <red>+" + level + " ♥</red> d'absorption.</gray>"));
         }
         lore.add(MM.deserialize("<!italic> "));
         lore.add(MM.deserialize("<!italic><dark_gray>Applique via enclume sur un objet compatible.</dark_gray>"));
@@ -162,7 +158,43 @@ public final class EnchantEngine {
                 KEY_CE_BOOK, PersistentDataType.STRING, ce.id() + ":" + level);
 
         book.setItemMeta(meta);
+        // Overcap books: write the stored enchant via the data component
+        // directly (the EnchantmentStorageMeta API clamps through the codec
+        // in Paper 26.x, stripping overcap levels). The data-component codec
+        // accepts any int level. The vanilla anvil will then transfer this
+        // raw level straight onto the tool.
+        if (ce.isOvercap()) {
+            book.setData(DataComponentTypes.STORED_ENCHANTMENTS,
+                    ItemEnchantments.itemEnchantments().add(ce.vanilla(), level).build());
+        }
+        // Custom books carry no stored enchant, so give them a glint via the
+        // dedicated data component. Overcap books already glow from their
+        // stored vanilla enchant.
+        if (ce.isCustom()) {
+            book.setData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+        }
         return book;
+    }
+
+    /**
+     * Sets a vanilla enchant at an arbitrary level on the item — including
+     * levels above {@code Enchantment#getMaxLevel()} — by writing the
+     * {@link DataComponentTypes#ENCHANTMENTS} component directly. Preserves
+     * any other enchants already on the item.
+     */
+    public static void setVanillaEnchantUnsafe(ItemStack item, Enchantment ench, int level) {
+        if (item == null || ench == null || level < 1) return;
+        ItemEnchantments current = item.getData(DataComponentTypes.ENCHANTMENTS);
+        ItemEnchantments.Builder builder = ItemEnchantments.itemEnchantments();
+        if (current != null) {
+            for (var e : current.enchantments().entrySet()) {
+                if (!e.getKey().equals(ench)) {
+                    builder.add(e.getKey(), e.getValue());
+                }
+            }
+        }
+        builder.add(ench, level);
+        item.setData(DataComponentTypes.ENCHANTMENTS, builder.build());
     }
 
     // ═══ Anvil merge ════════════════════════════════════════════════════
@@ -173,10 +205,43 @@ public final class EnchantEngine {
         BookPayload payload = readBook(book);
         if (payload == null) return null;
         if (!payload.enchant().target().matches(target.getType())) return null;
+        if (payload.level() <= appliedLevelOn(target, payload.enchant())) return null;
 
         ItemStack out = target.clone();
+
+        // Defensive: covers legacy custom books still carrying the old
+        // Unbreaking-1 dummy glow (pre-glint-override). Strip any vanilla
+        // enchant that exists on `out` only because it was a storedEnchant
+        // on the book, while preserving enchants the target already had.
+        if (book.getItemMeta() instanceof EnchantmentStorageMeta esm
+                && !esm.getStoredEnchants().isEmpty()) {
+            ItemMeta om = out.getItemMeta();
+            ItemMeta tm = target.getItemMeta();
+            if (om != null) {
+                boolean changed = false;
+                for (Enchantment ench : esm.getStoredEnchants().keySet()) {
+                    int origLvl = (tm == null) ? 0 : tm.getEnchantLevel(ench);
+                    if (om.getEnchantLevel(ench) != origLvl) {
+                        if (origLvl == 0) om.removeEnchant(ench);
+                        else om.addEnchant(ench, origLvl, true);
+                        changed = true;
+                    }
+                }
+                if (changed) out.setItemMeta(om);
+            }
+        }
+
         apply(out, payload.enchant(), payload.level());
         return out;
+    }
+
+    private static int appliedLevelOn(ItemStack item, CustomEnchant ce) {
+        if (item == null || ce == null) return 0;
+        if (ce.isOvercap()) {
+            if (!item.hasItemMeta()) return 0;
+            return item.getItemMeta().getEnchantLevel(ce.vanilla());
+        }
+        return levelOf(item, ce);
     }
 
     /**
@@ -236,6 +301,8 @@ public final class EnchantEngine {
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         Map<CustomEnchant, Integer> customs = decode(pdc.get(KEY_CE, PersistentDataType.STRING));
         Map<Enchantment, Integer> vanilla = meta.getEnchants();
+        boolean hasVisibleEnchants = !vanilla.isEmpty() || !customs.isEmpty();
+        boolean needsCustomGlint = vanilla.isEmpty() && !customs.isEmpty();
 
         Integer prevLen = pdc.get(KEY_LORE_LEN, PersistentDataType.INTEGER);
         List<Component> lore = meta.hasLore() ? new ArrayList<>(meta.lore()) : new ArrayList<>();
@@ -291,10 +358,17 @@ public final class EnchantEngine {
             pdc.remove(KEY_LORE_LEN);
         }
         meta.lore(lore);
-        if (!vanilla.isEmpty() || !customs.isEmpty()) {
+        if (hasVisibleEnchants) {
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        } else {
+            meta.removeItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
         item.setItemMeta(meta);
+        if (needsCustomGlint) {
+            item.setData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+        } else {
+            item.unsetData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE);
+        }
     }
 
     private static void stripLore(ItemStack item) {
