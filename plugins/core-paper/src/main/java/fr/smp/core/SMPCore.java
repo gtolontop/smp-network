@@ -11,30 +11,41 @@ import fr.smp.core.discord.DiscordBridge;
 import fr.smp.core.enchants.CustomEnchantListener;
 import fr.smp.core.enchants.EnchantArmorTask;
 import fr.smp.core.enchants.EnchantBreakListener;
+import fr.smp.core.enchants.GrindstoneListener;
 import fr.smp.core.gui.ServerSelectorGUI;
 import fr.smp.core.holograms.HologramCommand;
 import fr.smp.core.holograms.HologramManager;
 import fr.smp.core.npc.NpcCommand;
 import fr.smp.core.npc.NpcManager;
+import fr.smp.core.voidstone.VoidstoneManager;
 import fr.smp.core.listeners.ChainClimbListener;
 import fr.smp.core.listeners.ChatListener;
 import fr.smp.core.listeners.CombatListener;
 import fr.smp.core.listeners.DeathListener;
+import fr.smp.core.listeners.GodListener;
 import fr.smp.core.listeners.GUIListener;
 import fr.smp.core.listeners.GateListener;
 import fr.smp.core.listeners.JoinListener;
 import fr.smp.core.listeners.LobbyProtectionListener;
+import fr.smp.core.listeners.MachineBoostListener;
 import fr.smp.core.listeners.SeedSpoofListener;
 import fr.smp.core.listeners.SpamGuard;
 import fr.smp.core.listeners.SpawnerListener;
+import fr.smp.core.listeners.VillagerBucketListener;
+import fr.smp.core.listeners.VoidListener;
+import fr.smp.core.listeners.VoidstoneListener;
 import fr.smp.core.listeners.WeatherListener;
 import fr.smp.core.listeners.WorthHoverListener;
 import fr.smp.core.logging.LogManager;
+import fr.smp.core.net.WorthDisplayInjector;
 import fr.smp.core.managers.*;
 import fr.smp.core.permissions.OpCommand;
 import fr.smp.core.permissions.PermCommand;
 import fr.smp.core.permissions.PermissionsManager;
+import fr.smp.core.skins.SkinManager;
 import fr.smp.core.storage.Database;
+import fr.smp.core.sync.InventoryHistoryCommand;
+import fr.smp.core.sync.InventoryHistoryManager;
 import fr.smp.core.sync.SyncListener;
 import fr.smp.core.sync.SyncManager;
 import fr.smp.core.utils.ChatPrompt;
@@ -48,6 +59,8 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.logging.Level;
+
 public class SMPCore extends JavaPlugin {
 
     private static SMPCore instance;
@@ -56,6 +69,7 @@ public class SMPCore extends JavaPlugin {
     private ServerSelectorGUI serverSelector;
     private MessageChannel messageChannel;
     private SyncManager syncManager;
+    private InventoryHistoryManager invHistory;
     private TpsReporter tpsReporter;
     private String serverType;
     private long startedAtMillis;
@@ -72,6 +86,7 @@ public class SMPCore extends JavaPlugin {
     private WarpManager warps;
     private TpaManager tpa;
     private TeamManager teams;
+    private LeaderboardManager leaderboards;
     private EconomyManager economy;
     private WorthManager worth;
     private ShopManager shop;
@@ -87,18 +102,21 @@ public class SMPCore extends JavaPlugin {
     private NetworkRoster roster;
     private NametagManager nametags;
     private EndToggleManager endToggle;
+    private PhantomToggleManager phantomToggle;
     private WeatherListener weather;
     private WaypointManager waypoints;
     private MessageManager messages;
     private SitManager sit;
     private AfkManager afk;
     private VanishManager vanish;
+    private FullbrightManager fullbright;
     private AdminModeManager adminMode;
     private ModerationManager moderation;
     private BountyManager bounties;
     private HuntedManager hunted;
     private AlchemyTotemManager alchemyTotem;
     private SpawnerManager spawners;
+    private VoidstoneManager voidstones;
     private EnchantArmorTask enchantArmor;
     private ResourcePackManager resourcePacks;
     private GateManager gates;
@@ -108,7 +126,11 @@ public class SMPCore extends JavaPlugin {
     private NpcManager npcs;
     private HologramManager holograms;
     private DiscordBridge discordBridge;
+    private CooldownManager cooldowns;
     private WorthHoverListener worthHover;
+    private WorthDisplayInjector worthDisplay;
+    private SkinManager skins;
+    private GodManager god;
     private volatile boolean chatLocked = false;
 
     @Override
@@ -142,6 +164,7 @@ public class SMPCore extends JavaPlugin {
         warps = new WarpManager(this, database);
         tpa = new TpaManager(this);
         teams = new TeamManager(this, database, players);
+        leaderboards = new LeaderboardManager(this, database, players);
         teamInvites = new TeamInviteManager();
         chatPrompt = new ChatPrompt(this);
         serverStats = new ServerStatsManager();
@@ -151,6 +174,7 @@ public class SMPCore extends JavaPlugin {
         permissions = new PermissionsManager(this, database);
         permissions.load();
         economy = new EconomyManager(this, players);
+        cooldowns = new CooldownManager(this);
         worth = new WorthManager(this);
         worth.load();
         shop = new ShopManager(this);
@@ -169,35 +193,43 @@ public class SMPCore extends JavaPlugin {
         nametags = new NametagManager(this);
         nametags.start();
         endToggle = new EndToggleManager(this);
+        phantomToggle = new PhantomToggleManager(this);
         waypoints = new WaypointManager(this, database);
         messages = new MessageManager();
         sit = new SitManager(this);
         afk = new AfkManager(this);
         afk.start();
         vanish = new VanishManager(this);
+        fullbright = new FullbrightManager(this);
         adminMode = new AdminModeManager(this);
+        god = new GodManager();
         moderation = new ModerationManager(this, database);
         bounties = new BountyManager(this, database);
-        if (!isLobby()) {
+        if (isMainSurvival()) {
             hunted = new HuntedManager(this, database);
             hunted.start();
         }
 
         // Totem d'Alchimie : uniquement sur survival (pas de combat en lobby).
-        if (!isLobby()) {
+        if (isMainSurvival()) {
             alchemyTotem = new AlchemyTotemManager(this);
             alchemyTotem.start();
         }
 
         // Spawners custom : uniquement survival. Les blocs SPAWNER dans le
         // lobby restent vanilla (interdits par le LobbyProtectionListener de toute façon).
-        if (!isLobby()) {
+        if (isMainSurvival()) {
             spawners = new SpawnerManager(this);
             spawners.start();
         }
 
+        if (isMainSurvival()) {
+            voidstones = new VoidstoneManager(this);
+            voidstones.start();
+        }
+
         // Per-dimension resource packs (Nether/End) — survival only.
-        if (!isLobby()) {
+        if (isMainSurvival()) {
             resourcePacks = new ResourcePackManager(this);
         }
 
@@ -224,10 +256,13 @@ public class SMPCore extends JavaPlugin {
         // before any other join-side effect runs.
         auth = new AuthManager(this, database);
         auth.start();
+        skins = new SkinManager(this, database);
+        skins.start();
 
         // Listeners
         var pm = getServer().getPluginManager();
         pm.registerEvents(new AuthListener(this, auth), this);
+        pm.registerEvents(skins, this);
         joinListener = new JoinListener(this);
         pm.registerEvents(joinListener, this);
         pm.registerEvents(new GUIListener(this), this);
@@ -235,13 +270,25 @@ public class SMPCore extends JavaPlugin {
         worthHover = new WorthHoverListener(this);
         pm.registerEvents(worthHover, this);
         worthHover.start();
+        worthDisplay = new WorthDisplayInjector(this);
+        pm.registerEvents(worthDisplay, this);
+        worthDisplay.start();
         // Death + combat tag only make sense on a survival server.
-        if (!isLobby()) {
+        if (isMainSurvival()) {
             pm.registerEvents(new DeathListener(this), this);
             pm.registerEvents(new CombatListener(this), this);
         }
+        // Void detection — transfer to lobby before the player dies.
+        if (!isLobby()) {
+            pm.registerEvents(new VoidListener(this), this);
+        }
         if (syncManager.isEnabled()) {
             pm.registerEvents(new SyncListener(this, syncManager), this);
+        }
+        // Inventory rollback history — only on servers with real inventories (skip lobby).
+        if (syncManager.isEnabled() && !isLobby()) {
+            invHistory = new InventoryHistoryManager(this, database, syncManager);
+            invHistory.start();
         }
         if (getConfig().getBoolean("chat.enabled", true)) {
             // SpamGuard first (LOWEST) so it runs before ChatListener (NORMAL)
@@ -250,6 +297,7 @@ public class SMPCore extends JavaPlugin {
             pm.registerEvents(new ChatListener(this), this);
         }
         pm.registerEvents(endToggle, this);
+        pm.registerEvents(phantomToggle, this);
         weather = new WeatherListener(this);
         pm.registerEvents(weather, this);
         weather.clearNow();
@@ -258,12 +306,23 @@ public class SMPCore extends JavaPlugin {
         }
         pm.registerEvents(new ChainClimbListener(this), this);
         pm.registerEvents(new SeedSpoofListener(this), this);
+        if (!isLobby()) {
+            pm.registerEvents(new MachineBoostListener(this), this);
+        }
+        if (isMainSurvival()) {
+            pm.registerEvents(new VillagerBucketListener(this), this);
+        }
         pm.registerEvents(sit, this);
         pm.registerEvents(afk, this);
         pm.registerEvents(vanish, this);
+        pm.registerEvents(fullbright, this);
+        pm.registerEvents(new GodListener(this), this);
         pm.registerEvents(moderation, this);
         if (spawners != null) {
             pm.registerEvents(new SpawnerListener(this), this);
+        }
+        if (voidstones != null) {
+            pm.registerEvents(new VoidstoneListener(this), this);
         }
         if (resourcePacks != null) {
             pm.registerEvents(resourcePacks, this);
@@ -272,7 +331,10 @@ public class SMPCore extends JavaPlugin {
         if (npcs != null) pm.registerEvents(npcs, this);
 
         // Custom enchants (table + anvil + mob-drop + soulbound + area-break + armor task).
+        // The gameplay listeners must run on both the live survival server and PTR;
+        // only the lobby should skip them.
         pm.registerEvents(new CustomEnchantListener(this), this);
+        pm.registerEvents(new GrindstoneListener(this), this);
         if (!isLobby()) {
             pm.registerEvents(new EnchantBreakListener(this), this);
             enchantArmor = new EnchantArmorTask(this);
@@ -344,6 +406,11 @@ public class SMPCore extends JavaPlugin {
         getCommand("shards").setExecutor(new EconomyCommand(this, "shards"));
         getCommand("eco").setExecutor(new EconomyCommand(this, "eco"));
         getCommand("baltop").setExecutor(new EconomyCommand(this, "baltop"));
+        if (getCommand("leaderboard") != null) {
+            LeaderboardCommand leaderboardCommand = new LeaderboardCommand(this);
+            getCommand("leaderboard").setExecutor(leaderboardCommand);
+            getCommand("leaderboard").setTabCompleter(leaderboardCommand);
+        }
         SellCommand sellCmd = new SellCommand(this);
         getCommand("sell").setExecutor(sellCmd);
         getCommand("sellall").setExecutor(sellCmd);
@@ -358,6 +425,7 @@ public class SMPCore extends JavaPlugin {
         getCommand("team").setExecutor(new TeamCommand(this));
         getCommand("ah").setExecutor(new AuctionCommand(this));
         getCommand("end").setExecutor(new EndCommand(this));
+        getCommand("phantom").setExecutor(new PhantomCommand(this));
 
         getCommand("heads").setExecutor(new HeadsCommand(this));
         getCommand("bounty").setExecutor(new BountyCommand(this));
@@ -367,16 +435,29 @@ public class SMPCore extends JavaPlugin {
         getCommand("here").setExecutor(new HereCommand(this));
         getCommand("sit").setExecutor(new SitCommand(this));
         getCommand("playtime").setExecutor(new PlaytimeCommand(this));
+        getCommand("stat").setExecutor(new StatCommand(this));
         getCommand("ping").setExecutor(new PingCommand(this));
         getCommand("saphir").setExecutor(new SaphirCommand(this));
         getCommand("invsee").setExecutor(new InvseeCommand(this));
         getCommand("vanish").setExecutor(new VanishCommand(this));
+        getCommand("vanish").setTabCompleter(new VanishCommand(this));
+        getCommand("fullbright").setExecutor(new FullbrightCommand(this));
         getCommand("admin").setExecutor(new AdminCommand(this));
+        getCommand("god").setExecutor(new GodCommand(this));
+        getCommand("heal").setExecutor(new HealCommand(this));
+        getCommand("fly").setExecutor(new FlyCommand(this));
+        getCommand("speed").setExecutor(new SpeedCommand(this));
+        getCommand("furnace").setExecutor(new FurnaceCommand(this));
         getCommand("kick").setExecutor(new ModerationCommand(this, "kick"));
         getCommand("ban").setExecutor(new ModerationCommand(this, "ban"));
         getCommand("unban").setExecutor(new ModerationCommand(this, "unban"));
         getCommand("mute").setExecutor(new ModerationCommand(this, "mute"));
         getCommand("unmute").setExecutor(new ModerationCommand(this, "unmute"));
+        getCommand("banlist").setExecutor(new BanlistCommand(this));
+
+        InfoAdminCommand infoAdminCmd = new InfoAdminCommand(this);
+        getCommand("infoadmin").setExecutor(infoAdminCmd);
+        getCommand("infoadmin").setTabCompleter(infoAdminCmd);
 
         // Keyall désactivé pour l'instant (feature en pause).
         // getCommand("keyall").setExecutor(new KeyallCommand(this));
@@ -386,6 +467,12 @@ public class SMPCore extends JavaPlugin {
             SpawnerCommand spawnerCmd = new SpawnerCommand(this);
             getCommand("spawner").setExecutor(spawnerCmd);
             getCommand("spawner").setTabCompleter(spawnerCmd);
+        }
+
+        if (getCommand("voidstone") != null) {
+            VoidstoneCommand voidstoneCmd = new VoidstoneCommand(this);
+            getCommand("voidstone").setExecutor(voidstoneCmd);
+            getCommand("voidstone").setTabCompleter(voidstoneCmd);
         }
 
         if (getCommand("ce") != null) {
@@ -435,9 +522,39 @@ public class SMPCore extends JavaPlugin {
             getCommand("online").setExecutor(new OnlineCommand(this));
         }
 
+        if (getCommand("skin") != null) {
+            SkinCommand skinCmd = new SkinCommand(this);
+            getCommand("skin").setExecutor(skinCmd);
+            getCommand("skin").setTabCompleter(skinCmd);
+        }
+
+        if (getCommand("send") != null) {
+            SendCommand sendCmd = new SendCommand(this);
+            getCommand("send").setExecutor(sendCmd);
+            getCommand("send").setTabCompleter(sendCmd);
+        }
+
         ChatToggleCommand chatCmd = new ChatToggleCommand(this);
         getCommand("chat").setExecutor(chatCmd);
         getCommand("chat").setTabCompleter(chatCmd);
+
+        if (getCommand("invrollback") != null && invHistory != null) {
+            InventoryHistoryCommand invRollbackCmd = new InventoryHistoryCommand(this);
+            getCommand("invrollback").setExecutor(invRollbackCmd);
+            getCommand("invrollback").setTabCompleter(invRollbackCmd);
+        }
+
+        RepairCommand repairCmd = new RepairCommand(this);
+        getCommand("repair").setExecutor(repairCmd);
+        getCommand("repair").setTabCompleter(repairCmd);
+
+        getCommand("rename").setExecutor(new RenameCommand(this));
+
+        NickCommand nickCmd = new NickCommand(this);
+        getCommand("nick").setExecutor(nickCmd);
+        getCommand("nick").setTabCompleter(nickCmd);
+
+        getCommand("link").setExecutor(new LinkCommand(this));
 
         // Network-wide tab completion for commands taking a player name.
         NetworkTabCompleter p0 = new NetworkTabCompleter(this, 0, false);
@@ -458,6 +575,7 @@ public class SMPCore extends JavaPlugin {
         getCommand("invsee").setTabCompleter(p0);
         getCommand("ping").setTabCompleter(p0Self);
         getCommand("playtime").setTabCompleter(p0Self);
+        getCommand("stat").setTabCompleter(p0Self);
         getCommand("bal").setTabCompleter(p0Self);
         getCommand("kick").setTabCompleter(p0);
         getCommand("ban").setTabCompleter(p0);
@@ -465,6 +583,11 @@ public class SMPCore extends JavaPlugin {
         getCommand("unban").setTabCompleter(p0);
         getCommand("unmute").setTabCompleter(p0);
         getCommand("team").setTabCompleter(new TeamTabCompleter(this));
+
+        getCommand("god").setTabCompleter(new GodCommand(this));
+        getCommand("heal").setTabCompleter(new HealCommand(this));
+        getCommand("fly").setTabCompleter(new FlyCommand(this));
+        getCommand("speed").setTabCompleter(new SpeedCommand(this));
 
         // /waypoints: only "player" subcommand takes a name at index 1.
         getCommand("waypoints").setTabCompleter((sender, cmd, alias, args) -> {
@@ -520,22 +643,72 @@ public class SMPCore extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (auth != null) auth.stop();
-        if (discordBridge != null) discordBridge.shutdown();
-        if (npcs != null) npcs.stop();
-        if (holograms != null) holograms.stop();
-        if (gateWandViz != null) gateWandViz.stop();
-        if (gates != null) gates.stop();
-        if (enchantArmor != null) enchantArmor.stop();
-        if (alchemyTotem != null) alchemyTotem.shutdown();
-        if (spawners != null) spawners.stop();
-        if (hunted != null) hunted.shutdown();
-        if (tpsReporter != null) tpsReporter.stop();
-        snapshotOnlinePlayerState();
-        if (syncManager != null) syncManager.saveAllOnline();
-        if (players != null) players.saveAll();
-        if (logs != null) logs.stop();
-        if (database != null) database.close();
+        // Persist player-facing state first so a later shutdown exception in a
+        // non-critical subsystem can never skip the final inventory save.
+        shutdownStep("snapshot online player state", this::snapshotOnlinePlayerState);
+        shutdownStep("capture final inventory history", () -> {
+            if (invHistory != null) {
+                invHistory.snapshotAllOnlineNow(InventoryHistoryManager.Source.SHUTDOWN);
+            }
+        });
+        shutdownStep("save sync data", () -> {
+            if (syncManager != null) syncManager.saveAllOnline();
+        });
+        shutdownStep("save player data", () -> {
+            if (players != null) players.saveAll();
+        });
+
+        shutdownStep("worth display", () -> {
+            if (worthDisplay != null) worthDisplay.shutdown();
+        });
+        shutdownStep("skins", () -> {
+            if (skins != null) skins.stop();
+        });
+        shutdownStep("auth", () -> {
+            if (auth != null) auth.stop();
+        });
+        shutdownStep("discord bridge", () -> {
+            if (discordBridge != null) discordBridge.shutdown();
+        });
+        shutdownStep("npcs", () -> {
+            if (npcs != null) npcs.stop();
+        });
+        shutdownStep("holograms", () -> {
+            if (holograms != null) holograms.stop();
+        });
+        shutdownStep("gate wand visualizer", () -> {
+            if (gateWandViz != null) gateWandViz.stop();
+        });
+        shutdownStep("gates", () -> {
+            if (gates != null) gates.stop();
+        });
+        shutdownStep("enchant armor", () -> {
+            if (enchantArmor != null) enchantArmor.stop();
+        });
+        shutdownStep("alchemy totem", () -> {
+            if (alchemyTotem != null) alchemyTotem.shutdown();
+        });
+        shutdownStep("voidstones", () -> {
+            if (voidstones != null) voidstones.shutdown();
+        });
+        shutdownStep("spawners", () -> {
+            if (spawners != null) spawners.stop();
+        });
+        shutdownStep("hunted", () -> {
+            if (hunted != null) hunted.shutdown();
+        });
+        shutdownStep("tps reporter", () -> {
+            if (tpsReporter != null) tpsReporter.stop();
+        });
+        shutdownStep("inventory history", () -> {
+            if (invHistory != null) invHistory.stop();
+        });
+        shutdownStep("logs", () -> {
+            if (logs != null) logs.stop();
+        });
+        shutdownStep("database", () -> {
+            if (database != null) database.close();
+        });
         instance = null;
     }
 
@@ -557,6 +730,7 @@ public class SMPCore extends JavaPlugin {
         String cwd = new java.io.File("").getAbsolutePath().replace('\\', '/');
         String lower = cwd.toLowerCase();
         if (lower.endsWith("/survival") || lower.contains("/survival/")) return "survival";
+        if (lower.endsWith("/ptr") || lower.contains("/ptr/")) return "ptr";
         if (lower.endsWith("/lobby") || lower.contains("/lobby/")) return "lobby";
         return getConfig().getString("server-type", "lobby");
     }
@@ -565,9 +739,12 @@ public class SMPCore extends JavaPlugin {
     public ServerSelectorGUI getServerSelector() { return serverSelector; }
     public MessageChannel getMessageChannel() { return messageChannel; }
     public SyncManager getSyncManager() { return syncManager; }
+    public InventoryHistoryManager invHistory() { return invHistory; }
     public String getServerType() { return serverType; }
     public long getStartedAtMillis() { return startedAtMillis; }
     public boolean isLobby() { return "lobby".equals(serverType); }
+    public boolean isPtr() { return "ptr".equals(serverType); }
+    public boolean isMainSurvival() { return "survival".equals(serverType); }
 
     // New getters
     public Database database() { return database; }
@@ -581,6 +758,7 @@ public class SMPCore extends JavaPlugin {
     public WarpManager warps() { return warps; }
     public TpaManager tpa() { return tpa; }
     public TeamManager teams() { return teams; }
+    public LeaderboardManager leaderboards() { return leaderboards; }
     public EconomyManager economy() { return economy; }
     public WorthManager worth() { return worth; }
     public ShopManager shop() { return shop; }
@@ -596,24 +774,31 @@ public class SMPCore extends JavaPlugin {
     public NetworkRoster roster() { return roster; }
     public NametagManager nametags() { return nametags; }
     public EndToggleManager endToggle() { return endToggle; }
+    public PhantomToggleManager phantomToggle() { return phantomToggle; }
     public WaypointManager waypoints() { return waypoints; }
     public MessageManager messages() { return messages; }
     public SitManager sit() { return sit; }
     public AfkManager afk() { return afk; }
     public VanishManager vanish() { return vanish; }
+    public FullbrightManager fullbright() { return fullbright; }
     public AdminModeManager adminMode() { return adminMode; }
     public ModerationManager moderation() { return moderation; }
     public BountyManager bounties() { return bounties; }
     public HuntedManager hunted() { return hunted; }
     public AlchemyTotemManager alchemyTotem() { return alchemyTotem; }
     public SpawnerManager spawners() { return spawners; }
+    public VoidstoneManager voidstones() { return voidstones; }
     public ResourcePackManager resourcePacks() { return resourcePacks; }
     public GateManager gates() { return gates; }
+    public CooldownManager cooldowns() { return cooldowns; }
     public AuthManager auth() { return auth; }
     public JoinListener joinListener() { return joinListener; }
     public NpcManager npcs() { return npcs; }
     public HologramManager holograms() { return holograms; }
     public WorthHoverListener worthHover() { return worthHover; }
+    public SkinManager skins() { return skins; }
+    public GodManager god() { return god; }
+    public DiscordBridge discordBridge() { return discordBridge; }
 
     public boolean isChatLocked() { return chatLocked; }
     public void setChatLocked(boolean locked) { this.chatLocked = locked; }
@@ -622,7 +807,7 @@ public class SMPCore extends JavaPlugin {
         if (players == null) return;
         for (Player player : Bukkit.getOnlinePlayers()) {
             players.loadOrCreate(player.getUniqueId(), player.getName()).setName(player.getName());
-            if (isLobby()) {
+            if (!isMainSurvival()) {
                 continue;
             }
             Location loc = player.getLocation();
@@ -635,6 +820,14 @@ public class SMPCore extends JavaPlugin {
             // son prochain retour déclenche un RTP (géré dans DeathListener).
             players.get(player).setLastLocation(loc.getWorld().getName(),
                     loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
+        }
+    }
+
+    private void shutdownStep(String label, Runnable step) {
+        try {
+            step.run();
+        } catch (Throwable t) {
+            getLogger().log(Level.WARNING, "Shutdown step failed: " + label, t);
         }
     }
 }
