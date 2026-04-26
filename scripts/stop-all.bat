@@ -2,7 +2,7 @@
 setlocal EnableDelayedExpansion
 REM ============================================================
 REM  Graceful shutdown for the SMP network.
-REM  Sends "save-all flush" + "stop" via RCON to lobby/survival,
+REM  Sends "save-all flush" + "stop" via RCON to lobby/survival/ptr,
 REM  waits for the world to finish flushing, then closes Velocity.
 REM  Never use the cmd "X" button to stop a server: always run this.
 REM ============================================================
@@ -21,6 +21,11 @@ set SURVIVAL_PORT=25576
 set SURVIVAL_PASS=ZFhJ7bUXe1mNq7vNvtrBQULrNC6WMPh
 set SURVIVAL_MC_PORT=25567
 
+set PTR_HOST=127.0.0.1
+set PTR_PORT=25578
+set PTR_PASS=43b9fc9853494223a5d6889cc4e9b025
+set PTR_MC_PORT=25568
+
 if not exist "%JAVA%" (
     echo ERROR: Java 25 not found at %JAVA%
     exit /b 1
@@ -31,12 +36,17 @@ echo   Graceful shutdown (RCON + save-all flush)
 echo ============================================
 
 call :stopPaper Survival %SURVIVAL_HOST% %SURVIVAL_PORT% %SURVIVAL_PASS% %SURVIVAL_MC_PORT%
+call :stopPaper PTR      %PTR_HOST%      %PTR_PORT%      %PTR_PASS%      %PTR_MC_PORT%
 call :stopPaper Lobby    %LOBBY_HOST%    %LOBBY_PORT%    %LOBBY_PASS%    %LOBBY_MC_PORT%
 
 echo.
 echo [Velocity] closing proxy window...
 taskkill /FI "WINDOWTITLE eq Velocity Proxy" /T /F >nul 2>&1
 REM Velocity has no world data; brute-close is safe once backends are down.
+
+echo [Discord Bot] closing bot window...
+taskkill /FI "WINDOWTITLE eq Discord Bot" /T /F >nul 2>&1
+REM Bot state lives in SQLite + is flushed on every write — brute-close is safe.
 
 echo.
 echo All servers saved and stopped cleanly.
