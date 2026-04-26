@@ -27,7 +27,11 @@ public final class AuthEffects {
         p.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 20 * 600, 4, false, false, false));
         p.setInvulnerable(true);
         p.setCollidable(false);
-        p.setAllowFlight(false);
+        // Keep Paper's anti-fly check quiet while the player is frozen mid-air
+        // during /login or /register.
+        p.setFlying(false);
+        p.setAllowFlight(true);
+        p.setFallDistance(0f);
     }
 
     public static void clear(Player p) {
@@ -36,6 +40,7 @@ public final class AuthEffects {
         p.removePotionEffect(PotionEffectType.WEAKNESS);
         p.setInvulnerable(false);
         p.setCollidable(true);
+        p.setFallDistance(0f);
     }
 
     public static void reminder(Player p, boolean registered) {
