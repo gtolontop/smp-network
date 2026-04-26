@@ -51,6 +51,8 @@ public class SMPCoreVelocity {
     private final Map<String, List<PluginMessageListener.RosterEntry>> rosterByServer = new ConcurrentHashMap<>();
     private final Map<UUID, ScheduledTask> pendingJoin = new ConcurrentHashMap<>();
     private final Set<UUID> announced = ConcurrentHashMap.newKeySet();
+    /** Cracked players that have been authenticated on any backend during this proxy session. */
+    private final Set<UUID> authenticatedPlayers = ConcurrentHashMap.newKeySet();
     private LastServerStore lastServer;
     private VelocityDiscordBridge discordBridge;
 
@@ -86,6 +88,8 @@ public class SMPCoreVelocity {
             new ServerCommand(this, "lobby"));
         cm.register(cm.metaBuilder("survival").aliases("surv", "s").plugin(this).build(),
             new ServerCommand(this, "survival"));
+        cm.register(cm.metaBuilder("ptr").plugin(this).build(),
+            new ServerCommand(this, "ptr"));
         cm.register(cm.metaBuilder("glist").aliases("players", "who").plugin(this).build(),
             new ListCommand(this));
         cm.register(cm.metaBuilder("servers").aliases("network", "online").plugin(this).build(),
@@ -96,7 +100,7 @@ public class SMPCoreVelocity {
             new MaxPlayersCommand(this));
 
         // Discord bridge — WebSocket client to the companion bot.
-        discordBridge = new VelocityDiscordBridge(server, logger, dataDir);
+        discordBridge = new VelocityDiscordBridge(this, server, logger, dataDir);
         discordBridge.start();
 
         logger.info("SMP Core Velocity loaded — chat/perm/roster relay active.");
@@ -116,6 +120,26 @@ public class SMPCoreVelocity {
         if (lastServer != null) {
             lastServer.put(player.getUniqueId(), event.getServer().getServerInfo().getName());
         }
+
+        // If this is a server switch (not initial join) and the player was
+        // authenticated on the previous backend, tell the new backend so
+        // it can skip the /login prompt.
+        if (event.getPreviousServer().isPresent() && authenticatedPlayers.contains(player.getUniqueId())) {
+            try {
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                DataOutputStream out = new DataOutputStream(bytes);
+                out.writeUTF("auth-validated");
+                out.writeUTF(player.getUniqueId().toString());
+                out.writeUTF(player.getUsername());
+                event.getServer().sendPluginMessage(CHANNEL, bytes.toByteArray());
+                logger.info("Sent auth-validated for '{}' to {}", player.getUsername(),
+                        event.getServer().getServerInfo().getName());
+            } catch (Exception e) {
+                logger.warn("Failed to send auth-validated for '{}': {}",
+                        player.getUsername(), e.getMessage());
+            }
+        }
+
         if (event.getPreviousServer().isEmpty()) {
             UUID uuid = player.getUniqueId();
             String name = player.getUsername();
@@ -129,12 +153,16 @@ public class SMPCoreVelocity {
             }).delay(2, TimeUnit.SECONDS).schedule();
             pendingJoin.put(uuid, task);
         }
+
+        syncNetworkTabList();
     }
 
     @Subscribe
     public void onDisconnect(DisconnectEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
+
+        authenticatedPlayers.remove(uuid);
 
         ScheduledTask pending = pendingJoin.remove(uuid);
         if (pending != null) {
@@ -146,11 +174,17 @@ public class SMPCoreVelocity {
             Component msg = mm.deserialize("<gray>[<red>-</red>]</gray> <white>" + player.getUsername() + "</white> <gray>a quitté le réseau</gray>");
             server.getAllPlayers().forEach(p -> p.sendMessage(msg));
         }
+
+        syncNetworkTabList();
     }
 
     public ProxyServer getServer() { return server; }
     public Logger getLogger() { return logger; }
     public MiniMessage getMiniMessage() { return mm; }
+
+    /** Called by PluginMessageListener when a backend reports a player authenticated. */
+    public void markAuthenticated(UUID uuid) { authenticatedPlayers.add(uuid); }
+    public boolean isAuthenticated(UUID uuid) { return authenticatedPlayers.contains(uuid); }
 
     public void putStats(String serverName, ServerStats stats) {
         statsByServer.put(serverName, stats);
@@ -200,23 +234,7 @@ public class SMPCoreVelocity {
      *  whatever backends have reported. */
     private void broadcastRoster() {
         try {
-            java.util.Map<String, String> prefixByName = new java.util.HashMap<>();
-            for (List<PluginMessageListener.RosterEntry> list : rosterByServer.values()) {
-                if (list == null) continue;
-                for (PluginMessageListener.RosterEntry e : list) {
-                    if (e == null || e.name() == null) continue;
-                    prefixByName.putIfAbsent(e.name().toLowerCase(), e.prefix() == null ? "" : e.prefix());
-                }
-            }
-
-            List<PluginMessageListener.RosterEntry> all = new ArrayList<>();
-            for (RegisteredServer rs : server.getAllServers()) {
-                String srvName = rs.getServerInfo().getName();
-                for (Player p : rs.getPlayersConnected()) {
-                    String prefix = prefixByName.getOrDefault(p.getUsername().toLowerCase(), "");
-                    all.add(new PluginMessageListener.RosterEntry(p.getUsername(), srvName, prefix));
-                }
-            }
+            List<PluginMessageListener.RosterEntry> all = buildNetworkRosterSnapshot();
 
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             DataOutputStream out = new DataOutputStream(bytes);
@@ -234,13 +252,42 @@ public class SMPCoreVelocity {
                 }
             }
 
-            try {
-                NetworkTabListSync.syncAll(server, server.getAllPlayers(), all);
-            } catch (Throwable t) {
-                logger.debug("tab sync failed: {}", t.getMessage());
-            }
+            syncNetworkTabList(all);
         } catch (Exception e) {
             logger.debug("broadcastRoster failed: {}", e.getMessage());
+        }
+    }
+
+    private List<PluginMessageListener.RosterEntry> buildNetworkRosterSnapshot() {
+        java.util.Map<String, String> prefixByName = new java.util.HashMap<>();
+        for (List<PluginMessageListener.RosterEntry> list : rosterByServer.values()) {
+            if (list == null) continue;
+            for (PluginMessageListener.RosterEntry entry : list) {
+                if (entry == null || entry.name() == null) continue;
+                prefixByName.putIfAbsent(entry.name().toLowerCase(), entry.prefix() == null ? "" : entry.prefix());
+            }
+        }
+
+        List<PluginMessageListener.RosterEntry> all = new ArrayList<>();
+        for (RegisteredServer registeredServer : server.getAllServers()) {
+            String serverName = registeredServer.getServerInfo().getName();
+            for (Player player : registeredServer.getPlayersConnected()) {
+                String prefix = prefixByName.getOrDefault(player.getUsername().toLowerCase(), "");
+                all.add(new PluginMessageListener.RosterEntry(player.getUsername(), serverName, prefix));
+            }
+        }
+        return all;
+    }
+
+    private void syncNetworkTabList() {
+        syncNetworkTabList(buildNetworkRosterSnapshot());
+    }
+
+    private void syncNetworkTabList(List<PluginMessageListener.RosterEntry> all) {
+        try {
+            NetworkTabListSync.syncAll(server, server.getAllPlayers(), all);
+        } catch (Throwable t) {
+            logger.debug("tab sync failed: {}", t.getMessage());
         }
     }
 }
