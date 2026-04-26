@@ -7,6 +7,7 @@ import {
   linkForName,
 } from '../db/queries.js';
 import { hostSnapshot } from '../host/metrics.js';
+import { loadWorldPlayerStats, worldPlayerStatsByName, worldPlayerStatsByUuid } from '../stats/worldStats.js';
 import { humanDuration } from '../utils/time.js';
 import { bytesToHuman, pct } from '../utils/format.js';
 
@@ -121,20 +122,43 @@ export async function runTool(name: string, args: Record<string, unknown>): Prom
       }));
     case 'player_stats': {
       const nameArg = String(args.name ?? '');
-      const row = playerByName(nameArg) ?? (linkForName(nameArg) ? player(linkForName(nameArg)!.mcUuid) : undefined);
+      const link = linkForName(nameArg);
+      const row = playerByName(nameArg) ?? (link ? player(link.mcUuid) : undefined);
+      const worldStats = row ? worldPlayerStatsByUuid(row.mcUuid) : worldPlayerStatsByName(nameArg);
       if (!row) return { error: 'unknown player' };
       return {
-        name: row.mcName,
+        name: worldStats?.mcName ?? row.mcName,
         playtime: humanDuration(row.playtimeSec),
         deaths: row.deaths,
         kills: row.kills,
-        blocksBroken: row.blocksBroken,
-        blocksPlaced: row.blocksPlaced,
+        blocksBroken: worldStats?.blocksBroken ?? (row.blocksBroken > 0 ? row.blocksBroken : null),
+        blocksPlaced: row.blocksPlaced > 0 ? row.blocksPlaced : null,
+        blocksBrokenSource: worldStats ? 'minecraft-world-stats' : row.blocksBroken > 0 ? 'bot-db' : 'unknown',
+        blocksPlacedSource: row.blocksPlaced > 0 ? 'bot-db' : 'unavailable',
+        notes:
+          row.blocksPlaced > 0
+            ? undefined
+            : 'Le bot ne dispose pas encore d’une source fiable pour le total de blocs posés.',
       };
     }
     case 'leaderboard': {
       const field = args.field as 'playtime_sec' | 'kills' | 'deaths' | 'blocks_broken' | 'blocks_placed';
       const limit = typeof args.limit === 'number' ? args.limit : 5;
+      if (field === 'blocks_broken') {
+        return loadWorldPlayerStats()
+          .slice(0, limit)
+          .map((r) => ({
+            name: r.mcName,
+            value: r.blocksBroken,
+            source: 'minecraft-world-stats',
+          }));
+      }
+      if (field === 'blocks_placed') {
+        return {
+          error: 'unavailable field',
+          reason: 'Le bot ne suit pas encore un total fiable des blocs posés.',
+        };
+      }
       return topPlayers(field, limit).map((r) => ({
         name: r.mcName,
         value:
