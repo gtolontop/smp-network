@@ -236,7 +236,7 @@ public class HomesGUI extends GUIHolder {
                                 fr.smp.core.managers.PendingTeleportManager.Kind.LOC,
                                 home.world(), home.x(), home.y(), home.z(),
                                 home.yaw(), home.pitch(),
-                                System.currentTimeMillis()));
+                                System.currentTimeMillis(), homeServer));
                 p.sendMessage(Msg.info("<aqua>Transfert vers <white>" + homeServer + "</white>...</aqua>"));
                 plugin.getMessageChannel().sendTransfer(p, homeServer);
                 return;
