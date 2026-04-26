@@ -36,8 +36,14 @@ public class DeathListener implements Listener {
         Player victim = event.getPlayer();
         PlayerData vd = plugin.players().get(victim);
         if (vd != null) vd.incrementDeaths();
-        plugin.logs().log(LogCategory.DEATH, victim, "death cause=" +
-                (victim.getLastDamageCause() != null ? victim.getLastDamageCause().getCause() : "?"));
+
+        Location deathLoc = victim.getLocation();
+        String cause = victim.getLastDamageCause() != null
+                ? victim.getLastDamageCause().getCause().name() : "?";
+        String world = deathLoc.getWorld() != null ? deathLoc.getWorld().getName() : "?";
+
+        plugin.logs().log(LogCategory.DEATH, victim, "death cause=" + cause);
+        plugin.back().setDeathLocation(victim.getUniqueId(), victim.getName(), deathLoc);
 
         Player killer = victim.getKiller();
         if (killer != null && !killer.equals(victim)) {
@@ -50,6 +56,12 @@ public class DeathListener implements Listener {
             payoutBounty(victim, killer);
             if (plugin.hunted() != null) plugin.hunted().onKill(killer, kd);
         }
+
+        String killerSuffix = (killer != null && !killer.equals(victim)) ? " tué par " + killer.getName() : "";
+        plugin.getLogger().info("[DEATH] " + victim.getName() + " @ " + world + " " +
+                deathLoc.getBlockX() + "," + deathLoc.getBlockY() + "," + deathLoc.getBlockZ() +
+                " (" + cause + ")" + killerSuffix);
+
         if (plugin.hunted() != null) plugin.hunted().onHuntedDeath(victim);
         if (plugin.combat() != null) plugin.combat().untag(victim);
     }
