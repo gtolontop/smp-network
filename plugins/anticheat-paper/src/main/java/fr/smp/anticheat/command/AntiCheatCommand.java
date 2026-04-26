@@ -1,6 +1,7 @@
 package fr.smp.anticheat.command;
 
 import fr.smp.anticheat.AntiCheatPlugin;
+import fr.smp.anticheat.clients.ClientProfile;
 import fr.smp.anticheat.movement.MovementProfile;
 import fr.smp.anticheat.xray.XrayProfile;
 import org.bukkit.Bukkit;
@@ -42,7 +43,9 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBS = List.of(
             "reload", "debug", "me", "scan", "ismasked", "reveal", "remask",
-            "bypass", "highlight", "simulate");
+            "bypass", "highlight", "simulate", "clients");
+
+    private static final List<String> CLIENTS_SUBS = List.of("list", "info", "clear", "flag");
 
     private final AntiCheatPlugin plugin;
     // Running highlight tasks per caller, so re-invoking the command cancels
@@ -77,9 +80,9 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
                 // "reload didn't fix anything" reports came in.
                 int resent = 0;
                 for (Player online : Bukkit.getOnlinePlayers()) {
-                    plugin.xray().clearPlayer(online.getUniqueId());
-                    plugin.visibility().clear(online.getUniqueId());
-                    resendNearbyChunks(online);
+                    if (plugin.xray() != null) plugin.xray().clearPlayer(online.getUniqueId());
+                    if (plugin.visibility() != null) plugin.visibility().clear(online.getUniqueId());
+                    if (plugin.xray() != null) resendNearbyChunks(online);
                     resent++;
                 }
                 sender.sendMessage("§aAntiCheat config reloaded §8(§7état nettoyé et "
@@ -108,7 +111,7 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
                 Block target = p.getTargetBlockExact(12);
                 if (target == null) { sender.sendMessage("§cAucun bloc en vue (distance < 12)."); return true; }
                 Location l = target.getLocation();
-                boolean masked = plugin.xray().isMasked(p, l.getBlockX(), l.getBlockY(), l.getBlockZ());
+                boolean masked = plugin.xray() != null && plugin.xray().isMasked(p, l.getBlockX(), l.getBlockY(), l.getBlockZ());
                 sender.sendMessage("§7Target §f" + target.getType() + " §7at §f" + l.getBlockX()
                         + "," + l.getBlockY() + "," + l.getBlockZ() + " §7— masked=§f" + masked);
             }
@@ -121,7 +124,7 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
             case "remask" -> {
                 Player p = requirePlayer(sender);
                 if (p == null) return true;
-                plugin.xray().clearPlayer(p.getUniqueId());
+                if (plugin.xray() != null) plugin.xray().clearPlayer(p.getUniqueId());
                 sender.sendMessage("§aMask state cleared — le prochain chunk redémarre.");
             }
             case "bypass" -> handleBypass(sender, args);
@@ -132,9 +135,73 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
                 if (target == null) { sender.sendMessage("§cOffline."); return true; }
                 dumpProfile(sender, target);
             }
+            case "clients" -> handleClients(sender, args);
             default -> sender.sendMessage("§cUnknown subcommand. §7Use: §f" + String.join(", ", SUBS));
         }
         return true;
+    }
+
+    private void handleClients(CommandSender sender, String[] args) {
+        if (plugin.clients() == null || !plugin.clients().enabled()) {
+            sender.sendMessage("§cModule clients désactivé.");
+            return;
+        }
+        String sub = args.length >= 2 ? args[1].toLowerCase() : "list";
+        switch (sub) {
+            case "list" -> {
+                sender.sendMessage("§7AntiCheat §8| §fclients online (" + Bukkit.getOnlinePlayers().size() + ")");
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    ClientProfile pr = plugin.clients().get(online.getUniqueId());
+                    String brand = pr != null ? pr.brand() : "?";
+                    int chans = pr != null ? pr.channels().size() : 0;
+                    int flags = pr != null ? pr.flags().size() : 0;
+                    String flagColor = flags > 0 ? "§c" : "§a";
+                    sender.sendMessage("§8- §f" + online.getName()
+                            + " §7brand=§f" + brand
+                            + " §7chans=§f" + chans
+                            + " " + flagColor + "flags=" + flags);
+                }
+            }
+            case "info" -> {
+                if (args.length < 3) { sender.sendMessage("§c/ac clients info <player>"); return; }
+                Player target = Bukkit.getPlayerExact(args[2]);
+                if (target == null) { sender.sendMessage("§cOffline."); return; }
+                ClientProfile pr = plugin.clients().get(target.getUniqueId());
+                if (pr == null) { sender.sendMessage("§cAucun profil pour " + target.getName() + "."); return; }
+                sender.sendMessage("§7Client profile §f" + target.getName());
+                sender.sendMessage("§8 brand=§f" + pr.brand());
+                sender.sendMessage("§8 blocked=§f" + plugin.clients().isBlocked(target));
+                sender.sendMessage("§8 flags (" + pr.flags().size() + "):");
+                for (ClientProfile.Flag f : pr.flags()) {
+                    sender.sendMessage("§8  · " + (f.severity() == fr.smp.anticheat.clients.CheatSignatures.Severity.CHEAT
+                            ? "§c" : "§6") + f.severity().name()
+                            + " §7" + f.source() + " §8(" + f.detail() + ")");
+                }
+                sender.sendMessage("§8 channels (" + pr.channels().size() + "):");
+                int shown = 0;
+                for (String c : pr.channels()) {
+                    if (shown++ >= 20) { sender.sendMessage("§8  … +" + (pr.channels().size() - 20) + " autres"); break; }
+                    sender.sendMessage("§8  · §f" + c);
+                }
+            }
+            case "clear" -> {
+                if (args.length < 3) { sender.sendMessage("§c/ac clients clear <player>"); return; }
+                Player target = Bukkit.getPlayerExact(args[2]);
+                if (target == null) { sender.sendMessage("§cOffline."); return; }
+                plugin.clients().clearBlock(target);
+                sender.sendMessage("§aFlags AntiCheat-clients effacés pour §f" + target.getName() + "§a.");
+            }
+            case "flag" -> {
+                if (args.length < 3) { sender.sendMessage("§c/ac clients flag <player>"); return; }
+                Player target = Bukkit.getPlayerExact(args[2]);
+                if (target == null) { sender.sendMessage("§cOffline."); return; }
+                plugin.clients().raiseFlag(target, plugin.clients().getOrCreate(target),
+                        fr.smp.anticheat.clients.CheatSignatures.Severity.CHEAT,
+                        "manual", "flagged by " + sender.getName());
+                sender.sendMessage("§aFlag CHEAT posé sur §f" + target.getName() + "§a.");
+            }
+            default -> sender.sendMessage("§c/ac clients <" + String.join("|", CLIENTS_SUBS) + ">");
+        }
     }
 
     private Player requirePlayer(CommandSender sender) {
@@ -186,8 +253,10 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
         // flip OFF bypass we need the client to re-receive the masked versions, so
         // we clear the cache so the next chunk scan rebuilds it. When we flip ON
         // bypass we also clear so the currently-masked blocks get re-sent as real.
-        plugin.xray().clearPlayer(target.getUniqueId());
-        resendNearbyChunks(target);
+        if (plugin.xray() != null) {
+            plugin.xray().clearPlayer(target.getUniqueId());
+            resendNearbyChunks(target);
+        }
 
         String who = target == sender ? "toi" : target.getName();
         sender.sendMessage("§aBypass AntiCheat pour §f" + who + "§a: §f" + newState
@@ -236,6 +305,11 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
         BukkitTask prev = highlightTasks.remove(id);
         if (prev != null) prev.cancel();
 
+        if (plugin.xray() == null) {
+            sender.sendMessage("§cModule xray non disponible (serveur lobby).");
+            return;
+        }
+
         XrayProfile profile = plugin.acConfig().xrayProfile(p.getWorld().getEnvironment());
         if (!profile.enabled) {
             sender.sendMessage("§7Xray disabled for this env — rien à highlight.");
@@ -276,8 +350,8 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
                 }
             }
             // Heartbeat action-bar so the player knows the highlight is running + counts.
-            p.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§7highlight r=" + rad + " §8| §cmasked=" + masked + " §2visible=" + visible));
+            p.sendActionBar(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection()
+                    .deserialize("§7highlight r=" + rad + " §8| §cmasked=" + masked + " §2visible=" + visible));
         }, 0L, 10L); // 10-tick refresh = 2Hz, visible but not seizure-inducing
 
         highlightTasks.put(id, task);
@@ -311,6 +385,7 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
     }
 
     private void scan(CommandSender to, Player p, int radius) {
+        if (plugin.xray() == null) { to.sendMessage("§cModule xray non disponible (serveur lobby)."); return; }
         XrayProfile profile = plugin.acConfig().xrayProfile(p.getWorld().getEnvironment());
         if (!profile.enabled) { to.sendMessage("§7Xray disabled for this env."); return; }
         int total = 0, masked = 0;
@@ -332,6 +407,7 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
 
     private int forceReveal(Player p, int radius) {
         int count = 0;
+        if (plugin.xray() == null) return count;
         Location at = p.getLocation();
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
@@ -368,6 +444,20 @@ public final class AntiCheatCommand implements CommandExecutor, TabCompleter {
             return List.of("on", "off").stream()
                     .filter(s -> s.startsWith(args[2].toLowerCase()))
                     .collect(Collectors.toList());
+        }
+        if (args[0].equalsIgnoreCase("clients")) {
+            if (args.length == 2) {
+                String prefix = args[1].toLowerCase();
+                return CLIENTS_SUBS.stream().filter(s -> s.startsWith(prefix)).collect(Collectors.toList());
+            }
+            if (args.length == 3) {
+                String s1 = args[1].toLowerCase();
+                if (s1.equals("info") || s1.equals("clear") || s1.equals("flag")) {
+                    return Bukkit.getOnlinePlayers().stream().map(Player::getName)
+                            .filter(n -> n.toLowerCase().startsWith(args[2].toLowerCase()))
+                            .collect(Collectors.toList());
+                }
+            }
         }
         return Collections.emptyList();
     }
