@@ -1,7 +1,10 @@
 package fr.smp.anticheat.xray;
 
+import net.minecraft.world.level.block.Block;
 import org.bukkit.Material;
+import org.bukkit.craftbukkit.block.CraftBlockType;
 
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -12,6 +15,7 @@ public final class XrayProfile {
 
     public final boolean enabled;
     public final Set<Material> hiddenBlocks;
+    public final Set<Block> hiddenBlockTypes;
     public final int maxY;
     public final int minY;
     public final boolean fakeOreInjection;
@@ -34,7 +38,12 @@ public final class XrayProfile {
                        double revealDistance,
                        boolean maskCaveOres) {
         this.enabled = enabled;
-        this.hiddenBlocks = hiddenBlocks;
+        this.hiddenBlocks = Set.copyOf(hiddenBlocks);
+        Set<Block> blockTypes = new HashSet<>(hiddenBlocks.size());
+        for (Material material : hiddenBlocks) {
+            blockTypes.add(CraftBlockType.bukkitToMinecraft(material));
+        }
+        this.hiddenBlockTypes = Set.copyOf(blockTypes);
         this.maxY = maxY;
         this.minY = minY;
         this.fakeOreInjection = fakeOreInjection;
