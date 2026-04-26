@@ -35,6 +35,10 @@ public class TpaCommand implements CommandExecutor {
     }
 
     private void handleSend(Player p, String[] args) {
+        if (plugin.cooldowns() != null && plugin.cooldowns().isOnCooldown(p, "tpa")) {
+            p.sendMessage(Msg.err("Cooldown: <white>" + Msg.duration(plugin.cooldowns().remaining(p, "tpa")) + "</white>"));
+            return;
+        }
         TpaManager.Type type = action.equals("here") ? TpaManager.Type.HERE : TpaManager.Type.TO;
         if (args.length == 0) {
             p.sendMessage(Msg.err("/" + (type == TpaManager.Type.HERE ? "tpahere" : "tpa") + " <joueur>"));
@@ -48,6 +52,7 @@ public class TpaCommand implements CommandExecutor {
         Player localTarget = Bukkit.getPlayerExact(targetName);
         if (localTarget != null) {
             plugin.tpa().send(p, localTarget, type);
+            if (plugin.cooldowns() != null) plugin.cooldowns().set(p, "tpa");
             p.sendMessage(Msg.ok("<aqua>Demande envoyée à " + localTarget.getName() + ".</aqua>"));
             String verb = type == TpaManager.Type.HERE ? "veut que tu le rejoignes" : "veut se téléporter chez toi";
             localTarget.sendMessage(Msg.info("<aqua>" + p.getName() + "</aqua> " + verb +
@@ -83,11 +88,16 @@ public class TpaCommand implements CommandExecutor {
         // Track outgoing locally (for /tpacancel).
         plugin.tpa().receiveRemote(p.getName(), p.getUniqueId(), senderServer,
                 targetRealName, type, loc);
+        if (plugin.cooldowns() != null) plugin.cooldowns().set(p, "tpa");
         p.sendMessage(Msg.ok("<aqua>Demande envoyée à " + targetRealName +
                 " <gray>(" + entry.server() + ")</gray>.</aqua>"));
     }
 
     private void handleAccept(Player p) {
+        if (plugin.cooldowns() != null && plugin.cooldowns().isOnCooldown(p, "tpaccept")) {
+            p.sendMessage(Msg.err("Cooldown: <white>" + Msg.duration(plugin.cooldowns().remaining(p, "tpaccept")) + "</white>"));
+            return;
+        }
         TpaManager.Request r = plugin.tpa().consume(p);
         if (r == null) { p.sendMessage(Msg.err("Aucune demande en attente.")); return; }
         if (plugin.combat().isTagged(p)) {
@@ -111,6 +121,7 @@ public class TpaCommand implements CommandExecutor {
             }
             if (r.type() == TpaManager.Type.TO) from.teleportAsync(dest);
             else p.teleportAsync(dest);
+            if (plugin.cooldowns() != null) plugin.cooldowns().set(p, "tpaccept");
             p.sendMessage(Msg.ok("<green>TPA accepté.</green>"));
             from.sendMessage(Msg.ok("<green>" + p.getName() + " a accepté.</green>"));
             return;
@@ -127,8 +138,9 @@ public class TpaCommand implements CommandExecutor {
             plugin.pendingTp().set(r.from(), new PendingTeleportManager.Pending(
                     PendingTeleportManager.Kind.LOC,
                     here.getWorld().getName(), here.getX(), here.getY(), here.getZ(),
-                    here.getYaw(), here.getPitch(), System.currentTimeMillis()));
+                    here.getYaw(), here.getPitch(), System.currentTimeMillis(), myServer));
             plugin.getMessageChannel().sendTransferByName(r.fromName(), myServer);
+            if (plugin.cooldowns() != null) plugin.cooldowns().set(p, "tpaccept");
             p.sendMessage(Msg.ok("<green>Transfert de " + r.fromName() + " en cours...</green>"));
         } else {
             // HERE: target (this player) teleports to sender. Sender's loc was captured at request.
@@ -139,7 +151,7 @@ public class TpaCommand implements CommandExecutor {
             plugin.pendingTp().set(p.getUniqueId(), new PendingTeleportManager.Pending(
                     PendingTeleportManager.Kind.LOC,
                     loc.world(), loc.x(), loc.y(), loc.z(), loc.yaw(), loc.pitch(),
-                    System.currentTimeMillis()));
+                    System.currentTimeMillis(), r.fromServer()));
             p.sendMessage(Msg.info("<aqua>Transfert vers <white>" + r.fromServer() + "</white>...</aqua>"));
             plugin.getMessageChannel().sendTransfer(p, r.fromServer());
         }
