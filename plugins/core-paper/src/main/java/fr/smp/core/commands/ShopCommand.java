@@ -23,23 +23,27 @@ public class ShopCommand implements CommandExecutor {
             switch (sub) {
                 case "on", "enable" -> {
                     plugin.shop().setEnabled(true);
+                    plugin.getLogger().info("[SHOP] (admin:" + sender.getName() + ") shop activé");
                     sender.sendMessage(Msg.ok("<green>Shop activé.</green>"));
                     return true;
                 }
                 case "off", "disable" -> {
                     plugin.shop().setEnabled(false);
+                    plugin.getLogger().info("[SHOP] (admin:" + sender.getName() + ") shop désactivé");
                     sender.sendMessage(Msg.ok("<green>Shop désactivé pour les joueurs.</green>"));
                     return true;
                 }
                 case "toggle" -> {
                     boolean now = !plugin.shop().isEnabled();
                     plugin.shop().setEnabled(now);
+                    plugin.getLogger().info("[SHOP] (admin:" + sender.getName() + ") shop toggle -> " + (now ? "activé" : "désactivé"));
                     sender.sendMessage(Msg.ok("<green>Shop "
                             + (now ? "activé" : "désactivé") + ".</green>"));
                     return true;
                 }
                 case "reload" -> {
                     plugin.shop().load();
+                    plugin.getLogger().info("[SHOP] (admin:" + sender.getName() + ") shop rechargé");
                     sender.sendMessage(Msg.ok("<green>Shop rechargé.</green>"));
                     return true;
                 }
@@ -52,10 +56,12 @@ public class ShopCommand implements CommandExecutor {
         }
 
         if (!plugin.shop().isEnabled() && !p.hasPermission("smp.admin")) {
+            plugin.getLogger().info("[SHOP] " + p.getName() + " bloqué (shop désactivé)");
             p.sendMessage(Msg.err("Le shop est désactivé."));
             return true;
         }
 
+        plugin.getLogger().info("[SHOP] " + p.getName() + " ouvre le shop");
         new ShopGUI(plugin).open(p);
         return true;
     }
