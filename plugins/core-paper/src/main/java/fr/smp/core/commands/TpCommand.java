@@ -69,6 +69,9 @@ public class TpCommand implements CommandExecutor {
             destination.setPitch(origin.getPitch());
             p.teleportAsync(destination);
             p.sendMessage(Msg.ok("<aqua>Téléporté.</aqua>"));
+            plugin.getLogger().info("[TP] " + p.getName() + " -> coords "
+                    + destination.getBlockX() + "," + destination.getBlockY() + "," + destination.getBlockZ()
+                    + " (" + destination.getWorld().getName() + ")");
         } catch (IllegalArgumentException e) {
             p.sendMessage(Msg.err(e.getMessage()));
         }
@@ -88,6 +91,9 @@ public class TpCommand implements CommandExecutor {
             destination.setPitch(origin.getPitch());
             target.teleportAsync(destination);
             sender.sendMessage(Msg.ok("<aqua>" + target.getName() + " téléporté(e).</aqua>"));
+            plugin.getLogger().info("[TP] (admin:" + sender.getName() + ") " + target.getName()
+                    + " -> coords " + destination.getBlockX() + "," + destination.getBlockY() + "," + destination.getBlockZ()
+                    + " (" + destination.getWorld().getName() + ")");
         } catch (IllegalArgumentException e) {
             sender.sendMessage(Msg.err(e.getMessage()));
         }
@@ -100,8 +106,12 @@ public class TpCommand implements CommandExecutor {
             p.sendMessage(Msg.err("Tu es déjà toi-même.")); return true;
         }
         if (local != null) {
-            p.teleportAsync(local.getLocation());
+            Location dest = local.getLocation();
+            p.teleportAsync(dest);
             p.sendMessage(Msg.ok("<aqua>Téléporté à " + local.getName() + ".</aqua>"));
+            plugin.getLogger().info("[TP] " + p.getName() + " -> " + local.getName()
+                    + " at " + dest.getBlockX() + "," + dest.getBlockY() + "," + dest.getBlockZ()
+                    + " (" + dest.getWorld().getName() + ")");
             return true;
         }
 
@@ -110,6 +120,8 @@ public class TpCommand implements CommandExecutor {
 
         String requesterName = p.getName();
         String requesterServer = plugin.getServerType();
+        plugin.getLogger().info("[TP] " + p.getName() + " -> " + entry.name()
+                + " (cross-server: " + entry.server() + ", lookup en cours)");
         plugin.getMessageChannel().sendForward(entry.name(), "tp-lookup", out -> {
             out.writeUTF(requesterName);
             out.writeUTF(requesterServer);
@@ -125,8 +137,13 @@ public class TpCommand implements CommandExecutor {
 
         // Both on this server: easy case.
         if (mover != null && destLocal != null) {
-            mover.teleportAsync(destLocal.getLocation());
+            Location dest = destLocal.getLocation();
+            mover.teleportAsync(dest);
             sender.sendMessage(Msg.ok("<aqua>" + mover.getName() + " → " + destLocal.getName() + ".</aqua>"));
+            plugin.getLogger().info("[TP] (admin:" + sender.getName() + ") " + mover.getName()
+                    + " -> " + destLocal.getName()
+                    + " at " + dest.getBlockX() + "," + dest.getBlockY() + "," + dest.getBlockZ()
+                    + " (" + dest.getWorld().getName() + ")");
             return true;
         }
 
@@ -143,6 +160,8 @@ public class TpCommand implements CommandExecutor {
                 return true;
             }
             String moverExact = mover.getName();
+            plugin.getLogger().info("[TP] (admin:" + sender.getName() + ") " + moverExact
+                    + " -> " + destEntry.name() + " (cross-server: " + destEntry.server() + ", lookup en cours)");
             plugin.getMessageChannel().sendForward(destEntry.name(), "tp-lookup", out -> {
                 out.writeUTF(moverExact);
                 out.writeUTF(plugin.getServerType());
@@ -166,6 +185,8 @@ public class TpCommand implements CommandExecutor {
         // Dest is the admin themselves.
         if (destName.equalsIgnoreCase(sender.getName())) {
             Location loc = sender.getLocation();
+            plugin.getLogger().info("[TP] (admin:" + adminName + ") " + moverExact
+                    + " -> " + adminName + " (remote mover, forward move-here)");
             plugin.getMessageChannel().sendForward(moverExact, "tp-move-here",
                     out -> writeMoveHere(out, senderServer, loc, adminName));
             sender.sendMessage(Msg.info("<aqua>Déplacement de " + moverExact + "...</aqua>"));
@@ -176,6 +197,10 @@ public class TpCommand implements CommandExecutor {
         if (destLocal != null) {
             Location loc = destLocal.getLocation();
             String destNameFinal = destLocal.getName();
+            plugin.getLogger().info("[TP] (admin:" + adminName + ") " + moverExact
+                    + " -> " + destNameFinal
+                    + " at " + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ()
+                    + " (" + loc.getWorld().getName() + ") (remote mover, forward move-here)");
             plugin.getMessageChannel().sendForward(moverExact, "tp-move-here",
                     out -> writeMoveHere(out, senderServer, loc, adminName));
             sender.sendMessage(Msg.info("<aqua>Déplacement de " + moverExact + " vers " + destNameFinal + "...</aqua>"));
@@ -190,6 +215,8 @@ public class TpCommand implements CommandExecutor {
             return true;
         }
         String destExact = destEntry.name();
+        plugin.getLogger().info("[TP] (admin:" + adminName + ") " + moverExact
+                + " -> " + destExact + " (tous deux remote: " + moverEntry.server() + " -> " + destEntry.server() + ")");
         plugin.getMessageChannel().sendForward(destExact, "tp-dest-lookup", out -> {
             out.writeUTF(moverExact);
             out.writeUTF(adminName);
@@ -335,11 +362,16 @@ public class TpCommand implements CommandExecutor {
                 if (w != null) {
                     p.teleportAsync(new Location(w, x, y, z, yaw, pitch));
                     p.sendMessage(Msg.ok("<aqua>Téléporté.</aqua>"));
+                    plugin.getLogger().info("[TP] cross-server execute: " + requesterName
+                            + " -> " + (int)x + "," + (int)y + "," + (int)z + " (" + world + ")");
                 } else {
                     p.sendMessage(Msg.err("Monde <white>" + world + "</white> introuvable ici."));
+                    plugin.getLogger().warning("[TP] cross-server execute: monde '" + world + "' introuvable pour " + requesterName);
                 }
                 return;
             }
+            plugin.getLogger().info("[TP] cross-server transfer: " + requesterName
+                    + " -> " + (int)x + "," + (int)y + "," + (int)z + " (" + world + "@" + targetServer + ")");
             plugin.pendingTp().set(p.getUniqueId(), new PendingTeleportManager.Pending(
                     PendingTeleportManager.Kind.LOC, world, x, y, z, yaw, pitch,
                     System.currentTimeMillis(), targetServer));
