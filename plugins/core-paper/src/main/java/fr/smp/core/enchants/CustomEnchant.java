@@ -52,7 +52,7 @@ public enum CustomEnchant {
     VITAL  ("vitalite",     "Vitalité",        5, Flavour.CUSTOM,  Target.CHEST_SLOT, null,
             "<gray>+2 cœurs d'absorption par niveau. Régénère passivement.</gray>"),
     SOUL   ("ame_liee",     "Lié à l'âme",     1, Flavour.CUSTOM,  Target.BREAKABLE,  null,
-            "<gray>L'objet reste dans ton inventaire quand tu meurs.</gray>");
+            "<gray>Si plusieurs objets l'ont, un seul est gardé à ta mort, au hasard.</gray>");
 
     public enum Flavour { OVERCAP, CUSTOM }
 
