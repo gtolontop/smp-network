@@ -5,7 +5,7 @@ import com.google.gson.JsonParser;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.slf4j.Logger;
@@ -30,10 +30,10 @@ public class VelocityDiscordBridge {
     private static final long RECONNECT_MIN_MS = 5_000;
     private static final long RECONNECT_MAX_MS = 60_000;
 
+    private final Object plugin;
     private final ProxyServer proxy;
     private final Logger logger;
     private final Path dataDir;
-    private final MiniMessage mm = MiniMessage.miniMessage();
 
     private URI uri;
     private String token;
@@ -41,7 +41,8 @@ public class VelocityDiscordBridge {
     private final AtomicBoolean closing = new AtomicBoolean(false);
     private final AtomicLong backoff = new AtomicLong(RECONNECT_MIN_MS);
 
-    public VelocityDiscordBridge(ProxyServer proxy, Logger logger, Path dataDir) {
+    public VelocityDiscordBridge(Object plugin, ProxyServer proxy, Logger logger, Path dataDir) {
+        this.plugin = plugin;
         this.proxy = proxy;
         this.logger = logger;
         this.dataDir = dataDir;
@@ -63,7 +64,7 @@ public class VelocityDiscordBridge {
 
         connectAsync();
 
-        proxy.getScheduler().buildTask(null, this::tickTelemetry)
+        proxy.getScheduler().buildTask(plugin, this::tickTelemetry)
                 .delay(5, TimeUnit.SECONDS)
                 .repeat(5, TimeUnit.SECONDS)
                 .schedule();
@@ -205,12 +206,33 @@ public class VelocityDiscordBridge {
     private void handle(JsonObject pkt) {
         String kind = pkt.has("kind") ? pkt.get("kind").getAsString() : "";
         switch (kind) {
+            case "console" -> handleConsole(pkt);
             case "broadcast" -> {
                 String target = pkt.has("target") ? pkt.get("target").getAsString() : "all";
                 if (!"all".equals(target) && !"velocity".equals(target)) return;
                 String message = pkt.get("message").getAsString();
                 String prefix = pkt.has("prefix") ? pkt.get("prefix").getAsString() : "Annonce";
-                proxy.sendMessage(mm.deserialize("<aqua>[" + prefix + "]</aqua> <white>" + message + "</white>"));
+                Component line = Component.text()
+                        .append(Component.text("[", NamedTextColor.AQUA))
+                        .append(Component.text(prefix, NamedTextColor.AQUA))
+                        .append(Component.text("] ", NamedTextColor.AQUA))
+                        .append(Component.text(message, NamedTextColor.WHITE))
+                        .build();
+                proxy.getAllPlayers().forEach(player -> player.sendMessage(line));
+            }
+            case "chat_inject" -> {
+                String target = pkt.has("target") ? pkt.get("target").getAsString() : "all";
+                if (!"all".equals(target) && !"velocity".equals(target)) return;
+                String author = pkt.has("author") ? pkt.get("author").getAsString() : "Discord";
+                String message = pkt.has("message") ? pkt.get("message").getAsString() : "";
+                if (message.isEmpty()) return;
+                Component line = Component.text()
+                        .append(Component.text("[Discord] ", NamedTextColor.BLUE))
+                        .append(Component.text(author, NamedTextColor.WHITE))
+                        .append(Component.text(" » ", NamedTextColor.GRAY))
+                        .append(Component.text(message, NamedTextColor.WHITE))
+                        .build();
+                proxy.getAllPlayers().forEach(player -> player.sendMessage(line));
             }
             case "tell" -> {
                 String uuid = pkt.has("toUuid") ? pkt.get("toUuid").getAsString() : "";
@@ -218,11 +240,89 @@ public class VelocityDiscordBridge {
                 if (uuid.isEmpty() || message.isEmpty()) return;
                 try {
                     UUID u = UUID.fromString(uuid);
-                    proxy.getPlayer(u).ifPresent((Player p) -> p.sendMessage(Component.text(message)));
+                    proxy.getPlayer(u).ifPresent((Player p) ->
+                            p.sendMessage(Component.text(message, NamedTextColor.LIGHT_PURPLE)));
                 } catch (IllegalArgumentException ignored) {
                 }
             }
+            case "rpc" -> handleRpc(pkt);
             default -> { /* ignore */ }
         }
+    }
+
+    private void handleConsole(JsonObject pkt) {
+        String id = pkt.has("id") ? pkt.get("id").getAsString() : "";
+        String command = pkt.has("command") ? pkt.get("command").getAsString() : "";
+        if (command.isEmpty()) return;
+        proxy.getCommandManager()
+                .executeAsync(proxy.getConsoleCommandSource(), command)
+                .whenComplete((ok, err) -> {
+                    if (id.isEmpty()) return;
+                    JsonObject reply = new JsonObject();
+                    reply.addProperty("kind", "console_result");
+                    reply.addProperty("id", id);
+                    boolean success = err == null && Boolean.TRUE.equals(ok);
+                    reply.addProperty("ok", success);
+                    reply.addProperty("output", success ? "(command executed)" : errorMessage(err, "command failed"));
+                    send(reply);
+                });
+    }
+
+    private void handleRpc(JsonObject pkt) {
+        String id = pkt.has("id") ? pkt.get("id").getAsString() : "";
+        String method = pkt.has("method") ? pkt.get("method").getAsString() : "";
+        JsonObject args = pkt.has("args") && pkt.get("args").isJsonObject()
+                ? pkt.getAsJsonObject("args")
+                : new JsonObject();
+
+        if ("console".equals(method)) {
+            String command = args.has("command") ? args.get("command").getAsString() : "";
+            if (command.isEmpty()) {
+                JsonObject reply = new JsonObject();
+                reply.addProperty("kind", "rpc_result");
+                reply.addProperty("id", id);
+                reply.addProperty("ok", false);
+                reply.addProperty("error", "missing command");
+                send(reply);
+                return;
+            }
+            proxy.getCommandManager()
+                    .executeAsync(proxy.getConsoleCommandSource(), command)
+                    .whenComplete((ok, err) -> {
+                        JsonObject reply = new JsonObject();
+                        reply.addProperty("kind", "rpc_result");
+                        reply.addProperty("id", id);
+                        boolean success = err == null && Boolean.TRUE.equals(ok);
+                        reply.addProperty("ok", success);
+                        if (success) {
+                            JsonObject data = new JsonObject();
+                            data.addProperty("output", "(command executed)");
+                            data.addProperty("ok", true);
+                            reply.add("data", data);
+                        } else {
+                            reply.addProperty("error", errorMessage(err, "command failed"));
+                        }
+                        send(reply);
+                    });
+            return;
+        }
+
+        JsonObject reply = new JsonObject();
+        reply.addProperty("kind", "rpc_result");
+        reply.addProperty("id", id);
+        reply.addProperty("ok", false);
+        reply.addProperty("error", "unknown rpc method: " + method);
+        send(reply);
+    }
+
+    private void send(JsonObject packet) {
+        WebSocketClient socket = ws;
+        if (socket == null || !socket.isOpen()) return;
+        socket.send(packet.toString());
+    }
+
+    private static String errorMessage(Throwable err, String fallback) {
+        if (err == null) return fallback;
+        return err.getMessage() != null ? err.getMessage() : err.getClass().getSimpleName();
     }
 }
