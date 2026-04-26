@@ -25,6 +25,9 @@ public final class AuthSession {
     private Location freezeLoc;
     private int failedThisSession;
     private long lastReminderMs;
+    private long authenticatedAt;
+    private long accountRegisteredAt;
+    private int interactions;
 
     public AuthSession(boolean premium, long joinedAt, Location freezeLoc) {
         this.stage = Stage.PENDING;
@@ -39,6 +42,9 @@ public final class AuthSession {
     public Location freezeLoc() { return freezeLoc; }
     public int failedThisSession() { return failedThisSession; }
     public long lastReminderMs() { return lastReminderMs; }
+    public long authenticatedAt() { return authenticatedAt; }
+    public long accountRegisteredAt() { return accountRegisteredAt; }
+    public int interactions() { return interactions; }
 
     public boolean isAuthenticated() { return stage == Stage.AUTHENTICATED; }
 
@@ -47,4 +53,7 @@ public final class AuthSession {
     public void incrementFailed() { this.failedThisSession++; }
     public void resetFailed() { this.failedThisSession = 0; }
     public void setLastReminderMs(long lastReminderMs) { this.lastReminderMs = lastReminderMs; }
+    public void setAuthenticatedAt(long authenticatedAt) { this.authenticatedAt = authenticatedAt; }
+    public void setAccountRegisteredAt(long accountRegisteredAt) { this.accountRegisteredAt = accountRegisteredAt; }
+    public void incrementInteractions() { this.interactions++; }
 }
