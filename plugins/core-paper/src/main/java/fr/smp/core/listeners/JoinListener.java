@@ -15,6 +15,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import java.util.Locale;
+
 public class JoinListener implements Listener {
 
     private final SMPCore plugin;
@@ -53,33 +55,50 @@ public class JoinListener implements Listener {
      */
     public void runJoinSetup(Player p, PlayerData data) {
         // Pending cross-server teleport wins over any other auto-tp behavior.
+        long now = System.currentTimeMillis();
         PendingTeleportManager.Pending pending = plugin.pendingTp() != null
                 ? plugin.pendingTp().peek(p.getUniqueId()) : null;
         boolean pendingFresh = pending != null
-                && System.currentTimeMillis() - pending.createdAt() < 60_000;
+                && now - pending.createdAt() < 60_000;
+        boolean pendingForThisBoot = pending != null
+                && pending.createdAt() >= plugin.getStartedAtMillis();
+        boolean pendingForThisServer = pending != null
+                && pending.targets(plugin.getServerType());
+        boolean handledPending = false;
         if (pendingFresh) {
+            if (pendingForThisBoot && pendingForThisServer) {
+                plugin.pendingTp().consume(p.getUniqueId());
+                applyPending(p, pending);
+                handledPending = true;
+            } else {
+                plugin.pendingTp().consume(p.getUniqueId());
+            }
+        } else if (pending != null && plugin.pendingTp() != null) {
             plugin.pendingTp().consume(p.getUniqueId());
-            applyPending(p, pending);
+        }
+
+        if (handledPending) {
+            // A valid pending transfer already decided the destination.
         } else if (plugin.isLobby()) {
+            applyLobbyMode(p);
             Location hub = plugin.spawns().hub();
             if (hub != null) p.teleportAsync(hub);
+        } else if (plugin.isPtr()) {
+            applyPtrMode(p);
         } else {
-            if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR
-                    && !p.hasPermission("smp.gamemode.keep")) {
-                p.setGameMode(GameMode.SURVIVAL);
-            }
+            applySurvivalMode(p);
             if (!data.survivalJoined()) {
                 String worldName = plugin.getConfig().getString("rtp.default-world", "world");
-                World w = Bukkit.getWorld(worldName);
+                World w = plugin.resolveWorld(worldName, World.Environment.NORMAL);
                 if (w != null) {
                     p.sendMessage(Msg.info("<aqua>Bienvenue ! Téléportation aléatoire...</aqua>"));
-                    plugin.rtp().teleport(p, w);
+                    plugin.rtp().teleport(p, w, false);
                 } else {
                     Location s = plugin.spawns().spawn();
                     if (s != null) p.teleportAsync(s);
                 }
             } else if (data.hasLastLocation()) {
-                World lw = Bukkit.getWorld(data.lastWorld());
+                World lw = resolveStoredWorld(data.lastWorld());
                 if (lw != null) {
                     Location last = new Location(lw, data.lastX(), data.lastY(), data.lastZ(),
                             data.lastYaw(), data.lastPitch());
@@ -91,12 +110,26 @@ public class JoinListener implements Listener {
             }
         }
 
-        if (!plugin.isLobby()) data.setSurvivalJoined(true);
+        if (plugin.isMainSurvival()) data.setSurvivalJoined(true);
 
         if (plugin.scoreboard() != null) plugin.scoreboard().apply(p);
         if (plugin.tabList() != null) plugin.tabList().update(p);
         if (plugin.nametags() != null) plugin.nametags().refresh(p);
         if (plugin.hunted() != null) plugin.hunted().refreshOnJoin(p);
+        if (plugin.fullbright() != null) plugin.fullbright().refresh(p);
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            var notes = plugin.auction().consumeSoldNotifications(p.getUniqueId());
+            for (String n : notes) {
+                String[] parts = n.split("\\|", 3);
+                String buyer = parts[0];
+                String item = parts.length > 1 ? parts[1] : "?";
+                String price = parts.length > 2 ? parts[2] : "?";
+                p.sendMessage(Msg.info("<green>Ton item <white>" + item
+                        + "</white> a été vendu pour <yellow>$" + price
+                        + "</yellow> à <white>" + buyer + "</white> pendant ton absence.</green>"));
+            }
+        }, 40L);
     }
 
     private void applyPending(Player p, PendingTeleportManager.Pending pending) {
@@ -104,7 +137,7 @@ public class JoinListener implements Listener {
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             switch (pending.kind()) {
                 case LOC -> {
-                    World w = Bukkit.getWorld(pending.world());
+                    World w = resolveStoredWorld(pending.world());
                     if (w == null) {
                         p.sendMessage(Msg.err("Monde <white>" + pending.world() + "</white> introuvable ici."));
                         return;
@@ -115,7 +148,7 @@ public class JoinListener implements Listener {
                     p.sendMessage(Msg.ok("<aqua>Téléporté.</aqua>"));
                 }
                 case RTP -> {
-                    World w = Bukkit.getWorld(pending.world());
+                    World w = resolveStoredWorld(pending.world());
                     if (w == null) {
                         p.sendMessage(Msg.err("Monde <white>" + pending.world() + "</white> introuvable."));
                         return;
@@ -139,6 +172,55 @@ public class JoinListener implements Listener {
         }, 10L);
     }
 
+    private World resolveStoredWorld(String worldName) {
+        if (worldName == null || worldName.isBlank()) {
+            return null;
+        }
+        World exact = Bukkit.getWorld(worldName);
+        if (exact != null) {
+            return exact;
+        }
+        return plugin.resolveWorld(worldName, inferEnvironment(worldName));
+    }
+
+    private World.Environment inferEnvironment(String worldName) {
+        String lower = worldName.toLowerCase(Locale.ROOT);
+        if (lower.contains("nether")) {
+            return World.Environment.NETHER;
+        }
+        if (lower.contains("the_end") || lower.endsWith("_end") || lower.equals("end")) {
+            return World.Environment.THE_END;
+        }
+        return World.Environment.NORMAL;
+    }
+
+    private void applyLobbyMode(Player player) {
+        if (player.hasPermission("smp.gamemode.keep")) {
+            return;
+        }
+        player.setGameMode(GameMode.ADVENTURE);
+        player.setAllowFlight(false);
+        player.setFlying(false);
+        player.setFallDistance(0f);
+    }
+
+    private void applyPtrMode(Player player) {
+        player.setGameMode(GameMode.CREATIVE);
+        player.setAllowFlight(true);
+        player.setFlying(true);
+        player.setFallDistance(0f);
+    }
+
+    private void applySurvivalMode(Player player) {
+        if (player.hasPermission("smp.gamemode.keep")) {
+            return;
+        }
+        player.setGameMode(GameMode.SURVIVAL);
+        player.setAllowFlight(false);
+        player.setFlying(false);
+        player.setFallDistance(0f);
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         Player p = event.getPlayer();
@@ -150,7 +232,7 @@ public class JoinListener implements Listener {
             plugin.logs().log(LogCategory.COMBAT, p, "combat_log_kill");
         }
 
-        if (!plugin.isLobby()) {
+        if (plugin.isMainSurvival()) {
             PlayerData d = plugin.players().get(p.getUniqueId());
             Location loc = p.getLocation();
             if (d != null && loc.getWorld() != null) {
@@ -162,6 +244,7 @@ public class JoinListener implements Listener {
         if (plugin.tpa() != null) plugin.tpa().cancelOutgoing(p.getUniqueId());
         if (plugin.rtp() != null) plugin.rtp().unload(p.getUniqueId());
         if (plugin.combat() != null) plugin.combat().untag(p);
+        if (plugin.cooldowns() != null) plugin.cooldowns().unload(p.getUniqueId());
         if (plugin.scoreboard() != null) plugin.scoreboard().remove(p);
         if (plugin.nametags() != null) plugin.nametags().forget(p.getUniqueId());
         if (plugin.playtime() != null) plugin.playtime().syncNow(p);
