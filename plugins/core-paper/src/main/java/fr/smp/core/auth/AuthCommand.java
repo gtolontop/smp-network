@@ -160,7 +160,7 @@ public final class AuthCommand implements CommandExecutor {
             p.sendMessage(AuthEffects.prefixed("<red>Les deux mots de passe ne correspondent pas.</red>"));
             return;
         }
-        String err = AuthManager.validatePassword(pw);
+        String err = AuthManager.validatePassword(pw, p.getName());
         if (err != null) {
             p.sendMessage(AuthEffects.prefixed("<red>" + err + "</red>"));
             return;
@@ -222,7 +222,7 @@ public final class AuthCommand implements CommandExecutor {
         }
         String oldPw = args[0];
         String newPw = args[1];
-        String err = AuthManager.validatePassword(newPw);
+        String err = AuthManager.validatePassword(newPw, p.getName());
         if (err != null) {
             p.sendMessage(AuthEffects.prefixed("<red>" + err + "</red>"));
             return;
