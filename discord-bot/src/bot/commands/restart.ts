@@ -10,6 +10,7 @@ import { hub } from '../../bridge/hub.js';
 import { audit } from '../modules/auditLog.js';
 import { assertAdmin } from '../../utils/perms.js';
 import { ok, fail, baseEmbed, COLOR } from '../../utils/embeds.js';
+import { ALL_TARGET, describeConnectedOrigins, normalizeTargetInput } from '../network.js';
 import type { SlashCommand } from '../client.js';
 
 const restart: SlashCommand = {
@@ -20,17 +21,17 @@ const restart: SlashCommand = {
     .addStringOption((o) =>
       o
         .setName('target')
-        .setDescription('Cible')
+        .setDescription('Serveur ou proxy')
         .setRequired(true)
-        .addChoices(
-          { name: 'lobby', value: 'lobby' },
-          { name: 'survival', value: 'survival' },
-        ),
     )
     .addStringOption((o) => o.setName('raison').setDescription('Raison (annoncée)')),
   async execute(ix) {
     if (!(await assertAdmin(ix))) return;
-    const target = ix.options.getString('target', true) as 'lobby' | 'survival';
+    const target = normalizeTargetInput(ix.options.getString('target', true));
+    if (target === ALL_TARGET) {
+      await ix.reply({ embeds: [fail('`all` n\'est pas autorisé pour `/restart`.')], ephemeral: true });
+      return;
+    }
     const reason = ix.options.getString('raison') ?? 'Maintenance';
 
     const confirm = new ButtonBuilder()
@@ -75,7 +76,11 @@ const restart: SlashCommand = {
     );
     const res = await hub.rpc(target, 'console', { command: 'stop' });
     await ix.editReply({
-      embeds: [res.ok ? ok(`Commande envoyée à ${target}.`) : fail(res.error ?? 'RPC échoué.')],
+      embeds: [
+        res.ok
+          ? ok(`Commande envoyée à ${target}.`)
+          : fail(`${res.error ?? 'RPC échoué.'}\nCibles connectées: ${describeConnectedOrigins()}`),
+      ],
       components: [],
     });
     await audit({ actor: ix.user.tag, action: 'restart', target, details: reason, ok: res.ok });
