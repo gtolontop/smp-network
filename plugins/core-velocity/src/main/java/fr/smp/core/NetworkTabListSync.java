@@ -47,21 +47,25 @@ public final class NetworkTabListSync {
 
                 UUID virtual = virtualUuid(entry.name());
                 want.add(virtual);
+                VirtualEntryState state = buildState(server, entry, virtual);
                 TabListEntry existing = viewer.getTabList().getEntry(virtual).orElse(null);
-                Component display = MM.deserialize(
-                        nullToEmpty(entry.prefix()) + "<white>" + entry.name() + "</white>");
                 if (existing != null) {
-                    existing.setDisplayName(display);
-                    continue;
+                    if (!sameProfile(existing.getProfile(), state.profile())) {
+                        viewer.getTabList().removeEntry(virtual);
+                    } else {
+                        applyState(existing, state);
+                        continue;
+                    }
                 }
-                GameProfile profile = new GameProfile(virtual, entry.name(), java.util.List.of());
                 TabListEntry tle = TabListEntry.builder()
                         .tabList(viewer.getTabList())
-                        .profile(profile)
-                        .displayName(display)
-                        .gameMode(0)
-                        .latency(0)
-                        .listed(true)
+                        .profile(state.profile())
+                        .displayName(state.displayName())
+                        .gameMode(state.gameMode())
+                        .latency(state.latency())
+                        .listed(state.listed())
+                        .listOrder(state.listOrder())
+                        .showHat(state.showHat())
                         .build();
                 viewer.getTabList().addEntry(tle);
             }
@@ -73,6 +77,74 @@ public final class NetworkTabListSync {
                 if (!want.contains(id)) viewer.getTabList().removeEntry(id);
             }
         }
+    }
+
+    private static VirtualEntryState buildState(ProxyServer server,
+                                                PluginMessageListener.RosterEntry entry,
+                                                UUID virtualId) {
+        Component fallbackDisplay = MM.deserialize(
+                nullToEmpty(entry.prefix()) + "<white>" + entry.name() + "</white>");
+
+        GameProfile profile = new GameProfile(virtualId, entry.name(), java.util.List.of());
+        Component displayName = fallbackDisplay;
+        int latency = 0;
+        int gameMode = 0;
+        boolean listed = true;
+        int listOrder = 0;
+        boolean showHat = true;
+
+        Player subject = server.getPlayer(entry.name()).orElse(null);
+        if (subject == null) {
+            return new VirtualEntryState(profile, displayName, latency, gameMode, listed, listOrder, showHat);
+        }
+
+        TabListEntry selfEntry = subject.getTabList().getEntry(subject.getUniqueId()).orElse(null);
+        if (selfEntry != null) {
+            profile = selfEntry.getProfile().withId(virtualId);
+            displayName = selfEntry.getDisplayNameComponent().orElse(fallbackDisplay);
+            latency = selfEntry.getLatency();
+            gameMode = selfEntry.getGameMode();
+            listed = selfEntry.isListed();
+            listOrder = selfEntry.getListOrder();
+            showHat = selfEntry.isShowHat();
+            return new VirtualEntryState(profile, displayName, latency, gameMode, listed, listOrder, showHat);
+        }
+
+        profile = subject.getGameProfile().withId(virtualId);
+        latency = safeLatency(subject.getPing());
+        if (subject.hasSentPlayerSettings()) {
+            showHat = subject.getPlayerSettings().getSkinParts().hasHat();
+        }
+
+        return new VirtualEntryState(profile, displayName, latency, gameMode, listed, listOrder, showHat);
+    }
+
+    private static void applyState(TabListEntry entry, VirtualEntryState state) {
+        entry.setDisplayName(state.displayName());
+        entry.setLatency(state.latency());
+        entry.setGameMode(state.gameMode());
+        entry.setListed(state.listed());
+        entry.setListOrder(state.listOrder());
+        entry.setShowHat(state.showHat());
+    }
+
+    private static boolean sameProfile(GameProfile first, GameProfile second) {
+        if (!first.getId().equals(second.getId())) return false;
+        if (!first.getName().equals(second.getName())) return false;
+        if (first.getProperties().size() != second.getProperties().size()) return false;
+        for (int i = 0; i < first.getProperties().size(); i++) {
+            GameProfile.Property left = first.getProperties().get(i);
+            GameProfile.Property right = second.getProperties().get(i);
+            if (!left.getName().equals(right.getName())) return false;
+            if (!left.getValue().equals(right.getValue())) return false;
+            if (!left.getSignature().equals(right.getSignature())) return false;
+        }
+        return true;
+    }
+
+    private static int safeLatency(long ping) {
+        if (ping <= 0L) return 0;
+        return ping >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) ping;
     }
 
     private static UUID virtualUuid(String name) {
@@ -91,6 +163,9 @@ public final class NetworkTabListSync {
         return (id.getMostSignificantBits() & 0xFFFF000000000000L)
                 == (NAMESPACE.getMostSignificantBits() & 0xFFFF000000000000L);
     }
+
+    private record VirtualEntryState(GameProfile profile, Component displayName, int latency,
+                                     int gameMode, boolean listed, int listOrder, boolean showHat) {}
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
 }
