@@ -25,6 +25,8 @@ import java.util.UUID;
 public class MessageChannel implements PluginMessageListener {
 
     public static final String CHANNEL = "smp:core";
+    /** Posé par AntiCheat#ClientDetectionModule pour refuser le transfert vers un autre serveur. */
+    public static final String AC_BLOCK_TRANSFER_META = "smp_ac_block_transfer";
 
     private final SMPCore plugin;
     private final MiniMessage mm = MiniMessage.miniMessage();
@@ -43,6 +45,21 @@ public class MessageChannel implements PluginMessageListener {
     }
 
     public void sendTransfer(Player player, String targetServer) {
+        // AntiCheat peut refuser le transfert (cheat client détecté en lobby). On lit
+        // le metadata posé par ClientDetectionModule plutôt qu'une dépendance directe
+        // au plugin AntiCheat, pour éviter un cycle de dépendances au build.
+        if (!"lobby".equalsIgnoreCase(targetServer)
+                && player.hasMetadata(AC_BLOCK_TRANSFER_META)) {
+            String reason = player.getMetadata(AC_BLOCK_TRANSFER_META).isEmpty()
+                    ? "client non autorisé"
+                    : player.getMetadata(AC_BLOCK_TRANSFER_META).get(0).asString();
+            player.sendMessage(mm.deserialize("<red>Accès refusé</red> <gray>— transfert vers <white>"
+                    + targetServer + "</white> bloqué par l'AntiCheat.</gray>"));
+            player.sendMessage(mm.deserialize("<dark_gray>Raison: <gray>" + reason + "</gray>"));
+            plugin.getLogger().warning("Blocked transfer for " + player.getName()
+                    + " to " + targetServer + " (reason=" + reason + ")");
+            return;
+        }
         try {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             DataOutputStream out = new DataOutputStream(bytes);
@@ -127,6 +144,40 @@ public class MessageChannel implements PluginMessageListener {
         }
     }
 
+    /** Cross-server /here broadcast: proxy relays to all other backends. */
+    public void sendHere(String playerName, String rendered) {
+        Player carrier = carrier();
+        if (carrier == null) return;
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(bytes);
+            out.writeUTF("here");
+            out.writeUTF(plugin.getServerType());
+            out.writeUTF(playerName);
+            out.writeUTF(rendered);
+            carrier.sendPluginMessage(plugin, CHANNEL, bytes.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to send here: " + e.getMessage());
+        }
+    }
+
+    /** Cross-server /chat lock/unlock: proxy relays to all other backends. */
+    public void sendChatLock(boolean locked, String issuer) {
+        Player carrier = carrier();
+        if (carrier == null) return;
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(bytes);
+            out.writeUTF("chat-lock");
+            out.writeUTF(plugin.getServerType());
+            out.writeBoolean(locked);
+            out.writeUTF(issuer);
+            carrier.sendPluginMessage(plugin, CHANNEL, bytes.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to send chat-lock: " + e.getMessage());
+        }
+    }
+
     /** Tell the network: permissions changed, please reload from SQLite. */
     public void sendPermReload() {
         Player carrier = carrier();
@@ -164,6 +215,61 @@ public class MessageChannel implements PluginMessageListener {
         } catch (IOException e) {
             plugin.getLogger().warning("Failed to send roster: " + e.getMessage());
         }
+    }
+
+    /** Notify Velocity that a cracked player has successfully authenticated. */
+    public void sendAuthNotify(Player player) {
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(bytes);
+            out.writeUTF("auth-notify");
+            out.writeUTF(player.getUniqueId().toString());
+            player.sendPluginMessage(plugin, CHANNEL, bytes.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to send auth-notify: " + e.getMessage());
+        }
+    }
+
+    public void sendModKick(String playerName, String reason) {
+        Player carrier = carrier();
+        if (carrier == null) return;
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(bytes);
+            out.writeUTF("mod-kick");
+            out.writeUTF(playerName);
+            out.writeUTF(reason);
+            carrier.sendPluginMessage(plugin, CHANNEL, bytes.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to send mod-kick: " + e.getMessage());
+        }
+    }
+
+    public void sendModBanKick(String playerName, String reason, String durationStr) {
+        Player carrier = carrier();
+        if (carrier == null) return;
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(bytes);
+            out.writeUTF("mod-ban-kick");
+            out.writeUTF(playerName);
+            out.writeUTF(reason != null ? reason : "");
+            out.writeUTF(durationStr);
+            carrier.sendPluginMessage(plugin, CHANNEL, bytes.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to send mod-ban-kick: " + e.getMessage());
+        }
+    }
+
+    public void sendModMuteNotify(String playerName, String reason, String durationStr) {
+        sendForward(playerName, "mute-notify", out -> {
+            out.writeUTF(reason != null ? reason : "");
+            out.writeUTF(durationStr);
+        });
+    }
+
+    public void sendModUnmuteNotify(String playerName) {
+        sendForward(playerName, "unmute-notify", out -> {});
     }
 
     // ---- incoming ----
@@ -205,6 +311,32 @@ public class MessageChannel implements PluginMessageListener {
                         Bukkit.getConsoleSender().sendMessage(comp);
                     });
                 }
+                case "here" -> {
+                    String sourceServer = in.readUTF();
+                    String playerName = in.readUTF();
+                    String rendered = in.readUTF();
+                    if (sourceServer.equals(plugin.getServerType())) return;
+                    Component comp = mm.deserialize(rendered);
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        for (Player p : Bukkit.getOnlinePlayers()) p.sendMessage(comp);
+                        Bukkit.getConsoleSender().sendMessage(comp);
+                    });
+                }
+                case "chat-lock" -> {
+                    String sourceServer = in.readUTF();
+                    boolean locked = in.readBoolean();
+                    String issuer = in.readUTF();
+                    if (sourceServer.equals(plugin.getServerType())) return;
+                    plugin.setChatLocked(locked);
+                    String msg = locked
+                            ? "<red><bold>[Chat]</bold></red> <gray>Le chat a été <red>verrouillé</red> par <white>" + issuer + "</white>.</gray>"
+                            : "<green><bold>[Chat]</bold></green> <gray>Le chat a été <green>déverrouillé</green> par <white>" + issuer + "</white>.</gray>";
+                    Component comp = mm.deserialize(msg);
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        for (Player p : Bukkit.getOnlinePlayers()) p.sendMessage(comp);
+                        Bukkit.getConsoleSender().sendMessage(comp);
+                    });
+                }
                 case "permreload" -> {
                     String sourceServer = in.readUTF();
                     if (sourceServer.equals(plugin.getServerType())) return;
@@ -227,6 +359,23 @@ public class MessageChannel implements PluginMessageListener {
                     String targetName = in.readUTF();
                     String innerAction = in.readUTF();
                     handleForward(targetName, innerAction, in);
+                }
+                case "auth-validated" -> {
+                    String uuidStr = in.readUTF();
+                    String playerName = in.readUTF();
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        try {
+                            UUID uuid = UUID.fromString(uuidStr);
+                            Player p = Bukkit.getPlayer(uuid);
+                            if (p == null || !p.isOnline()) return;
+                            if (plugin.auth() == null) return;
+                            if (plugin.auth().isAuthenticated(p)) return; // already auth
+                            plugin.auth().markAuthenticatedFromProxy(p);
+                            plugin.getLogger().info("Auto-auth from proxy for " + playerName);
+                        } catch (IllegalArgumentException e) {
+                            plugin.getLogger().warning("Invalid UUID in auth-validated: " + uuidStr);
+                        }
+                    });
                 }
                 default -> {
                     // ignore unknown actions
@@ -391,10 +540,30 @@ public class MessageChannel implements PluginMessageListener {
                     }
                     plugin.pendingTp().set(mover.getUniqueId(), new PendingTeleportManager.Pending(
                             PendingTeleportManager.Kind.LOC, world, x, y, z, yaw, pitch,
-                            System.currentTimeMillis()));
+                            System.currentTimeMillis(), destServer));
                     mover.sendMessage(Msg.info("<aqua>Transfert par <white>" + adminName +
                             "</white> vers <white>" + destServer + "</white>...</aqua>"));
                     sendTransfer(mover, destServer);
+                });
+            }
+            case "mute-notify" -> {
+                String reason = in.readUTF();
+                String duration = in.readUTF();
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    Player target = Bukkit.getPlayerExact(targetName);
+                    if (target == null) return;
+                    Component notice = mm.deserialize("<red><bold>Mute</bold></red> <gray>" +
+                            (!reason.isEmpty() ? reason : "") + "</gray>" +
+                            (!duration.isEmpty() ? " <gray>(" + duration + ")</gray>" : ""));
+                    target.sendMessage(notice);
+                });
+            }
+            case "unmute-notify" -> {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    Player target = Bukkit.getPlayerExact(targetName);
+                    if (target != null) {
+                        target.sendMessage(mm.deserialize("<green><bold>Unmute</bold></green> <gray>Tu n'es plus muet.</gray>"));
+                    }
                 });
             }
             default -> { /* unknown inner action */ }
