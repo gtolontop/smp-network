@@ -53,12 +53,12 @@ public class RtpCommand implements CommandExecutor {
             default -> World.Environment.NORMAL;
         };
 
-        // Cross-server: on lobby, delegate to survival.
-        if (plugin.isLobby()) {
+        // Cross-server: on non-survival backends, delegate to survival.
+        if (!plugin.isMainSurvival()) {
             plugin.pendingTp().set(p.getUniqueId(), new PendingTeleportManager.Pending(
                     PendingTeleportManager.Kind.RTP,
                     worldName, 0, 0, 0, 0, 0,
-                    System.currentTimeMillis()));
+                    System.currentTimeMillis(), "survival"));
             p.sendMessage(Msg.info("<aqua>Transfert vers survie pour RTP...</aqua>"));
             plugin.getMessageChannel().sendTransfer(p, "survival");
             return true;
