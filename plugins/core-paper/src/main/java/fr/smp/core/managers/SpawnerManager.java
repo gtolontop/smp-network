@@ -43,8 +43,10 @@ public class SpawnerManager {
 
     /** Cap global sur le nombre d'items stockés dans un même spawner. */
     public static final int MAX_STORAGE_PER_SPAWNER = 64 * 64 * 2; // 8192
-    /** Cap sur le stack de spawners fusionnés. */
-    public static final int MAX_STACK = 1000;
+    /** Cap sur le stack de spawners fusionnés (effectivement illimité). */
+    public static final int MAX_STACK = Integer.MAX_VALUE;
+    /** Cap interne sur les rolls/tick pour la perf (au-delà le stockage sature de toute façon). */
+    private static final int MAX_ROLLS_PER_TICK = 2000;
     /** Période du tick (en secondes). */
     public static final int TICK_PERIOD_SEC = 10;
 
@@ -201,8 +203,9 @@ public class SpawnerManager {
         ItemMeta meta = it.getItemMeta();
         if (meta == null) return it;
         MiniMessage mm = MiniMessage.miniMessage();
-        meta.displayName(mm.deserialize(type.colorTag() + "<bold>Spawner " + type.display() + "</bold>")
-                .decoration(TextDecoration.ITALIC, false));
+        String nameTitle = type.colorTag() + "<bold>Spawner " + type.display() + "</bold>"
+                + (stack > 1 ? " <yellow><bold>×" + stack + "</bold></yellow>" : "");
+        meta.displayName(mm.deserialize(nameTitle).decoration(TextDecoration.ITALIC, false));
         List<Component> lore = new ArrayList<>();
         lore.add(mm.deserialize("<gray>Type: " + type.colorTag() + type.display() + "</gray>")
                 .decoration(TextDecoration.ITALIC, false));
@@ -261,13 +264,14 @@ public class SpawnerManager {
                 continue;
             }
 
-            int rolls = s.stack;
+            int rolls = Math.min(s.stack, MAX_ROLLS_PER_TICK);
             for (int i = 0; i < rolls; i++) rollLoot(s);
         }
     }
 
     private void rollLoot(Spawner s) {
-        if (totalItems(s) >= MAX_STORAGE_PER_SPAWNER) return;
+        long maxStorage = (long) MAX_STORAGE_PER_SPAWNER * Math.max(1, s.stack);
+        if (totalItems(s) >= maxStorage) return;
         SpawnerType type = s.type;
         if (type.loot().isEmpty() || type.totalWeight() <= 0) return;
         int r = random.nextInt(type.totalWeight());
