@@ -31,7 +31,7 @@ const help: SlashCommand = {
             '',
             '**Admin & modération**',
             '`/broadcast <message>` · `/kick` · `/ban` · `/unban` · `/mute` · `/whitelist`',
-            '`/console <target> <cmd>` · `/give <joueur> <item> [n]`',
+            '`/console <serveur|proxy|all> <cmd>` · `/give <joueur> <item> [n]`',
             '`/mcbot say|follow|goto|come|status` — piloter le bot in-game',
             '`/restart <target>` — redémarrage contrôlé',
           ].join('\n'),
