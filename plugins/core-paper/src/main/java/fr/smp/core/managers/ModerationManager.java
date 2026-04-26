@@ -13,6 +13,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -77,6 +79,10 @@ public class ModerationManager implements Listener {
     }
 
     public void ban(UUID uuid, String name, String issuer, String reason, long durationSec) {
+        ban(uuid, name, issuer, reason, durationSec, null);
+    }
+
+    public void ban(UUID uuid, String name, String issuer, String reason, long durationSec, String ip) {
         long now = System.currentTimeMillis() / 1000L;
         long expires = durationSec <= 0 ? 0 : now + durationSec;
         try (Connection c = db.get();
@@ -92,21 +98,66 @@ public class ModerationManager implements Listener {
         } catch (SQLException e) {
             plugin.getLogger().warning("mod.ban: " + e.getMessage());
         }
+        if (ip != null && !ip.isEmpty()) {
+            banIp(ip, uuid, name, issuer, reason, expires);
+        }
         history(uuid, name, "ban", issuer, reason, durationLabel(durationSec));
+    }
+
+    private void banIp(String ip, UUID uuid, String name, String issuer, String reason, long expiresAt) {
+        long now = System.currentTimeMillis() / 1000L;
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement(
+                     "INSERT OR REPLACE INTO mod_ip_bans(ip, uuid, name, issuer, reason, issued_at, expires_at) VALUES(?,?,?,?,?,?,?)")) {
+            ps.setString(1, ip);
+            ps.setString(2, uuid.toString());
+            ps.setString(3, name);
+            ps.setString(4, issuer);
+            ps.setString(5, reason);
+            ps.setLong(6, now);
+            ps.setLong(7, expiresAt);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().warning("mod.banIp: " + e.getMessage());
+        }
     }
 
     public void unban(UUID uuid, String issuer) {
         String name = "?";
-        try (Connection c = db.get();
-             PreparedStatement ps = c.prepareStatement("DELETE FROM mod_bans WHERE uuid=? RETURNING name")) {
-            ps.setString(1, uuid.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) name = rs.getString(1);
+        try (Connection c = db.get()) {
+            try (PreparedStatement ps = c.prepareStatement("DELETE FROM mod_bans WHERE uuid=? RETURNING name")) {
+                ps.setString(1, uuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) name = rs.getString(1);
+                }
+            }
+            try (PreparedStatement ps = c.prepareStatement("DELETE FROM mod_ip_bans WHERE uuid=?")) {
+                ps.setString(1, uuid.toString());
+                ps.executeUpdate();
             }
         } catch (SQLException e) {
             plugin.getLogger().warning("mod.unban: " + e.getMessage());
         }
         history(uuid, name, "unban", issuer, null, null);
+    }
+
+    public List<Ban> listBans() {
+        List<Ban> bans = new ArrayList<>();
+        long now = System.currentTimeMillis() / 1000L;
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT uuid, name, issuer, reason, issued_at, expires_at FROM mod_bans ORDER BY issued_at DESC")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Ban b = new Ban(UUID.fromString(rs.getString(1)), rs.getString(2), rs.getString(3),
+                            rs.getString(4), rs.getLong(5), rs.getLong(6));
+                    if (b.active(now)) bans.add(b);
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("mod.listBans: " + e.getMessage());
+        }
+        return bans;
     }
 
     public Ban activeBan(UUID uuid) {
@@ -123,6 +174,41 @@ public class ModerationManager implements Listener {
             }
         } catch (SQLException e) {
             plugin.getLogger().warning("mod.activeBan: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public Ban activeIpBan(String ip) {
+        long now = System.currentTimeMillis() / 1000L;
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT uuid, name, issuer, reason, issued_at, expires_at FROM mod_ip_bans WHERE ip=?")) {
+            ps.setString(1, ip);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    long expiresAt = rs.getLong(6);
+                    boolean permanent = expiresAt <= 0;
+                    if (permanent || expiresAt > now) {
+                        return new Ban(UUID.fromString(rs.getString(1)), rs.getString(2), rs.getString(3),
+                                rs.getString(4), rs.getLong(5), expiresAt);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("mod.activeIpBan: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public String resolveLastIp(String playerName) {
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement("SELECT last_ip FROM auth_accounts WHERE name_lower=?")) {
+            ps.setString(1, playerName.toLowerCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString(1);
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("mod.resolveLastIp: " + e.getMessage());
         }
         return null;
     }
@@ -215,6 +301,10 @@ public class ModerationManager implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPreLogin(AsyncPlayerPreLoginEvent event) {
         Ban b = activeBan(event.getUniqueId());
+        if (b == null) {
+            String ip = event.getAddress().getHostAddress();
+            b = activeIpBan(ip);
+        }
         if (b == null) return;
         String when = b.permanent() ? "permanent" :
                 "expire le " + new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm")
