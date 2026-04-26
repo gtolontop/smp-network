@@ -117,7 +117,8 @@ public class ChatListener implements Listener {
                 .replace("%tag%", teamTag)
                 .replace("%player%", displayName)
                 .replace("%message%", "");
-        Component base = mm.deserialize(format).append(addMentionHovers(messageComp));
+        boolean isAdmin = event.getPlayer().hasPermission("smp.admin");
+        Component base = mm.deserialize(format).append(addMentionHovers(messageComp, isAdmin));
         Component hover = buildHover(name, d);
         Component finalLine = base.hoverEvent(HoverEvent.showText(hover));
 
@@ -162,7 +163,15 @@ public class ChatListener implements Listener {
         return text;
     }
 
-    private Component addMentionHovers(Component message) {
+    private Component addMentionHovers(Component message, boolean isAdmin) {
+        if (isAdmin) {
+            message = message.replaceText(TextReplacementConfig.builder()
+                    .match(Pattern.compile("@@everyone", Pattern.CASE_INSENSITIVE))
+                    .replacement(Component.text("@everyone")
+                            .color(NamedTextColor.GOLD)
+                            .decoration(TextDecoration.BOLD, true))
+                    .build());
+        }
         for (Player online : Bukkit.getOnlinePlayers()) {
             String pName = online.getName();
             PlayerData pd = plugin.players().get(online);
@@ -205,21 +214,26 @@ public class ChatListener implements Listener {
     }
 
     private void playMentionSounds(String text, Player sender) {
+        boolean everyonePing = sender.hasPermission("smp.admin")
+                && Pattern.compile("@@everyone", Pattern.CASE_INSENSITIVE).matcher(text).find();
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (online.getUniqueId().equals(sender.getUniqueId())) continue;
-            PlayerData pd = plugin.players().get(online);
-            String realName = online.getName();
-            String nick = (pd != null && pd.nickname() != null && !pd.nickname().isEmpty()) ? pd.nickname() : null;
-            boolean matched = Pattern.compile("\\b" + Pattern.quote(realName) + "\\b", Pattern.CASE_INSENSITIVE)
-                    .matcher(text).find();
-            if (!matched && nick != null) {
-                matched = Pattern.compile("\\b" + Pattern.quote(nick) + "\\b", Pattern.CASE_INSENSITIVE)
+            if (!everyonePing) {
+                PlayerData pd = plugin.players().get(online);
+                String realName = online.getName();
+                String nick = (pd != null && pd.nickname() != null && !pd.nickname().isEmpty()) ? pd.nickname() : null;
+                boolean matched = Pattern.compile("\\b" + Pattern.quote(realName) + "\\b", Pattern.CASE_INSENSITIVE)
                         .matcher(text).find();
+                if (!matched && nick != null) {
+                    matched = Pattern.compile("\\b" + Pattern.quote(nick) + "\\b", Pattern.CASE_INSENSITIVE)
+                            .matcher(text).find();
+                }
+                if (!matched) continue;
             }
-            if (!matched) continue;
+            final Player target = online;
             Bukkit.getScheduler().runTask(plugin, () -> {
-                if (online.isOnline()) {
-                    online.playSound(online.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 2.0f);
+                if (target.isOnline()) {
+                    target.playSound(target.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 2.0f);
                 }
             });
         }
