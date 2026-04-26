@@ -22,23 +22,37 @@ echo   All servers running Paper
 echo   Java: %JAVA%
 echo ============================================
 
+REM --- Start Discord Bot (bridge host — must be up before plugins) ---
+echo [0/4] Starting Discord bot...
+start "Discord Bot" cmd /k "cd /d %BASE_DIR%\discord-bot && npm start"
+
+REM Let the bridge WebSocket come up before plugins try to connect
+timeout /t 8 /nobreak >nul
+
 REM --- Start Velocity Proxy ---
-echo [1/3] Starting Velocity proxy...
+echo [1/4] Starting Velocity proxy...
 start "Velocity Proxy" cmd /k "cd /d %BASE_DIR%\velocity && "%JAVA%" --enable-native-access=ALL-UNNAMED -Xms512M -Xmx512M -jar velocity.jar"
 
 REM Wait a moment for proxy to initialize
 timeout /t 5 /nobreak >nul
 
 REM --- Start Lobby (Paper) ---
-echo [2/3] Starting Lobby server (Paper)...
-start "Lobby Server" cmd /k "cd /d %BASE_DIR%\lobby && "%JAVA%" --enable-native-access=ALL-UNNAMED -Xms1G -Xmx2G -jar paper.jar --nogui"
+echo [2/4] Starting Lobby server (Paper)...
+start "Lobby Server" cmd /k "cd /d %BASE_DIR%\lobby && "%JAVA%" --enable-native-access=ALL-UNNAMED -Xms1G -Xmx1G -jar paper.jar --nogui"
 
 REM Wait a moment
 timeout /t 5 /nobreak >nul
 
 REM --- Start Survival (Paper) ---
-echo [3/3] Starting Survival server (Paper)...
-start "Survival Server" cmd /k "cd /d %BASE_DIR%\survival && "%JAVA%" --enable-native-access=ALL-UNNAMED -Xms32G -Xmx32G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=50 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=40 -XX:G1MaxNewSizePercent=50 -XX:G1HeapRegionSize=32M -XX:G1ReservePercent=15 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=20 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -XX:+UseStringDeduplication -jar paper.jar --nogui"
+echo [3/4] Starting Survival server (Paper)...
+start "Survival Server" cmd /k "cd /d %BASE_DIR%\survival && "%JAVA%" --enable-native-access=ALL-UNNAMED -Xms4G -Xmx12G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=50 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:G1NewSizePercent=40 -XX:G1MaxNewSizePercent=50 -XX:G1HeapRegionSize=32M -XX:G1ReservePercent=15 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=20 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -XX:+UseStringDeduplication -jar paper.jar --nogui"
+
+REM Wait a moment
+timeout /t 5 /nobreak >nul
+
+REM --- Start PTR (Paper) ---
+echo [4/4] Starting PTR server (Paper)...
+start "PTR Server" cmd /k "cd /d %BASE_DIR%\ptr && "%JAVA%" --enable-native-access=ALL-UNNAMED -Dsmp.server.type=ptr -Xms1G -Xmx1G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=100 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -XX:+UseStringDeduplication -jar paper.jar --nogui"
 
 REM Wait for Velocity to be listening before opening tunnel
 timeout /t 10 /nobreak >nul
@@ -57,6 +71,7 @@ echo   All servers started! (All Paper)
 echo   Velocity:  localhost:25565
 echo   Lobby:     localhost:25566
 echo   Survival:  localhost:25567
+echo   PTR:       localhost:25568
 echo   Tunnel:    check Playit window for address
 echo --------------------------------------------
 echo   TO STOP: run scripts\stop-all.bat
