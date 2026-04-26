@@ -21,9 +21,9 @@ public class AttributeSwapListener implements Listener {
     public void onEquipmentChange(EntityEquipmentChangedEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
 
-        for (Map.Entry<EquipmentSlot, EntityEquipmentChangedEvent.ItemSlotChange> entry : event.getChanges().entrySet()) {
+        for (Map.Entry<EquipmentSlot, EntityEquipmentChangedEvent.EquipmentChange> entry : event.getEquipmentChanges().entrySet()) {
             EquipmentSlot slot = entry.getKey();
-            EntityEquipmentChangedEvent.ItemSlotChange change = entry.getValue();
+            EntityEquipmentChangedEvent.EquipmentChange change = entry.getValue();
             applyModifiers(player, change.oldItem(), slot, false);
             applyModifiers(player, change.newItem(), slot, true);
         }
