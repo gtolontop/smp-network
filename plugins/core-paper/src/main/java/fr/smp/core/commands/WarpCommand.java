@@ -48,7 +48,11 @@ public class WarpCommand implements CommandExecutor {
                     if (m != null) icon = m;
                 }
                 for (int i = 2; i < args.length; i++) desc.append(args[i]).append(" ");
-                plugin.warps().set(args[0], p.getLocation(), icon, desc.toString().trim(), p.getUniqueId());
+                Location warpLoc = p.getLocation();
+                plugin.warps().set(args[0], warpLoc, icon, desc.toString().trim(), p.getUniqueId());
+                plugin.getLogger().info("[WARP] (admin:" + p.getName() + ") créé warp '" + args[0]
+                        + "' à " + warpLoc.getBlockX() + "," + warpLoc.getBlockY() + "," + warpLoc.getBlockZ()
+                        + " (" + warpLoc.getWorld().getName() + ")");
                 p.sendMessage(Msg.ok("<green>Warp <aqua>" + args[0] + "</aqua> créé.</green>"));
             }
             case "delwarp" -> {
@@ -59,6 +63,7 @@ public class WarpCommand implements CommandExecutor {
                     return true;
                 }
                 boolean ok = plugin.warps().delete(args[0]);
+                if (ok) plugin.getLogger().info("[WARP] (admin:" + sender.getName() + ") supprimé warp '" + args[0] + "'");
                 sender.sendMessage(ok ? Msg.ok("<red>Warp supprimé.</red>") : Msg.err("Introuvable."));
             }
         }
@@ -67,6 +72,9 @@ public class WarpCommand implements CommandExecutor {
 
     private void teleportWarp(Player p, WarpManager.Warp w) {
         if (w.server() != null && !w.server().equalsIgnoreCase(plugin.getServerType())) {
+            plugin.getLogger().info("[WARP] " + p.getName() + " -> warp '" + w.name()
+                    + "' cross-server " + w.server()
+                    + " (" + (int)w.x() + "," + (int)w.y() + "," + (int)w.z() + "@" + w.world() + ")");
             plugin.pendingTp().set(p.getUniqueId(), new PendingTeleportManager.Pending(
                     PendingTeleportManager.Kind.LOC,
                     w.world(), w.x(), w.y(), w.z(), w.yaw(), w.pitch(),
@@ -77,10 +85,14 @@ public class WarpCommand implements CommandExecutor {
         }
         Location loc = w.toLocation();
         if (loc == null) {
+            plugin.getLogger().warning("[WARP] " + p.getName() + " -> warp '" + w.name() + "' monde introuvable: " + w.world());
             p.sendMessage(Msg.err("Monde du warp non chargé ici."));
             return;
         }
         p.teleportAsync(loc);
+        plugin.getLogger().info("[WARP] " + p.getName() + " -> warp '" + w.name()
+                + "' à " + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ()
+                + " (" + loc.getWorld().getName() + ")");
         p.sendMessage(Msg.ok("<aqua>Warp → " + w.name() + "</aqua>"));
     }
 }
