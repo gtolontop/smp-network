@@ -21,7 +21,8 @@ public class SellCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player p)) return true;
-        String mode = args.length > 0 ? args[0].toLowerCase() : "gui";
+        String mode = args.length > 0 ? args[0].toLowerCase()
+                : label.equalsIgnoreCase("sellall") ? "all" : "gui";
         double total = 0;
         int items = 0;
 
