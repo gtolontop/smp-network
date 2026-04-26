@@ -81,8 +81,8 @@ world-settings:
       tile: 50
       entity: 50
     ticks-per:
-      hopper-transfer: 8
-      hopper-check: 1
+      hopper-transfer: 4
+      hopper-check: 4
     verbose: false
     # --- Mob Spawning ---
     # How many chunks from the player mobs can spawn (vanilla = 8)
@@ -134,7 +134,7 @@ world-settings:
       exp: 6.0
     
     # --- Hopper Optimizations ---
-    hopper-amount: 1
+    hopper-amount: 64
     hopper-can-load-chunks: false
     
     # --- Tick Rates ---
