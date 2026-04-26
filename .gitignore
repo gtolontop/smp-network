@@ -10,6 +10,9 @@ lobby/world_the_end/
 survival/world/
 survival/world_nether/
 survival/world_the_end/
+ptr/world/
+ptr/world_nether/
+ptr/world_the_end/
 
 # Server runtime files
 *.log
@@ -36,14 +39,18 @@ scripts/.*.pid
 # Deployed server plugins (runtime — JARs + plugin data)
 lobby/plugins/
 survival/plugins/
+ptr/plugins/
 
 # Runtime misc
 lobby/wepif.yml
 survival/wepif.yml
+ptr/wepif.yml
 lobby/.console_history
 survival/.console_history
+ptr/.console_history
 survival/debug/
 shared-data/
+shared-data-ptr/
 .tmp/
 
 # Compiled rcon helper
