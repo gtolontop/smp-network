@@ -24,7 +24,6 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerPickupArrowEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -84,6 +83,14 @@ public final class AuthListener implements Listener {
                     AuthEffects.kickComponent("<red>Ce pseudo est réservé.</red>"));
             return;
         }
+        // Reject if a different UUID is already online with this name (same name reconnect).
+        // Paper's online-player map is concurrent, so this lookup is safe from async.
+        Player existing = Bukkit.getPlayerExact(name);
+        if (existing != null && !existing.getUniqueId().equals(event.getUniqueId())) {
+            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
+                    AuthEffects.kickComponent("<red>Ce pseudo est déjà connecté.</red>"));
+            return;
+        }
         // Check lockout from prior failed attempts.
         AuthAccount acc = auth.loadBlocking(name.toLowerCase());
         long now = System.currentTimeMillis();
@@ -92,16 +99,6 @@ public final class AuthListener implements Listener {
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
                     AuthEffects.kickComponent("<red>Trop de tentatives échouées.</red>\n" +
                             "<gray>Réessaie dans <white>" + remaining + "s</white>.</gray>"));
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onLogin(PlayerLoginEvent event) {
-        // Reject if a different UUID is already online with this name (same name reconnect).
-        Player existing = Bukkit.getPlayerExact(event.getPlayer().getName());
-        if (existing != null && !existing.getUniqueId().equals(event.getPlayer().getUniqueId())) {
-            event.disallow(PlayerLoginEvent.Result.KICK_OTHER,
-                    AuthEffects.kickComponent("<red>Ce pseudo est déjà connecté.</red>"));
         }
     }
 
