@@ -32,6 +32,8 @@ public final class MovementModule implements Listener {
 
     private static final long SPEED_WINDOW_NS = 1_000_000_000L; // 1 second
     private static final long DAMAGE_GRACE_NS = 2_000_000_000L; // 2 seconds post-hit
+    private static final long SOFT_LOG_INTERVAL_NS = 15_000_000_000L; // 15 seconds
+    private static final long HARD_LOG_INTERVAL_NS = 5_000_000_000L; // 5 seconds
     // Ice speed multipliers: sprint on ice is ~2.5× walk, on blue/packed ice ~3×.
     private static final double ICE_MULT = 2.6;
     private static final double BLUE_ICE_MULT = 3.2;
@@ -66,12 +68,13 @@ public final class MovementModule implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
-        states.put(e.getPlayer().getUniqueId(), new State(e.getPlayer().getLocation()));
+        states.put(e.getPlayer().getUniqueId(), new State(e.getPlayer()));
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
-        states.remove(e.getPlayer().getUniqueId());
+        State state = states.remove(e.getPlayer().getUniqueId());
+        if (state != null) flushPendingLogs(e.getPlayer(), state);
     }
 
     @EventHandler
@@ -102,7 +105,7 @@ public final class MovementModule implements Listener {
         if (gm == GameMode.CREATIVE || gm == GameMode.SPECTATOR) return;
         if (p.isFlying() || p.getAllowFlight()) return;
 
-        State s = states.computeIfAbsent(p.getUniqueId(), id -> new State(p.getLocation()));
+        State s = states.computeIfAbsent(p.getUniqueId(), id -> new State(p));
         long now = System.nanoTime();
         if (now < s.graceUntilNs) return;
         Location from = e.getFrom();
@@ -184,8 +187,7 @@ public final class MovementModule implements Listener {
                 s.windowStartNs = System.nanoTime();
                 s.windowHoriz = 0.0;
             } else {
-                plugin.getLogger().info("[AC] " + p.getName() + " soft-violation: " + reason
-                        + " (" + s.violations + "/" + profile.violationThreshold + ", env=" + p.getWorld().getEnvironment() + ")");
+                logSoftViolation(p, s, profile, reason);
             }
         }
     }
@@ -224,7 +226,7 @@ public final class MovementModule implements Listener {
 
     private void handleViolation(Player p, State s, MovementProfile profile, String reason) {
         String action = profile.action.toLowerCase();
-        plugin.getLogger().warning("[AC] " + p.getName() + " VIOLATION (" + p.getWorld().getEnvironment() + "): " + reason);
+        logHardViolation(p, s, reason);
         switch (action) {
             case "kick" -> p.kick(net.kyori.adventure.text.Component.text("AntiCheat: " + reason));
             case "teleport" -> {
@@ -254,6 +256,63 @@ public final class MovementModule implements Listener {
                 || m == Material.END_GATEWAY || m == Material.END_PORTAL_FRAME;
     }
 
+    private void logSoftViolation(Player p, State s, MovementProfile profile, String reason) {
+        long now = System.nanoTime();
+        String env = p.getWorld().getEnvironment().name();
+        String message = "[AC] " + p.getName() + " soft-violation: " + reason
+                + " (" + s.violations + "/" + profile.violationThreshold + ", env=" + env + ")";
+        if (shouldEmit(now, s.lastSoftLogAtNs, SOFT_LOG_INTERVAL_NS)) {
+            plugin.getLogger().info(message + summarizedSuffix(s.suppressedSoftLogs, s.lastSoftReason));
+            s.lastSoftLogAtNs = now;
+            s.suppressedSoftLogs = 0;
+        } else {
+            s.suppressedSoftLogs++;
+        }
+        s.lastSoftReason = reason;
+    }
+
+    private void logHardViolation(Player p, State s, String reason) {
+        long now = System.nanoTime();
+        String env = p.getWorld().getEnvironment().name();
+        String message = "[AC] " + p.getName() + " VIOLATION (" + env + "): " + reason;
+        if (shouldEmit(now, s.lastHardLogAtNs, HARD_LOG_INTERVAL_NS)) {
+            plugin.getLogger().warning(message + summarizedSuffix(s.suppressedHardLogs, s.lastHardReason));
+            s.lastHardLogAtNs = now;
+            s.suppressedHardLogs = 0;
+        } else {
+            s.suppressedHardLogs++;
+        }
+        s.lastHardReason = reason;
+    }
+
+    private void flushPendingLogs(Player p, State s) {
+        if (s.suppressedSoftLogs > 0) {
+            plugin.getLogger().info("[AC] " + p.getName() + " soft-violation summary (env="
+                    + p.getWorld().getEnvironment().name() + "): "
+                    + s.suppressedSoftLogs + " additional suppressed"
+                    + reasonSuffix(s.lastSoftReason));
+        }
+        if (s.suppressedHardLogs > 0) {
+            plugin.getLogger().warning("[AC] " + p.getName() + " violation summary (env="
+                    + p.getWorld().getEnvironment().name() + "): "
+                    + s.suppressedHardLogs + " additional suppressed"
+                    + reasonSuffix(s.lastHardReason));
+        }
+    }
+
+    private boolean shouldEmit(long now, long lastLogAtNs, long intervalNs) {
+        return lastLogAtNs == 0L || now - lastLogAtNs >= intervalNs;
+    }
+
+    private String summarizedSuffix(int suppressedCount, String lastReason) {
+        if (suppressedCount <= 0) return "";
+        return " [" + suppressedCount + " additional suppressed" + reasonSuffix(lastReason) + "]";
+    }
+
+    private String reasonSuffix(String reason) {
+        return reason == null || reason.isBlank() ? "" : ", last=" + reason;
+    }
+
     private boolean segmentCrossesSolid(Location from, Location to) {
         for (int i = 1; i <= 4; i++) {
             double t = i / 5.0;
@@ -274,9 +333,15 @@ public final class MovementModule implements Listener {
         int airborneTicks = 0;
         int violations = 0;
         Location lastSafe;
+        long lastSoftLogAtNs = 0L;
+        int suppressedSoftLogs = 0;
+        String lastSoftReason;
+        long lastHardLogAtNs = 0L;
+        int suppressedHardLogs = 0;
+        String lastHardReason;
 
-        State(Location loc) {
-            this.lastSafe = loc;
+        State(Player player) {
+            this.lastSafe = player.getLocation();
         }
     }
 }
