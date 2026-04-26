@@ -1,17 +1,14 @@
 package fr.smp.core.enchants;
 
 import fr.smp.core.SMPCore;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-/**
- * Passive tick for the Vitality enchant: tops up absorption up to
- * (level * 4) hearts-worth while the player wears a chestplate/elytra
- * carrying the enchant.
- */
 public class EnchantArmorTask extends BukkitRunnable {
 
     private final SMPCore plugin;
@@ -29,26 +26,49 @@ public class EnchantArmorTask extends BukkitRunnable {
         if (task != null) task.cancel();
     }
 
-    private int tickCounter;
-
     @Override
     public void run() {
-        tickCounter++;
-        boolean debug = tickCounter % 20 == 0; // every 10s
         for (Player p : Bukkit.getOnlinePlayers()) {
             ItemStack chest = p.getInventory().getChestplate();
             int level = EnchantEngine.levelOf(chest, CustomEnchant.VITAL);
-            if (level <= 0) continue;
+            double target = level * 2.0;
+            AttributeInstance maxAbsorption = p.getAttribute(Attribute.MAX_ABSORPTION);
+            if (maxAbsorption == null) continue;
 
-            double max = level * 4.0; // 2 hearts per level, 1 heart = 2 units
+            boolean capChanged = syncVitalityCap(maxAbsorption, target);
+            double cap = maxAbsorption.getValue();
             double cur = p.getAbsorptionAmount();
-            if (debug) {
-                plugin.getLogger().info("[Vitalité] " + p.getName()
-                        + " lvl=" + level + " abs=" + cur + "/" + max);
+
+            if (cur > cap) {
+                p.setAbsorptionAmount(cap);
+                capChanged = true;
             }
-            if (cur < max) {
-                p.setAbsorptionAmount(Math.min(max, cur + 1.0));
+
+            if (target > 0.0 && cur < target) {
+                double newVal = Math.min(target, cur + 1.0);
+                p.setAbsorptionAmount(newVal);
+                capChanged = true;
+            }
+
+            if (capChanged) {
+                p.sendHealthUpdate();
             }
         }
+    }
+
+    private boolean syncVitalityCap(AttributeInstance maxAbsorption, double target) {
+        double base = maxAbsorption.getBaseValue();
+        if (target <= 0.0) {
+            if (nearlyEquals(base, 0.0)) return false;
+            maxAbsorption.setBaseValue(0.0);
+            return true;
+        }
+        if (nearlyEquals(base, target)) return false;
+        maxAbsorption.setBaseValue(target);
+        return true;
+    }
+
+    private boolean nearlyEquals(double left, double right) {
+        return Math.abs(left - right) < 1.0E-6;
     }
 }
