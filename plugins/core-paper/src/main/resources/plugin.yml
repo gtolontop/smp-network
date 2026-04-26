@@ -95,7 +95,11 @@ commands:
   # keyall:
   #   description: "Keyall countdown"
   end:
-    description: "Teleport to the End (players) / Enable-disable (admin)"
+    description: "Enable/disable the End dimension (admin)"
+    permission: smp.admin
+  tpend:
+    description: "Teleport to the End platform"
+    aliases: [endtp]
   phantom:
     description: "Enable/disable phantom spawning (admin)"
     permission: smp.admin
@@ -223,6 +227,10 @@ commands:
     description: "Toggle god mode (invincibilité)"
     aliases: [godmode, tgm]
     permission: smp.admin
+  noclip:
+    description: "Toggle noclip (passe à travers les blocs)"
+    aliases: [nc]
+    permission: smp.admin
   heal:
     description: "Soigne complètement un joueur (vie + faim + effets)"
     aliases: [healme]
@@ -259,6 +267,13 @@ commands:
     description: "Repair item durability: hand, player hand, or all"
     aliases: [fix, fixall]
     permission: smp.admin
+  give:
+    description: "Donner des items à un joueur"
+    permission: smp.admin
+  gamemode:
+    description: "Changer le mode de jeu"
+    permission: smp.admin
+    aliases: [gm, gmc, gms, gma, gmsp]
   rename:
     description: "Renomme l'item en main (MiniMessage). Sans argument = reset."
     aliases: [renommer]
@@ -268,6 +283,13 @@ commands:
   link:
     description: "Lier ton compte Discord à Minecraft"
     aliases: [discordlink]
+  bc:
+    description: "Broadcast un message ou lance un countdown de redémarrage"
+    aliases: [broadcast, announce]
+    permission: smp.admin
+  back:
+    description: "Téléporte à la dernière mort (/back ou /back <joueur>)"
+    permission: smp.admin
 
 permissions:
   smp.admin:
