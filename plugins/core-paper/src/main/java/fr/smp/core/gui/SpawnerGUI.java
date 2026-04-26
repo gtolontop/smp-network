@@ -13,9 +13,11 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.entity.Item;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,8 +71,9 @@ public class SpawnerGUI extends GUIHolder {
         SpawnerType type = spawner.type;
         Inventory inv = this.inventory;
         if (inv == null) {
-            inv = Bukkit.createInventory(this, 54,
-                    GUIUtil.title(type.colorTag() + "<bold>Spawner " + type.display() + "</bold>"));
+            String title = type.colorTag() + "<bold>Spawner " + type.display() + "</bold>"
+                    + (spawner.stack > 1 ? " <yellow><bold>×" + spawner.stack + "</bold></yellow>" : "");
+            inv = Bukkit.createInventory(this, 54, GUIUtil.title(title));
             this.inventory = inv;
         }
 
@@ -227,15 +230,13 @@ public class SpawnerGUI extends GUIHolder {
     }
 
     private void dropStack(Player p, Material mat, int amount) {
-        Location loc = spawner.location();
-        if (loc == null) return;
         int stored = spawner.loot.getOrDefault(mat, 0);
         int toDrop = Math.min(amount, stored);
         if (toDrop <= 0) return;
         int remaining = toDrop;
         while (remaining > 0) {
             int take = Math.min(remaining, mat.getMaxStackSize());
-            loc.getWorld().dropItemNaturally(loc, new ItemStack(mat, take));
+            throwFromPlayer(p, new ItemStack(mat, take));
             remaining -= take;
         }
         int left = stored - toDrop;
@@ -268,8 +269,6 @@ public class SpawnerGUI extends GUIHolder {
             p.sendMessage(Msg.info("<gray>Rien à drop sur cette page.</gray>"));
             return;
         }
-        Location loc = spawner.location();
-        if (loc == null) return;
         int dropped = 0;
         for (int i = offset; i < end; i++) {
             Map.Entry<Material, Integer> e = expanded.get(i);
@@ -278,7 +277,7 @@ public class SpawnerGUI extends GUIHolder {
             int stored = spawner.loot.getOrDefault(mat, 0);
             if (stored <= 0) continue;
             int actual = Math.min(take, stored);
-            loc.getWorld().dropItemNaturally(loc, new ItemStack(mat, actual));
+            throwFromPlayer(p, new ItemStack(mat, actual));
             dropped += actual;
             int left = stored - actual;
             if (left <= 0) spawner.loot.remove(mat);
@@ -296,13 +295,11 @@ public class SpawnerGUI extends GUIHolder {
             p.sendMessage(Msg.info("<gray>Le spawner est vide.</gray>"));
             return;
         }
-        Location loc = spawner.location();
-        if (loc == null) return;
         for (Map.Entry<Material, Integer> e : new ArrayList<>(spawner.loot.entrySet())) {
             int remaining = e.getValue();
             while (remaining > 0) {
                 int take = Math.min(remaining, e.getKey().getMaxStackSize());
-                loc.getWorld().dropItemNaturally(loc, new ItemStack(e.getKey(), take));
+                throwFromPlayer(p, new ItemStack(e.getKey(), take));
                 remaining -= take;
             }
         }
@@ -310,6 +307,16 @@ public class SpawnerGUI extends GUIHolder {
         spawner.markDirty();
         p.sendMessage(Msg.ok("<green>Tout drop: <yellow>" + total + "</yellow> items.</green>"));
         render();
+    }
+
+    /** Jette un item devant le joueur, dans la direction où il regarde. */
+    private void throwFromPlayer(Player p, ItemStack stack) {
+        Location eye = p.getEyeLocation();
+        Item item = p.getWorld().dropItem(eye, stack);
+        Vector dir = eye.getDirection().normalize().multiply(0.4);
+        item.setVelocity(dir);
+        item.setPickupDelay(10);
+        item.setThrower(p.getUniqueId());
     }
 
     private static String prettyName(Material m) {
