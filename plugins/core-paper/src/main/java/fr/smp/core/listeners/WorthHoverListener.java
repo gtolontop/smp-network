@@ -7,140 +7,170 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Item;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.inventory.InventoryOpenEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
- * Injects a per-unit "Worth" line into item lore while inventories are open.
- * Lore is constant per material so identical items keep stacking. The total
- * for the held stack is shown via actionbar so it never touches the item.
+ * Server-side companion to the client-side worth display.
+ *
+ * Responsibilities:
+ *   - Send an action-bar Worth total for the item the player is holding.
+ *   - Strip any legacy worth lore / PDC stamps that an earlier version baked
+ *     into ItemStacks. Leaving those around breaks vanilla mechanics that
+ *     compare item components (enchanting table, vaults/trial keys, recipes).
+ *
+ * Visual worth lore is injected client-side only — see WorthOutboundHandler.
  */
 public class WorthHoverListener implements Listener {
 
     private static final MiniMessage MM = MiniMessage.miniMessage();
+    private static final Pattern WORTH_LINE = Pattern.compile("^Worth: \\$.+$");
+
     private final SMPCore plugin;
-    private final NamespacedKey markerKey;
+    private final NamespacedKey legacyLinesKey;
+    private final NamespacedKey legacyStampKey;
 
     public WorthHoverListener(SMPCore plugin) {
         this.plugin = plugin;
-        this.markerKey = new NamespacedKey(plugin, "worth_lore_lines");
+        this.legacyLinesKey = new NamespacedKey(plugin, "worth_lore_lines");
+        this.legacyStampKey = new NamespacedKey(plugin, "worth_stamp");
     }
 
     public void start() {
         new BukkitRunnable() {
             @Override public void run() {
                 for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (p.getOpenInventory() != null) decorate(p.getInventory());
                     sendHeldTotal(p);
+                    purgeInventory(p.getInventory());
+                    Inventory top = p.getOpenInventory().getTopInventory();
+                    if (top != null && top != p.getInventory()) purgeInventory(top);
                 }
             }
-        }.runTaskTimer(plugin, 20L, 20L);
+        }.runTaskTimer(plugin, 17L, 20L);
     }
 
     @EventHandler
-    public void onOpen(InventoryOpenEvent event) {
-        if (!(event.getPlayer() instanceof Player p)) return;
-        decorate(p.getInventory());
-        Inventory top = event.getInventory();
-        if (top != p.getInventory()) decorate(top);
+    public void onJoin(PlayerJoinEvent event) {
+        purgeInventory(event.getPlayer().getInventory());
     }
 
-    @EventHandler
-    public void onClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player p)) return;
-        strip(p.getInventory());
-        Inventory top = event.getInventory();
-        if (top != p.getInventory()) strip(top);
-    }
-
-    @EventHandler
-    public void onQuit(PlayerQuitEvent event) {
-        strip(event.getPlayer().getInventory());
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(ignoreCancelled = true)
     public void onPickup(EntityPickupItemEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
-        Item entity = event.getItem();
-        ItemStack stack = entity.getItemStack();
-        if (stack == null || stack.getType().isAir()) return;
-        if (decorateStack(stack)) entity.setItemStack(stack);
+        if (!(event.getEntity() instanceof Player player)) return;
+        if (!needsPickupResync(player, event.getItem().getItemStack())) return;
+
+        // The worth tooltip is injected client-side by rewriting outgoing item
+        // packets. When the client picks up a stackable item while it already
+        // shows multiple partial matching stacks, it can predict the merge
+        // against the undecorated ground item and briefly create a ghost slot.
+        // Re-sync on the next tick so the client view matches the server state.
+        Bukkit.getScheduler().runTask(plugin, player::updateInventory);
     }
+
+    // ── Legacy stamp cleanup ──────────────────────────────────────────
+    // Items saved before the client-side display existed still carry a PDC
+    // stamp + a "Worth: $X" lore line. Strip both so vanilla comparisons
+    // (enchant, vault, recipe) match again.
+
+    private void purgeInventory(Inventory inv) {
+        for (int i = 0; i < inv.getSize(); i++) {
+            ItemStack stack = inv.getItem(i);
+            if (stack == null || stack.getType().isAir()) continue;
+            purge(stack);
+        }
+    }
+
+    public boolean purge(ItemStack stack) {
+        if (stack == null || stack.getType().isAir()) return false;
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) return false;
+
+        boolean changed = false;
+        PersistentDataContainer pdc = meta.getPersistentDataContainer();
+
+        Integer legacyCount = pdc.get(legacyLinesKey, PersistentDataType.INTEGER);
+        if (legacyCount != null && legacyCount > 0 && meta.hasLore()) {
+            List<Component> lore = new ArrayList<>(meta.lore());
+            for (int k = 0; k < legacyCount && !lore.isEmpty(); k++) {
+                lore.remove(lore.size() - 1);
+            }
+            meta.lore(lore.isEmpty() ? null : lore);
+            changed = true;
+        }
+        if (pdc.has(legacyLinesKey, PersistentDataType.INTEGER)) {
+            pdc.remove(legacyLinesKey);
+            changed = true;
+        }
+        if (pdc.has(legacyStampKey, PersistentDataType.BYTE)) {
+            pdc.remove(legacyStampKey);
+            changed = true;
+        }
+
+        // Strip any leftover "Worth: $X" lore line directly — covers items that
+        // had their stamp removed but still carry the rendered line (e.g. from
+        // a previous plugin version that stored the line without the counter).
+        if (meta.hasLore()) {
+            List<Component> lore = new ArrayList<>(meta.lore());
+            boolean trimmed = lore.removeIf(line -> WORTH_LINE.matcher(plain(line)).matches());
+            if (trimmed) {
+                meta.lore(lore.isEmpty() ? null : lore);
+                changed = true;
+            }
+        }
+
+        if (changed) stack.setItemMeta(meta);
+        return changed;
+    }
+
+    private boolean needsPickupResync(Player player, ItemStack pickup) {
+        if (pickup == null || pickup.getType().isAir()) return false;
+        if (pickup.getMaxStackSize() <= 1) return false;
+        if (plugin.worth().worth(pickup.getType()) <= 0) return false;
+
+        int partialMatches = 0;
+        for (ItemStack stack : player.getInventory().getStorageContents()) {
+            if (stack == null || stack.getType().isAir()) continue;
+            if (stack.getAmount() >= stack.getMaxStackSize()) continue;
+            if (!stack.isSimilar(pickup)) continue;
+
+            partialMatches++;
+            if (partialMatches >= 2) return true;
+        }
+        return false;
+    }
+
+    private static String plain(Component c) {
+        return net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(c);
+    }
+
+    // ── Action-bar total for held item ────────────────────────────────
 
     private void sendHeldTotal(Player p) {
         ItemStack held = p.getInventory().getItemInMainHand();
         if (held == null || held.getType().isAir()) return;
-        double unit = plugin.worth().worth(held.getType());
-        if (unit <= 0) return;
-        if (held.getAmount() <= 1) return;
-        double total = unit * held.getAmount();
-        p.sendActionBar(MM.deserialize(
-                "<gray>Total: <yellow>$" + Msg.money(total) +
-                "</yellow> <dark_gray>(" + held.getAmount() + " × $" + Msg.money(unit) + ")</dark_gray>"));
-    }
-
-    private void decorate(Inventory inv) {
-        for (int i = 0; i < inv.getSize(); i++) {
-            ItemStack stack = inv.getItem(i);
-            if (stack == null || stack.getType().isAir()) continue;
-            decorateStack(stack);
+        double total = plugin.worth().worth(held);
+        if (total <= 0) return;
+        int amount = Math.max(1, held.getAmount());
+        double unit = total / amount;
+        if (amount > 1) {
+            p.sendActionBar(MM.deserialize(
+                    "<gray>Total: <yellow>$" + Msg.money(total) +
+                    "</yellow> <dark_gray>(" + amount + " × $" + Msg.money(unit) + ")</dark_gray>"));
+        } else {
+            p.sendActionBar(MM.deserialize(
+                    "<gray>Worth: <yellow>$" + Msg.money(unit) + "</yellow></gray>"));
         }
-    }
-
-    private boolean decorateStack(ItemStack stack) {
-        double unit = plugin.worth().worth(stack.getType());
-        if (unit <= 0) return false;
-        ItemMeta meta = stack.getItemMeta();
-        if (meta == null) return false;
-        if (meta.getPersistentDataContainer().has(markerKey, PersistentDataType.INTEGER)) return false;
-        List<Component> lore = meta.lore() != null ? new ArrayList<>(meta.lore()) : new ArrayList<>();
-        Component line = MM.deserialize(
-                "<!italic><green>$</green> <white>Worth:</white> <yellow>$" + Msg.money(unit) + "</yellow>");
-        lore.add(line);
-        meta.lore(lore);
-        meta.getPersistentDataContainer().set(markerKey, PersistentDataType.INTEGER, 1);
-        stack.setItemMeta(meta);
-        return true;
-    }
-
-    private void strip(Inventory inv) {
-        for (int i = 0; i < inv.getSize(); i++) {
-            ItemStack stack = inv.getItem(i);
-            if (stack == null || stack.getType().isAir()) continue;
-            ItemMeta meta = stack.getItemMeta();
-            if (meta == null) continue;
-            if (stripFromMeta(meta)) stack.setItemMeta(meta);
-        }
-    }
-
-    private boolean stripFromMeta(ItemMeta meta) {
-        Integer count = meta.getPersistentDataContainer().get(markerKey, PersistentDataType.INTEGER);
-        if (count == null || count <= 0) return false;
-        List<Component> lore = meta.lore();
-        if (lore == null || lore.isEmpty()) {
-            meta.getPersistentDataContainer().remove(markerKey);
-            return true;
-        }
-        List<Component> trimmed = new ArrayList<>(lore);
-        for (int k = 0; k < count && !trimmed.isEmpty(); k++) {
-            trimmed.remove(trimmed.size() - 1);
-        }
-        meta.lore(trimmed.isEmpty() ? null : trimmed);
-        meta.getPersistentDataContainer().remove(markerKey);
-        return true;
     }
 }
