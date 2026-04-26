@@ -2,6 +2,7 @@ package fr.smp.core.listeners;
 
 import fr.smp.core.SMPCore;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -42,6 +43,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerShearEntityEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.vehicle.VehicleDamageEvent;
@@ -93,8 +95,22 @@ public class LobbyProtectionListener implements Listener {
         p.setSaturation(20);
         p.setFireTicks(0);
         p.setFallDistance(0);
-        if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR) {
-            p.setGameMode(GameMode.ADVENTURE);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onMove(PlayerMoveEvent event) {
+        Player p = event.getPlayer();
+        if (bypass(p)) return;
+        Location to = event.getTo();
+        if (to == null) return;
+        if (to.getY() < -64.0) {
+            Location hub = plugin.spawns().hub();
+            if (hub != null) {
+                p.teleport(hub);
+            } else {
+                p.teleport(p.getWorld().getSpawnLocation());
+            }
+            p.setFallDistance(0);
         }
     }
 
