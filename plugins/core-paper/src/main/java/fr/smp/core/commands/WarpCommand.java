@@ -70,7 +70,7 @@ public class WarpCommand implements CommandExecutor {
             plugin.pendingTp().set(p.getUniqueId(), new PendingTeleportManager.Pending(
                     PendingTeleportManager.Kind.LOC,
                     w.world(), w.x(), w.y(), w.z(), w.yaw(), w.pitch(),
-                    System.currentTimeMillis()));
+                    System.currentTimeMillis(), w.server()));
             p.sendMessage(Msg.info("<aqua>Transfert vers <white>" + w.server() + "</white>...</aqua>"));
             plugin.getMessageChannel().sendTransfer(p, w.server());
             return;
