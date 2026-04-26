@@ -19,6 +19,7 @@ import fr.smp.core.npc.NpcCommand;
 import fr.smp.core.npc.NpcManager;
 import fr.smp.core.voidstone.VoidstoneManager;
 import fr.smp.core.listeners.AttributeSwapListener;
+import fr.smp.core.listeners.BuddingAmethystListener;
 import fr.smp.core.listeners.ChainClimbListener;
 import fr.smp.core.listeners.ChatListener;
 import fr.smp.core.listeners.CombatListener;
@@ -40,6 +41,7 @@ import fr.smp.core.listeners.WorthHoverListener;
 import fr.smp.core.logging.LogManager;
 import fr.smp.core.net.WorthDisplayInjector;
 import fr.smp.core.managers.*;
+import fr.smp.core.managers.BackManager;
 import fr.smp.core.permissions.OpCommand;
 import fr.smp.core.permissions.PermCommand;
 import fr.smp.core.permissions.PermissionsManager;
@@ -132,6 +134,8 @@ public class SMPCore extends JavaPlugin {
     private WorthDisplayInjector worthDisplay;
     private SkinManager skins;
     private GodManager god;
+    private NoclipManager noclip;
+    private BackManager back;
     private volatile boolean chatLocked = false;
 
     @Override
@@ -204,6 +208,8 @@ public class SMPCore extends JavaPlugin {
         fullbright = new FullbrightManager(this);
         adminMode = new AdminModeManager(this);
         god = new GodManager();
+        noclip = new NoclipManager();
+        back = new BackManager();
         moderation = new ModerationManager(this, database);
         bounties = new BountyManager(this, database);
         if (isMainSurvival()) {
@@ -312,12 +318,14 @@ public class SMPCore extends JavaPlugin {
         }
         if (isMainSurvival()) {
             pm.registerEvents(new VillagerBucketListener(this), this);
+            pm.registerEvents(new BuddingAmethystListener(), this);
         }
         pm.registerEvents(sit, this);
         pm.registerEvents(afk, this);
         pm.registerEvents(vanish, this);
         pm.registerEvents(fullbright, this);
         pm.registerEvents(new GodListener(this), this);
+        pm.registerEvents(noclip, this);
         pm.registerEvents(moderation, this);
         if (spawners != null) {
             pm.registerEvents(new SpawnerListener(this), this);
@@ -427,6 +435,7 @@ public class SMPCore extends JavaPlugin {
         getCommand("team").setExecutor(new TeamCommand(this));
         getCommand("ah").setExecutor(new AuctionCommand(this));
         getCommand("end").setExecutor(new EndCommand(this));
+        getCommand("tpend").setExecutor(new TpEndCommand(this));
         getCommand("phantom").setExecutor(new PhantomCommand(this));
 
         getCommand("heads").setExecutor(new HeadsCommand(this));
@@ -446,6 +455,10 @@ public class SMPCore extends JavaPlugin {
         getCommand("fullbright").setExecutor(new FullbrightCommand(this));
         getCommand("admin").setExecutor(new AdminCommand(this));
         getCommand("god").setExecutor(new GodCommand(this));
+
+        NoclipCommand noclipCmd = new NoclipCommand(this);
+        getCommand("noclip").setExecutor(noclipCmd);
+        getCommand("noclip").setTabCompleter(noclipCmd);
         getCommand("heal").setExecutor(new HealCommand(this));
         getCommand("fly").setExecutor(new FlyCommand(this));
         getCommand("speed").setExecutor(new SpeedCommand(this));
@@ -546,6 +559,14 @@ public class SMPCore extends JavaPlugin {
             getCommand("invrollback").setTabCompleter(invRollbackCmd);
         }
 
+        GiveCommand giveCmd = new GiveCommand(this);
+        getCommand("give").setExecutor(giveCmd);
+        getCommand("give").setTabCompleter(giveCmd);
+
+        GamemodeCommand gamemodeCmd = new GamemodeCommand(this);
+        getCommand("gamemode").setExecutor(gamemodeCmd);
+        getCommand("gamemode").setTabCompleter(gamemodeCmd);
+
         RepairCommand repairCmd = new RepairCommand(this);
         getCommand("repair").setExecutor(repairCmd);
         getCommand("repair").setTabCompleter(repairCmd);
@@ -557,6 +578,18 @@ public class SMPCore extends JavaPlugin {
         getCommand("nick").setTabCompleter(nickCmd);
 
         getCommand("link").setExecutor(new LinkCommand(this));
+
+        BroadcastCommand bcCmd = new BroadcastCommand(this);
+        getCommand("bc").setExecutor(bcCmd);
+        getCommand("bc").setTabCompleter(bcCmd);
+
+        getCommand("back").setExecutor(new BackCommand(this));
+        getCommand("back").setTabCompleter((sender, cmd, alias, args) -> {
+            if (args.length == 1) {
+                return new NetworkTabCompleter(this, 0, false).networkPlayerNames(sender, args[0].toLowerCase());
+            }
+            return java.util.List.of();
+        });
 
         // Network-wide tab completion for commands taking a player name.
         NetworkTabCompleter p0 = new NetworkTabCompleter(this, 0, false);
@@ -800,6 +833,8 @@ public class SMPCore extends JavaPlugin {
     public WorthHoverListener worthHover() { return worthHover; }
     public SkinManager skins() { return skins; }
     public GodManager god() { return god; }
+    public NoclipManager noclip() { return noclip; }
+    public BackManager back() { return back; }
     public DiscordBridge discordBridge() { return discordBridge; }
 
     public boolean isChatLocked() { return chatLocked; }
