@@ -94,8 +94,8 @@ public class DeathListener implements Listener {
                     Msg.money(top.amount()) + "</yellow>).</gold>"));
         } else {
             giveOrDrop(killer, head);
-            killer.sendMessage(Msg.info("<gray>La tête trophée revient à <white>" + top.issuerName() +
-                    "</white> (plus gros contributeur, hors ligne) — elle t'est remise pour lui transmettre.</gray>"));
+            killer.sendMessage(Msg.ok("<gold>Le plus gros contributeur (<white>" + top.issuerName() +
+                    "</white>) n'est pas connecté.</gold> <gray>La tête trophée t'est confiée, remets-la en mains propres.</gray>"));
         }
         plugin.logs().log(LogCategory.ECONOMY,
                 "bounty.trophy target=" + victim.getName() + " winner=" + top.issuerName() +
@@ -138,6 +138,13 @@ public class DeathListener implements Listener {
         if (fallback != null) event.setRespawnLocation(fallback);
 
         Player p = event.getPlayer();
+
+        // Pas de lit / pas d'ancre : quand le joueur reviendra en survie,
+        // on veut qu'il soit RTP (pas au spawn 0/100/0). Le JoinListener
+        // passe par la branche RTP uniquement si survivalJoined == false.
+        PlayerData data = plugin.players().get(p);
+        if (data != null) data.setSurvivalJoined(false);
+
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (p.isOnline() && plugin.getMessageChannel() != null) {
                 plugin.getMessageChannel().sendTransfer(p, "lobby");
