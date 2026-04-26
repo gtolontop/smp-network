@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 
 import { topPlayers } from '../../db/queries.js';
+import { loadWorldPlayerStats } from '../../stats/worldStats.js';
 import { COLOR, baseEmbed } from '../../utils/embeds.js';
 import { humanDuration } from '../../utils/time.js';
 import type { SlashCommand } from '../client.js';
@@ -36,6 +37,42 @@ const leaderboard: SlashCommand = {
   async execute(ix) {
     const key = ix.options.getString('critère', true) as Key;
     const spec = FIELDS[key];
+    if (key === 'build') {
+      await ix.reply({
+        embeds: [
+          baseEmbed({
+            title: `Classement · ${spec.label}`,
+            description: "*Ce classement n'est pas encore fiable côté bot, donc il est temporairement masqué au lieu d'afficher de fausses données.*",
+            color: COLOR.warn,
+          }),
+        ],
+      });
+      return;
+    }
+
+    if (key === 'mine') {
+      const rows = loadWorldPlayerStats().slice(0, 10);
+      const body = rows.length
+        ? rows
+            .map((r, i) => {
+              const medal = i < 3 ? ['◉', '◎', '◯'][i] : ` ${i + 1}.`;
+              return `${medal} \`${r.mcName}\` — ${r.blocksBroken.toLocaleString('fr-FR')}`;
+            })
+            .join('\n')
+        : '*Aucune donnée pour le moment.*';
+
+      await ix.reply({
+        embeds: [
+          baseEmbed({
+            title: `Classement · ${spec.label}`,
+            description: body,
+            color: COLOR.accent,
+          }),
+        ],
+      });
+      return;
+    }
+
     const rows = topPlayers(spec.col as Parameters<typeof topPlayers>[0], 10);
     const body = rows.length
       ? rows
