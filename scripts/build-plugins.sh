@@ -28,12 +28,16 @@ AC_JAR="$BASE_DIR/plugins/anticheat-paper/build/libs/AntiCheat-Paper-1.0.0.jar"
 cp "$PAPER_JAR" "$BASE_DIR/lobby/plugins/"
 cp "$PAPER_JAR" "$BASE_DIR/survival/plugins/"
 cp "$VELO_JAR"  "$BASE_DIR/velocity/plugins/"
+# AntiCheat deployed to both servers: survival runs the full suite (anti-xray/ESP/
+# movement), lobby runs only client detection (brand + plugin channels + freecam
+# heuristic) to block cheat-client users from transferring to survival.
+cp "$AC_JAR"    "$BASE_DIR/lobby/plugins/"
 cp "$AC_JAR"    "$BASE_DIR/survival/plugins/"
 
 mkdir -p "$BASE_DIR/shared-data/players"
 
 echo "Done:"
-echo "  lobby/plugins/    <- SMPCore-Paper"
-echo "  survival/plugins/ <- SMPCore-Paper, AntiCheat-Paper"
+echo "  lobby/plugins/    <- SMPCore-Paper, AntiCheat-Paper (client detection only)"
+echo "  survival/plugins/ <- SMPCore-Paper, AntiCheat-Paper (full)"
 echo "  velocity/plugins/ <- SMPCore-Velocity"
 echo "  shared-data/players/ ready"
