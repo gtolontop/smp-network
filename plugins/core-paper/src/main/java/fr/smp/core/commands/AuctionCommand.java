@@ -25,11 +25,11 @@ public class AuctionCommand implements CommandExecutor {
         String sub = args[0].toLowerCase();
         switch (sub) {
             case "sell" -> {
-                if (args.length < 2) { p.sendMessage(Msg.err("/ah sell <prix>")); return true; }
-                double price;
-                try { price = Double.parseDouble(args[1]); } catch (NumberFormatException e) {
-                    p.sendMessage(Msg.err("Prix invalide.")); return true;
+                if (args.length < 2) {
+                    p.sendMessage(Msg.err("/ah sell <price> <gray>(examples: 1000, 1k, 10k, 1m, 1b)</gray>"));
+                    return true;
                 }
+                double price = Msg.parseAmount(args[1]);
                 if (price <= 0) { p.sendMessage(Msg.err("Prix invalide.")); return true; }
                 ItemStack hand = p.getInventory().getItemInMainHand();
                 if (hand == null || hand.getType().isAir()) { p.sendMessage(Msg.err("Rien en main.")); return true; }
