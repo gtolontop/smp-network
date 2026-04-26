@@ -35,6 +35,10 @@ public class EconomyCommand implements CommandExecutor {
             }
             case "pay" -> {
                 if (!(sender instanceof Player p)) return true;
+                if (plugin.cooldowns() != null && plugin.cooldowns().isOnCooldown(p, "pay")) {
+                    p.sendMessage(Msg.err("Cooldown: <white>" + Msg.duration(plugin.cooldowns().remaining(p, "pay")) + "</white>"));
+                    return true;
+                }
                 if (args.length < 2) { p.sendMessage(Msg.err("/pay <joueur> <montant>")); return true; }
                 if (args[0].equalsIgnoreCase(p.getName())) {
                     p.sendMessage(Msg.err("Tu ne peux pas te payer toi-même.")); return true;
@@ -71,6 +75,7 @@ public class EconomyCommand implements CommandExecutor {
                 if (!plugin.economy().transfer(p.getUniqueId(), targetUuid, amount)) {
                     p.sendMessage(Msg.err("Transfert échoué.")); return true;
                 }
+                if (plugin.cooldowns() != null) plugin.cooldowns().set(p, "pay");
                 p.sendMessage(Msg.ok("<green>Envoyé $" + Msg.money(amount) + " à " + targetName + ".</green>"));
                 if (localTarget != null) {
                     localTarget.sendMessage(Msg.info("<green>$" + Msg.money(amount) +
