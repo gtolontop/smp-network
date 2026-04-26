@@ -43,9 +43,6 @@ xray:
     - sculk_catalyst
     - sculk_sensor
     - calibrated_sculk_sensor
-    # Trial Chambers (1.21)
-    - vault
-    - heavy_core
     # Other high-value indicators
     - conduit
     - beacon
@@ -127,13 +124,13 @@ xray:
   max-obfuscate-y: 320
   min-obfuscate-y: -64
   # If true, send fake ores in random stone/deepslate to confuse seed-based xray.
-  fake-ore-injection: true
+  fake-ore-injection: false
   fake-ore-density: 0.002
   # A hidden block is only revealed to the client when the player has LoS AND is
   # within this many blocks of the block. 64 = generous for large caves / water caves
   # (matches vanilla perception distance). Anti-xray is still intact — no LoS through
   # walls means xray cheats still see stone at any distance.
-  reveal-distance: 64.0
+  reveal-distance: 48.0
   # If true, mask even ores that are already exposed on a cave wall (paranoid). If
   # false, exposed ores pass through unmasked — legitimate cave UX shows ores
   # instantly, only ores fully enclosed in stone are obfuscated. Buried-ore masking
@@ -188,8 +185,6 @@ containers:
     # Spawners — keep entity to spawn + spawn potential hidden
     - mob_spawner
     - trial_spawner
-    # Trial chambers
-    - vault
     # Music / decoration that hint at dungeons
     - jukebox
     - decorated_pot
@@ -215,7 +210,7 @@ entity-esp:
     - painting
     - armor_stand
   # Re-check visibility every N ticks per entity (per viewer).
-  check-interval-ticks: 10
+  check-interval-ticks: 20
 
 movement:
   enabled: true
@@ -251,13 +246,13 @@ movement:
     noclip:
       max-step: 3.0
     speed:
-      walk-bps: 6.5
-      sprint-bps: 8.0
-      sprint-jump-bps: 10.5
+      walk-bps: 7.0
+      sprint-bps: 9.5
+      sprint-jump-bps: 12.5
     fly:
-      max-airborne-ticks: 12
-    action: kick
-    violation-threshold: 2
+      max-airborne-ticks: 20
+    action: teleport
+    violation-threshold: 4
 
   # ---- Optional override for the END (mid-aggressive) ----
   end-overrides:
@@ -271,13 +266,48 @@ raytrace:
   # Cap on raytraces dispatched per player per tick. Each watched position does up to 4
   # samples internally (center + 3 face centers), so budget=64 lets the engine keep up
   # with dense ore fields while the invalidate-on-block-change listener cuts TTL latency.
-  max-per-player-per-tick: 64
+  max-per-player-per-tick: 24
   # Reuse cached visibility for this many ms before re-evaluating. Block break/place
   # events force an immediate re-check on nearby watches, so the TTL only bounds the
   # latency for player-movement-based visibility changes.
-  cache-ttl-ms: 750
+  cache-ttl-ms: 1500
   # How often (in ticks) the xray module re-reconciles reveal/mask state against player
   # position. 4 ticks = 200 ms, imperceptible latency, but 4× cheaper than per-tick. The
   # reconcile is also chunk-scoped to the reveal-distance neighbourhood of the player, so
   # total cost is O(chunksInRange × oresPerChunk) rather than O(allWatches).
-  tick-reveal-interval: 4
+  tick-reveal-interval: 8
+
+# ------------------------------------------------------------------------------------
+# Detection de clients trichés (meteor, wurst, impact, freecam, WDL, schematica…).
+# Actif sur LOBBY comme sur SURVIE. Sur lobby, un CHEAT peut être kick directement
+# avant de pouvoir rester polluer le chat; les flags GREY bloquent seulement l'accès
+# à la survie. Sur survie, un cheat client avéré entraîne un kick.
+# ------------------------------------------------------------------------------------
+clients:
+  enabled: true
+  # Lobby: flag GREY => metadata qui bloque le /gate vers survival.
+  # Si kick-on-lobby-cheat=false, ce même metadata sert aussi de fallback pour CHEAT.
+  block-transfer-to-survival: true
+  # Lobby: sur un flag CHEAT avéré (LiquidBounce, Meteor, Wurst, etc.), kick direct
+  # avec message générique pour éviter qu'il reste spammer le hub.
+  kick-on-lobby-cheat: true
+  # Survie: kick direct si un cheat client "CHEAT" est détecté (meteor, wurst, etc.).
+  # Les mods "GREY" (schematica/litematica/WDL) ne kick jamais, ils se contentent de
+  # bloquer le transfert depuis le lobby.
+  kick-on-survival: true
+  # Dès qu'un joueur a un flag CHEAT, son chat est annulé. Ça bouche la petite
+  # fenêtre entre la détection et le kick.
+  silence-cheat-chat: true
+  # Message volontairement vague pour ne pas révéler quelle signature a match.
+  generic-kick-message: "<gray>Connexion refusée.</gray>"
+  # Flag les mods "gris" (ESP/minimap/WDL/freecam). Mettre à false si tu veux autoriser
+  # Xaero's Minimap et Litematica côté lobby (et donc côté survival).
+  flag-grey-channels: true
+
+  # Heuristique freecam: compte les ticks consécutifs où le joueur n'envoie que de la
+  # rotation sans changer de position. Au-dessus du seuil (+ non-AFK / non-véhicule),
+  # le joueur est flagué "grey/movement". Conservateur par défaut pour ne pas flag
+  # les joueurs qui regardent juste autour d'eux.
+  freecam:
+    enabled: true
+    threshold-ticks: 160    # ~8 s à 20 tps
