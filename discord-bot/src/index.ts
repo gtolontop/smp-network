@@ -22,6 +22,7 @@ import { mcbot } from './mcbot/index.js';
 import { initBrain } from './mcbot/brain.js';
 import { initJoinDelivery } from './bot/modules/joinDelivery.js';
 import { initRoleSync } from './bot/modules/roleSync.js';
+import { initLinkHandler } from './bot/modules/linkHandler.js';
 import { initSocials } from './social/index.js';
 
 // Commands
@@ -48,6 +49,7 @@ import ticket from './bot/commands/ticket.js';
 import stats from './bot/commands/stats.js';
 import backup from './bot/commands/backup.js';
 import serverip from './bot/commands/serverip.js';
+import discord from './bot/commands/discord.js';
 
 async function main(): Promise<void> {
   logger.info(
@@ -90,6 +92,7 @@ async function main(): Promise<void> {
     stats,
     backup,
     serverip,
+    discord,
   ]) {
     register(cmd);
   }
@@ -117,6 +120,7 @@ async function main(): Promise<void> {
   initAlerts(client);
   initJoinDelivery();
   initRoleSync(client);
+  initLinkHandler(client);
   initSocials(client);
 
   // In-game bot.
