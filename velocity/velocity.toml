@@ -40,6 +40,7 @@ force-key-authentication = true
 	# Backend server definitions
 	lobby = "127.0.0.1:25566"
 	survival = "127.0.0.1:25567"
+	ptr = "127.0.0.1:25568"
 	# The order servers are tried when a player first joins.
 	# Players will land in "lobby" by default.
 	try = ["lobby"]
