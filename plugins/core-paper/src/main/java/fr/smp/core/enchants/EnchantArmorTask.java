@@ -19,7 +19,7 @@ public class EnchantArmorTask extends BukkitRunnable {
     }
 
     public void start() {
-        task = runTaskTimer(plugin, 20L, 10L);
+        task = runTaskTimer(plugin, 20L, 40L);
     }
 
     public void stop() {
@@ -31,7 +31,7 @@ public class EnchantArmorTask extends BukkitRunnable {
         for (Player p : Bukkit.getOnlinePlayers()) {
             ItemStack chest = p.getInventory().getChestplate();
             int level = EnchantEngine.levelOf(chest, CustomEnchant.VITAL);
-            double target = level * 2.0;
+            double target = level * 1.0;
             AttributeInstance maxAbsorption = p.getAttribute(Attribute.MAX_ABSORPTION);
             if (maxAbsorption == null) continue;
 
@@ -45,7 +45,7 @@ public class EnchantArmorTask extends BukkitRunnable {
             }
 
             if (target > 0.0 && cur < target) {
-                double newVal = Math.min(target, cur + 1.0);
+                double newVal = Math.min(target, cur + 0.5);
                 p.setAbsorptionAmount(newVal);
                 capChanged = true;
             }
