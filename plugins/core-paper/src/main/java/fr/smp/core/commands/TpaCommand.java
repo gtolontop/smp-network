@@ -53,6 +53,8 @@ public class TpaCommand implements CommandExecutor {
         if (localTarget != null) {
             plugin.tpa().send(p, localTarget, type);
             if (plugin.cooldowns() != null) plugin.cooldowns().set(p, "tpa");
+            plugin.getLogger().info("[TPA] " + p.getName() + " -> " + localTarget.getName()
+                    + " (" + type.name() + ", local)");
             p.sendMessage(Msg.ok("<aqua>Demande envoyée à " + localTarget.getName() + ".</aqua>"));
             String verb = type == TpaManager.Type.HERE ? "veut que tu le rejoignes" : "veut se téléporter chez toi";
             localTarget.sendMessage(Msg.info("<aqua>" + p.getName() + "</aqua> " + verb +
@@ -73,6 +75,8 @@ public class TpaCommand implements CommandExecutor {
                 : TpaManager.SenderLoc.EMPTY;
         String senderServer = plugin.getServerType();
         String targetRealName = entry.name();
+        plugin.getLogger().info("[TPA] " + p.getName() + " -> " + targetRealName
+                + " (" + type.name() + ", cross-server: " + entry.server() + ")");
         plugin.getMessageChannel().sendForward(targetRealName, "tpa-request", out -> {
             out.writeUTF(p.getName());
             out.writeUTF(p.getUniqueId().toString());
@@ -122,6 +126,10 @@ public class TpaCommand implements CommandExecutor {
             if (r.type() == TpaManager.Type.TO) from.teleportAsync(dest);
             else p.teleportAsync(dest);
             if (plugin.cooldowns() != null) plugin.cooldowns().set(p, "tpaccept");
+            plugin.getLogger().info("[TPA] " + p.getName() + " accepte " + from.getName()
+                    + " (" + r.type().name() + ")"
+                    + " -> " + dest.getBlockX() + "," + dest.getBlockY() + "," + dest.getBlockZ()
+                    + " (" + dest.getWorld().getName() + ")");
             p.sendMessage(Msg.ok("<green>TPA accepté.</green>"));
             from.sendMessage(Msg.ok("<green>" + p.getName() + " a accepté.</green>"));
             return;
@@ -141,6 +149,9 @@ public class TpaCommand implements CommandExecutor {
                     here.getYaw(), here.getPitch(), System.currentTimeMillis(), myServer));
             plugin.getMessageChannel().sendTransferByName(r.fromName(), myServer);
             if (plugin.cooldowns() != null) plugin.cooldowns().set(p, "tpaccept");
+            plugin.getLogger().info("[TPA] " + p.getName() + " accepte (cross) " + r.fromName()
+                    + " -> " + myServer
+                    + " (" + here.getBlockX() + "," + here.getBlockY() + "," + here.getBlockZ() + ")");
             p.sendMessage(Msg.ok("<green>Transfert de " + r.fromName() + " en cours...</green>"));
         } else {
             // HERE: target (this player) teleports to sender. Sender's loc was captured at request.
@@ -152,6 +163,9 @@ public class TpaCommand implements CommandExecutor {
                     PendingTeleportManager.Kind.LOC,
                     loc.world(), loc.x(), loc.y(), loc.z(), loc.yaw(), loc.pitch(),
                     System.currentTimeMillis(), r.fromServer()));
+            plugin.getLogger().info("[TPA] " + p.getName() + " accepte HERE (cross) " + r.fromName()
+                    + " -> " + r.fromServer()
+                    + " (" + (int)loc.x() + "," + (int)loc.y() + "," + (int)loc.z() + "@" + loc.world() + ")");
             p.sendMessage(Msg.info("<aqua>Transfert vers <white>" + r.fromServer() + "</white>...</aqua>"));
             plugin.getMessageChannel().sendTransfer(p, r.fromServer());
         }
@@ -160,6 +174,7 @@ public class TpaCommand implements CommandExecutor {
     private void handleDeny(Player p) {
         TpaManager.Request r = plugin.tpa().consume(p);
         if (r == null) { p.sendMessage(Msg.err("Aucune demande.")); return; }
+        plugin.getLogger().info("[TPA] " + p.getName() + " refuse demande de " + r.fromName());
         p.sendMessage(Msg.ok("<red>Demande refusée.</red>"));
         String myServer = plugin.getServerType();
         boolean crossServer = r.fromServer() != null && !r.fromServer().equalsIgnoreCase(myServer);
@@ -173,6 +188,7 @@ public class TpaCommand implements CommandExecutor {
 
     private void handleCancel(Player p) {
         plugin.tpa().cancelOutgoing(p.getUniqueId());
+        plugin.getLogger().info("[TPA] " + p.getName() + " annule ses demandes sortantes");
         p.sendMessage(Msg.ok("<gray>Demandes sortantes annulées.</gray>"));
     }
 }
