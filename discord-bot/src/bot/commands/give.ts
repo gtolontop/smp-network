@@ -5,6 +5,7 @@ import { queueGive, playerByName, upsertPlayer } from '../../db/queries.js';
 import { audit } from '../modules/auditLog.js';
 import { assertAdmin } from '../../utils/perms.js';
 import { ok, fail, baseEmbed, COLOR } from '../../utils/embeds.js';
+import { describeConnectedOrigins, resolvePreferredPaperOrigin } from '../network.js';
 import type { SlashCommand } from '../client.js';
 
 const give: SlashCommand = {
@@ -27,11 +28,24 @@ const give: SlashCommand = {
 
     const online = hub.playerByName(name);
     if (online) {
-      const res = await hub.rpc('survival', 'console', {
+      const origin = resolvePreferredPaperOrigin(name);
+      if (!origin) {
+        await ix.reply({
+          embeds: [fail(`Aucun serveur Paper connecté. Cibles: ${describeConnectedOrigins()}`)],
+          ephemeral: true,
+        });
+        await audit({ actor: ix.user.tag, action: 'give', target: name, details: `${amount} × ${item}`, ok: false });
+        return;
+      }
+      const res = await hub.rpc(origin, 'console', {
         command: `give ${name} ${item} ${amount}`,
       });
       await ix.reply({
-        embeds: [res.ok ? ok(`**${name}** a reçu ${amount} × ${item}.`) : fail(res.error ?? 'RPC échoué.')],
+        embeds: [
+          res.ok
+            ? ok(`**${name}** a reçu ${amount} × ${item} sur \`${origin}\`.`)
+            : fail(res.error ?? 'RPC échoué.'),
+        ],
         ephemeral: true,
       });
       await audit({ actor: ix.user.tag, action: 'give', target: name, details: `${amount} × ${item}`, ok: res.ok });
