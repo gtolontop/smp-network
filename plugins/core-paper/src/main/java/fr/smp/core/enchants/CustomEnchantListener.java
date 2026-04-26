@@ -184,8 +184,7 @@ public class CustomEnchantListener implements Listener {
             if (fused != null) {
                 e.setResult(fused);
                 int cost = plugin.getConfig().getInt("customenchants.anvil.elytra-fusion-cost", 15);
-                inv.setRepairCostAmount(cost);
-                // Bukkit scheduler sometimes resets the repair cost display; re-apply next tick.
+                // Re-apply next tick because Bukkit resets the repair cost display after the event.
                 Bukkit.getScheduler().runTask(plugin, () -> e.getView().setRepairItemCountCost(cost));
                 return;
             }
@@ -207,7 +206,6 @@ public class CustomEnchantListener implements Listener {
             }
             e.setResult(merged);
             int cost = plugin.getConfig().getInt("customenchants.anvil.book-cost", 6);
-            inv.setRepairCostAmount(cost);
             Bukkit.getScheduler().runTask(plugin, () -> e.getView().setRepairItemCountCost(cost));
             return;
         }
@@ -261,7 +259,6 @@ public class CustomEnchantListener implements Listener {
         e.setResult(out);
         if (synth) {
             int cost = plugin.getConfig().getInt("customenchants.anvil.merge-cost", 4);
-            inv.setRepairCostAmount(cost);
             Bukkit.getScheduler().runTask(plugin, () -> e.getView().setRepairItemCountCost(cost));
         }
     }
