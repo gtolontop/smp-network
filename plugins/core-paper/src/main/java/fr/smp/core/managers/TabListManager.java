@@ -62,7 +62,8 @@ public class TabListManager {
             }
             huntedPrefix += "<dark_red>]</dark_red> ";
         }
-        Component comp = MM.deserialize(rank + huntedPrefix + teamPrefix + "<white>" + p.getName() + "</white>");
+        String nick = (d != null && d.nickname() != null && !d.nickname().isEmpty()) ? d.nickname() : p.getName();
+        Component comp = MM.deserialize(rank + huntedPrefix + teamPrefix + "<white>" + nick + "</white>");
         p.playerListName(comp);
     }
 
