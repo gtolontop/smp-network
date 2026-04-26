@@ -4,6 +4,7 @@ import fr.smp.core.SMPCore;
 import fr.smp.core.logging.LogCategory;
 import fr.smp.core.storage.Database;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
@@ -100,10 +101,19 @@ public final class AuthManager {
         AuthSession s = sessions.get(player.getUniqueId());
         if (s == null) return;
         s.setStage(AuthSession.Stage.AUTHENTICATED);
+        s.setAuthenticatedAt(System.currentTimeMillis());
+        s.setAccountRegisteredAt(account != null ? account.registeredAt() * 1000L : System.currentTimeMillis());
         s.resetFailed();
         AuthEffects.clear(player);
         plugin.logs().log(LogCategory.JOIN, player,
                 "auth_ok premium=" + s.premium() + " account_premium=" + (account != null && account.premiumUuid() != null));
+
+        // Notify Velocity so auth persists across server transfers.
+        // Premium players are auto-auth'd on every backend via textures, so
+        // only cracked players need this relay.
+        if (!s.premium() && plugin.getMessageChannel() != null) {
+            plugin.getMessageChannel().sendAuthNotify(player);
+        }
 
         // Run the post-join setup that JoinListener deferred while we waited
         // for auth (teleport / scoreboard / nametag / hunted refresh / etc.).
@@ -115,6 +125,52 @@ public final class AuthManager {
                 plugin.getLogger().warning("Post-auth join setup failed for " + player.getName() + ": " + t.getMessage());
             }
         }
+        grantLandingGrace(player);
+    }
+
+    /**
+     * Called when Velocity tells us this player is already authenticated
+     * (they logged in on a previous backend during this proxy session).
+     * Loads the account from DB and runs the full auth + join flow.
+     */
+    public void markAuthenticatedFromProxy(Player player) {
+        String nameLower = player.getName().toLowerCase();
+        loadAsync(nameLower, account -> {
+            if (!player.isOnline()) return;
+            // Still check — if the player somehow got authenticated between
+            // the plugin message and the DB load, skip.
+            if (isAuthenticated(player)) return;
+
+            AuthSession s = sessions.get(player.getUniqueId());
+            if (s == null) return;
+
+            if (account != null) {
+                String ip = player.getAddress() != null ? player.getAddress().getAddress().getHostAddress() : null;
+                account.setLastLogin(System.currentTimeMillis() / 1000);
+                account.setLastIp(ip);
+                saveAsync(account);
+            }
+
+            s.setStage(AuthSession.Stage.AUTHENTICATED);
+            s.setAuthenticatedAt(System.currentTimeMillis());
+            s.setAccountRegisteredAt(account != null ? account.registeredAt() * 1000L : System.currentTimeMillis());
+            s.resetFailed();
+            AuthEffects.clear(player);
+            plugin.logs().log(LogCategory.JOIN, player, "auth_ok_proxy_relay");
+
+            // Run the deferred join setup (teleport / scoreboard / etc.).
+            if (plugin.joinListener() != null && plugin.players() != null) {
+                var data = plugin.players().loadOrCreate(player.getUniqueId(), player.getName());
+                try {
+                    plugin.joinListener().runJoinSetup(player, data);
+                } catch (Throwable t) {
+                    plugin.getLogger().warning("Post-proxy-auth join setup failed for " + player.getName() + ": " + t.getMessage());
+                }
+            }
+            grantLandingGrace(player);
+
+            player.sendMessage(AuthEffects.prefixed("<green>Session restaurée</green> <gray>— pas besoin de retaper /login.</gray>"));
+        });
     }
 
     public void markAwaiting(Player player) {
@@ -242,11 +298,13 @@ public final class AuthManager {
 
     private void tickReminders() {
         long now = System.currentTimeMillis();
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            AuthSession s = sessions.get(p.getUniqueId());
-            if (s == null || s.isAuthenticated()) continue;
+        for (var e : sessions.entrySet()) {
+            AuthSession s = e.getValue();
+            if (s.isAuthenticated()) continue;
             if (s.stage() == AuthSession.Stage.PENDING) continue;
             if (now - s.lastReminderMs() < 1900) continue;
+            Player p = Bukkit.getPlayer(e.getKey());
+            if (p == null) continue;
             s.setLastReminderMs(now);
             AuthEffects.reminder(p, hasPasswordHint(p));
         }
@@ -261,13 +319,14 @@ public final class AuthManager {
 
     private void tickTimeouts() {
         long now = System.currentTimeMillis();
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            AuthSession s = sessions.get(p.getUniqueId());
-            if (s == null || s.isAuthenticated()) continue;
+        for (var e : sessions.entrySet()) {
+            AuthSession s = e.getValue();
+            if (s.isAuthenticated()) continue;
             if (s.stage() == AuthSession.Stage.PENDING) continue;
-            if (now - s.joinedAt() >= LOGIN_TIMEOUT_MS) {
-                p.kick(AuthEffects.kickComponent("<red>Délai d'authentification dépassé.</red>\n<gray>Reconnecte-toi pour réessayer.</gray>"));
-            }
+            if (now - s.joinedAt() < LOGIN_TIMEOUT_MS) continue;
+            Player p = Bukkit.getPlayer(e.getKey());
+            if (p == null) continue;
+            p.kick(AuthEffects.kickComponent("<red>Délai d'authentification dépassé.</red>\n<gray>Reconnecte-toi pour réessayer.</gray>"));
         }
     }
 
@@ -284,6 +343,40 @@ public final class AuthManager {
         p.teleport(to);
     }
 
+    private void grantLandingGrace(Player player) {
+        long deadline = System.currentTimeMillis() + 12_000L;
+        BukkitTask[] holder = new BukkitTask[1];
+        holder[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!player.isOnline()) {
+                if (holder[0] != null) holder[0].cancel();
+                return;
+            }
+
+            if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
+                if (holder[0] != null) holder[0].cancel();
+                return;
+            }
+            if (plugin.vanish() != null && plugin.vanish().isVanished(player)) {
+                if (holder[0] != null) holder[0].cancel();
+                return;
+            }
+
+            // Give a short grace window to land after delayed teleports / chunk
+            // loads triggered by the post-auth join flow.
+            player.setAllowFlight(true);
+            player.setFlying(false);
+            player.setFallDistance(0f);
+
+            boolean expired = System.currentTimeMillis() >= deadline;
+            if (player.isOnGround() || expired) {
+                player.setFlying(false);
+                player.setAllowFlight(false);
+                player.setFallDistance(0f);
+                if (holder[0] != null) holder[0].cancel();
+            }
+        }, 1L, 5L);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     public Optional<AuthAccount> sessionAccount(Player p) {
@@ -297,6 +390,10 @@ public final class AuthManager {
     }
 
     public static String validatePassword(String pw) {
+        return validatePassword(pw, null);
+    }
+
+    public static String validatePassword(String pw, String playerName) {
         if (pw == null || pw.length() < MIN_PASSWORD_LEN) {
             return "Le mot de passe doit faire au moins " + MIN_PASSWORD_LEN + " caractères.";
         }
@@ -305,6 +402,11 @@ public final class AuthManager {
         }
         for (char c : pw.toCharArray()) {
             if (c < 0x20 || c == 0x7F) return "Caractères invisibles interdits.";
+        }
+        // Rejette le mot de passe égal au pseudo — signature classique des bots
+        // qui font /register <name> <name>.
+        if (playerName != null && pw.equalsIgnoreCase(playerName)) {
+            return "Le mot de passe ne peut pas être identique à ton pseudo.";
         }
         return null;
     }
