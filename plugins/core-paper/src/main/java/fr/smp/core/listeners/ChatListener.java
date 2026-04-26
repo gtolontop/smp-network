@@ -18,7 +18,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
+import net.kyori.adventure.text.TextReplacementConfig;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Sound;
+import org.bukkit.entity.Player;
+
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class ChatListener implements Listener {
 
@@ -62,9 +68,17 @@ public class ChatListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onChat(AsyncChatEvent event) {
+        if (plugin.isChatLocked() && !event.getPlayer().hasPermission("smp.admin")
+                && !event.getPlayer().hasPermission("smp.chat.bypass-lock")) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(Msg.err("Le chat est actuellement <red>verrouillé</red>."));
+            return;
+        }
+
         String raw = PlainTextComponentSerializer.plainText().serialize(event.message());
         String name = event.getPlayer().getName();
         PlayerData d = plugin.players().get(event.getPlayer());
+        String displayName = (d != null && d.nickname() != null && !d.nickname().isEmpty()) ? d.nickname() : name;
 
         String teamTag = "";
         if (d != null && d.teamId() != null) {
@@ -76,6 +90,7 @@ public class ChatListener implements Listener {
         if (plugin.permissions() != null) {
             rankPrefix = plugin.permissions().prefixOf(event.getPlayer().getUniqueId());
             if (rankPrefix == null) rankPrefix = "";
+            if (!rankPrefix.isEmpty() && !rankPrefix.endsWith(" ")) rankPrefix += " ";
         }
 
         String huntedPrefix = "";
@@ -100,11 +115,14 @@ public class ChatListener implements Listener {
                 .replace("%rank%", rankPrefix)
                 .replace("%hunted%", huntedPrefix)
                 .replace("%tag%", teamTag)
-                .replace("%player%", name)
+                .replace("%player%", displayName)
                 .replace("%message%", "");
-        Component base = mm.deserialize(format).append(messageComp);
+        Component base = mm.deserialize(format).append(addMentionHovers(messageComp));
         Component hover = buildHover(name, d);
         Component finalLine = base.hoverEvent(HoverEvent.showText(hover));
+
+        // Play mention sound to pinged players
+        playMentionSounds(raw, event.getPlayer());
 
         // Local render — only local viewers receive via the event renderer.
         event.renderer((source, sourceDisplayName, msg, audience) -> finalLine);
@@ -113,6 +131,7 @@ public class ChatListener implements Listener {
         // and push through the proxy; other backends will deserialize and show.
         String rendered = MiniMessage.miniMessage().serialize(finalLine);
         Bukkit.getScheduler().runTask(plugin, () -> {
+            if (event.isCancelled()) return;
             if (plugin.getMessageChannel() != null) {
                 plugin.getMessageChannel().sendChat(name, rendered);
             }
@@ -143,6 +162,30 @@ public class ChatListener implements Listener {
         return text;
     }
 
+    private Component addMentionHovers(Component message) {
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            String pName = online.getName();
+            PlayerData pd = plugin.players().get(online);
+            String nick = (pd != null && pd.nickname() != null && !pd.nickname().isEmpty()) ? pd.nickname() : null;
+            Component hover = buildHover(pName, pd);
+            message = message.replaceText(TextReplacementConfig.builder()
+                    .match(Pattern.compile("\\b" + Pattern.quote(pName) + "\\b", Pattern.CASE_INSENSITIVE))
+                    .replacement(Component.text(pName)
+                            .color(NamedTextColor.YELLOW)
+                            .hoverEvent(HoverEvent.showText(hover)))
+                    .build());
+            if (nick != null && !nick.equalsIgnoreCase(pName)) {
+                message = message.replaceText(TextReplacementConfig.builder()
+                        .match(Pattern.compile("\\b" + Pattern.quote(nick) + "\\b", Pattern.CASE_INSENSITIVE))
+                        .replacement(Component.text(nick)
+                                .color(NamedTextColor.YELLOW)
+                                .hoverEvent(HoverEvent.showText(hover)))
+                        .build());
+            }
+        }
+        return message;
+    }
+
     private Component buildHover(String playerName, PlayerData d) {
         if (d == null) return Msg.mm("<gray>" + playerName + "</gray>");
         String team = "<gray>No team</gray>";
@@ -159,5 +202,26 @@ public class ChatListener implements Listener {
                 + "<yellow>⏱ Playtime</yellow> <white>" + Msg.duration(d.totalPlaytimeWithSession()) + "</white>\n"
                 + "<blue>⚑ Team</blue> " + team;
         return mm.deserialize(body);
+    }
+
+    private void playMentionSounds(String text, Player sender) {
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (online.getUniqueId().equals(sender.getUniqueId())) continue;
+            PlayerData pd = plugin.players().get(online);
+            String realName = online.getName();
+            String nick = (pd != null && pd.nickname() != null && !pd.nickname().isEmpty()) ? pd.nickname() : null;
+            boolean matched = Pattern.compile("\\b" + Pattern.quote(realName) + "\\b", Pattern.CASE_INSENSITIVE)
+                    .matcher(text).find();
+            if (!matched && nick != null) {
+                matched = Pattern.compile("\\b" + Pattern.quote(nick) + "\\b", Pattern.CASE_INSENSITIVE)
+                        .matcher(text).find();
+            }
+            if (!matched) continue;
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (online.isOnline()) {
+                    online.playSound(online.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 2.0f);
+                }
+            });
+        }
     }
 }
