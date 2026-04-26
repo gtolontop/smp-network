@@ -3,6 +3,7 @@ package fr.smp.core.managers;
 import fr.smp.core.SMPCore;
 import fr.smp.core.logging.LogCategory;
 import fr.smp.core.storage.Database;
+import fr.smp.core.utils.Msg;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.ByteArrayInputStream;
@@ -170,6 +171,48 @@ public class AuctionManager {
             ps.setLong(1, id);
             ps.executeUpdate();
         } catch (SQLException ignored) {}
+    }
+
+    public void saveSoldNotification(UUID seller, String buyerName, double price, String itemName) {
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement(
+                     "INSERT INTO mailbox(uuid, kind, amount, message, created_at) VALUES(?,?,?,?,?)")) {
+            ps.setString(1, seller.toString());
+            ps.setString(2, "auction_sold");
+            ps.setDouble(3, price);
+            ps.setString(4, buyerName + "|" + itemName);
+            ps.setLong(5, System.currentTimeMillis());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().warning("auction.saveSoldNotification: " + e.getMessage());
+        }
+    }
+
+    public List<String> consumeSoldNotifications(UUID uuid) {
+        List<String> messages = new ArrayList<>();
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT message, amount FROM mailbox WHERE uuid=? AND kind='auction_sold' ORDER BY created_at")) {
+            ps.setString(1, uuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String msg = rs.getString("message");
+                    double price = rs.getDouble("amount");
+                    String[] parts = msg != null ? msg.split("\\|", 2) : new String[]{"?", "?"};
+                    String buyer = parts[0];
+                    String item = parts.length > 1 ? parts[1] : "?";
+                    messages.add(buyer + "|" + item + "|" + Msg.money(price));
+                }
+            }
+            try (PreparedStatement del = c.prepareStatement(
+                    "DELETE FROM mailbox WHERE uuid=? AND kind='auction_sold'")) {
+                del.setString(1, uuid.toString());
+                del.executeUpdate();
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("auction.consumeSoldNotifications: " + e.getMessage());
+        }
+        return messages;
     }
 
     private byte[] serialize(ItemStack stack) throws IOException {
