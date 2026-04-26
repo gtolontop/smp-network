@@ -155,11 +155,15 @@ function acceptHello(socket: WebSocket, hello: HelloPacket, remote: string): boo
     socket.close(4003, 'auth failed');
     return false;
   }
-  if (!['velocity', 'lobby', 'survival'].includes(hello.origin)) {
+  if (!isValidPeerOrigin(hello.origin)) {
     socket.close(4004, 'bad origin');
     return false;
   }
   return true;
+}
+
+function isValidPeerOrigin(origin: string): boolean {
+  return /^[a-z0-9_-]+$/.test(origin) && origin !== 'bot';
 }
 
 function timingSafeEqualString(a: string, b: string): boolean {
