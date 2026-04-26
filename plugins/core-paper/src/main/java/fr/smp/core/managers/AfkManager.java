@@ -46,7 +46,7 @@ public class AfkManager implements Listener {
                     else if (!nowAfk && wasAfk) clearAfk(p.getUniqueId(), now);
                 }
             }
-        }.runTaskTimer(plugin, 20L, 20L);
+        }.runTaskTimer(plugin, 13L, 20L);
     }
 
     public boolean isAfk(Player p) {
