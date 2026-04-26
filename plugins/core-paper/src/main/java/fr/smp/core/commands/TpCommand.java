@@ -10,6 +10,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.util.Vector;
 
 /**
  * Admin instant teleport, network-wide.
@@ -37,12 +38,12 @@ public class TpCommand implements CommandExecutor {
         if (args.length == 0) { p.sendMessage(Msg.err("/tp <joueur> | /tp <x> <y> <z> | /tp <joueur> <cible>")); return true; }
 
         // /tp <x> <y> <z>
-        if (args.length == 3 && isNumber(args[0]) && isNumber(args[1]) && isNumber(args[2])) {
+        if (args.length == 3 && areCoordinates(args[0], args[1], args[2])) {
             return teleportSelfToCoords(p, args[0], args[1], args[2]);
         }
 
         // /tp <player> <x> <y> <z>
-        if (args.length == 4 && isNumber(args[1]) && isNumber(args[2]) && isNumber(args[3])) {
+        if (args.length == 4 && areCoordinates(args[1], args[2], args[3])) {
             return teleportPlayerToCoords(sender, p, args[0], args[1], args[2], args[3]);
         }
 
@@ -62,13 +63,14 @@ public class TpCommand implements CommandExecutor {
 
     private boolean teleportSelfToCoords(Player p, String sx, String sy, String sz) {
         try {
-            double x = Double.parseDouble(sx);
-            double y = Double.parseDouble(sy);
-            double z = Double.parseDouble(sz);
-            p.teleportAsync(new Location(p.getWorld(), x, y, z, p.getLocation().getYaw(), p.getLocation().getPitch()));
+            Location origin = p.getLocation();
+            Location destination = resolveCoordinates(origin, sx, sy, sz);
+            destination.setYaw(origin.getYaw());
+            destination.setPitch(origin.getPitch());
+            p.teleportAsync(destination);
             p.sendMessage(Msg.ok("<aqua>Téléporté.</aqua>"));
-        } catch (NumberFormatException e) {
-            p.sendMessage(Msg.err("Coordonnées invalides."));
+        } catch (IllegalArgumentException e) {
+            p.sendMessage(Msg.err(e.getMessage()));
         }
         return true;
     }
@@ -80,14 +82,14 @@ public class TpCommand implements CommandExecutor {
             return true;
         }
         try {
-            double x = Double.parseDouble(sx);
-            double y = Double.parseDouble(sy);
-            double z = Double.parseDouble(sz);
-            target.teleportAsync(new Location(target.getWorld(), x, y, z,
-                    target.getLocation().getYaw(), target.getLocation().getPitch()));
+            Location origin = target.getLocation();
+            Location destination = resolveCoordinates(origin, sx, sy, sz);
+            destination.setYaw(origin.getYaw());
+            destination.setPitch(origin.getPitch());
+            target.teleportAsync(destination);
             sender.sendMessage(Msg.ok("<aqua>" + target.getName() + " téléporté(e).</aqua>"));
-        } catch (NumberFormatException e) {
-            sender.sendMessage(Msg.err("Coordonnées invalides."));
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(Msg.err(e.getMessage()));
         }
         return true;
     }
@@ -235,6 +237,92 @@ public class TpCommand implements CommandExecutor {
         try { Double.parseDouble(s); return true; } catch (NumberFormatException e) { return false; }
     }
 
+    private static boolean areCoordinates(String sx, String sy, String sz) {
+        return isCoordinateToken(sx) && isCoordinateToken(sy) && isCoordinateToken(sz);
+    }
+
+    private static boolean isCoordinateToken(String s) {
+        if (s == null || s.isEmpty()) return false;
+        char prefix = s.charAt(0);
+        if (prefix == '~' || prefix == '^') {
+            return s.length() == 1 || isNumber(s.substring(1));
+        }
+        return isNumber(s);
+    }
+
+    private static Location resolveCoordinates(Location base, String sx, String sy, String sz) {
+        boolean anyLocal = sx.startsWith("^") || sy.startsWith("^") || sz.startsWith("^");
+        boolean allLocal = sx.startsWith("^") && sy.startsWith("^") && sz.startsWith("^");
+        if (anyLocal && !allLocal) {
+            throw new IllegalArgumentException("Les coordonnées locales (^) ne peuvent pas être mélangées.");
+        }
+        return allLocal ? resolveLocalCoordinates(base, sx, sy, sz) : resolveWorldCoordinates(base, sx, sy, sz);
+    }
+
+    private static Location resolveWorldCoordinates(Location base, String sx, String sy, String sz) {
+        return new Location(
+                base.getWorld(),
+                resolveWorldCoordinate(base.getX(), sx),
+                resolveWorldCoordinate(base.getY(), sy),
+                resolveWorldCoordinate(base.getZ(), sz),
+                base.getYaw(),
+                base.getPitch()
+        );
+    }
+
+    private static double resolveWorldCoordinate(double baseValue, String token) {
+        if (token.startsWith("~")) {
+            return baseValue + parseCoordinateOffset(token.substring(1));
+        }
+        if (token.startsWith("^")) {
+            throw new IllegalArgumentException("Coordonnées invalides.");
+        }
+        return parseCoordinateNumber(token);
+    }
+
+    private static Location resolveLocalCoordinates(Location base, String sx, String sy, String sz) {
+        double left = parseCoordinateOffset(sx.substring(1));
+        double up = parseCoordinateOffset(sy.substring(1));
+        double forwards = parseCoordinateOffset(sz.substring(1));
+
+        double yaw = Math.toRadians(base.getYaw() + 90.0);
+        double pitch = Math.toRadians(-base.getPitch());
+        double pitchPlusNinety = Math.toRadians(-base.getPitch() + 90.0);
+
+        Vector forward = new Vector(
+                Math.cos(yaw) * Math.cos(pitch),
+                Math.sin(pitch),
+                Math.sin(yaw) * Math.cos(pitch)
+        );
+        Vector upVector = new Vector(
+                Math.cos(yaw) * Math.cos(pitchPlusNinety),
+                Math.sin(pitchPlusNinety),
+                Math.sin(yaw) * Math.cos(pitchPlusNinety)
+        );
+        Vector leftVector = forward.clone().crossProduct(upVector).multiply(-1.0);
+
+        Vector offset = forward.multiply(forwards)
+                .add(upVector.multiply(up))
+                .add(leftVector.multiply(left));
+
+        return base.clone().add(offset);
+    }
+
+    private static double parseCoordinateOffset(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return 0.0;
+        }
+        return parseCoordinateNumber(raw);
+    }
+
+    private static double parseCoordinateNumber(String raw) {
+        try {
+            return Double.parseDouble(raw);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Coordonnées invalides.");
+        }
+    }
+
     /** Static helper: consumed by MessageChannel when handling tp-execute (reply from target's server). */
     public static void applyTpExecute(SMPCore plugin, String requesterName,
                                       String world, double x, double y, double z, float yaw, float pitch,
@@ -253,7 +341,8 @@ public class TpCommand implements CommandExecutor {
                 return;
             }
             plugin.pendingTp().set(p.getUniqueId(), new PendingTeleportManager.Pending(
-                    PendingTeleportManager.Kind.LOC, world, x, y, z, yaw, pitch, System.currentTimeMillis()));
+                    PendingTeleportManager.Kind.LOC, world, x, y, z, yaw, pitch,
+                    System.currentTimeMillis(), targetServer));
             p.sendMessage(Msg.info("<aqua>Transfert vers <white>" + targetServer + "</white>...</aqua>"));
             plugin.getMessageChannel().sendTransfer(p, targetServer);
         });
