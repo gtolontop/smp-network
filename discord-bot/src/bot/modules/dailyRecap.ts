@@ -1,13 +1,32 @@
 import { ChannelType, type Client, type TextChannel } from 'discord.js';
 
 import { config } from '../../config.js';
-import { eventsSince, topPlayers } from '../../db/queries.js';
+import { eventsSince, kvGet, kvSet, topPlayers } from '../../db/queries.js';
+import { loadWorldPlayerStats } from '../../stats/worldStats.js';
 import { COLOR, baseEmbed } from '../../utils/embeds.js';
 import { child } from '../../utils/logger.js';
 import { escapeMd, stripMinecraft } from '../../utils/format.js';
 import { humanDuration } from '../../utils/time.js';
 
 const log = child({ mod: 'daily-recap' });
+const MINING_SNAPSHOT_KEY = 'dailyRecap.miningSnapshot';
+
+interface MiningSnapshotPlayer {
+  mcName: string;
+  totalBlocks: number;
+}
+
+interface MiningSnapshot {
+  capturedAt: string;
+  players: Record<string, MiningSnapshotPlayer>;
+}
+
+interface MiningRow {
+  uuid: string;
+  mcName: string;
+  totalBlocks: number;
+  blocksToday: number;
+}
 
 /**
  * Fires once a day at ~23:59 local. Picks the day's highlights from
@@ -58,7 +77,20 @@ async function send(client: Client, channelId: string): Promise<void> {
   const worstVictim = deathsBy[0];
 
   const topPlay = topPlayers('playtime_sec', 3);
-  const topMiner = topPlayers('blocks_broken', 1)[0];
+  const miningRows = loadMiningRows();
+  const topMiner =
+    miningRows[0] ??
+    (() => {
+      const row = topPlayers('blocks_broken', 1)[0];
+      return row
+        ? {
+            uuid: row.mcUuid,
+            mcName: row.mcName,
+            totalBlocks: row.blocksBroken,
+            blocksToday: row.blocksBroken,
+          }
+        : undefined;
+    })();
 
   const lines = [
     `**Morts** · ${deaths.length}${worstVictim ? ` — malchance pour **${escapeMd(worstVictim[0])}** (${worstVictim[1]})` : ''}`,
@@ -75,7 +107,7 @@ async function send(client: Client, channelId: string): Promise<void> {
     },
     {
       name: 'Mineur du jour',
-      value: topMiner ? `\`${topMiner.mcName}\` · ${topMiner.blocksBroken} blocs` : '*aucune donnée*',
+      value: topMiner ? `\`${topMiner.mcName}\` · ${topMiner.blocksToday.toLocaleString('fr-FR')} blocs` : '*aucune donnée*',
     },
   ];
 
@@ -98,7 +130,7 @@ async function send(client: Client, channelId: string): Promise<void> {
   await target.send({
     embeds: [
       baseEmbed({
-        title: `Récap · ${new Date().toLocaleDateString('fr-FR')}`,
+        title: `Récap · ${new Date().toLocaleDateString('fr-FR', { timeZone: config.meta.timezone })}`,
         description: lines.join('\n'),
         sections,
         color: COLOR.accent,
@@ -106,10 +138,66 @@ async function send(client: Client, channelId: string): Promise<void> {
       }),
     ],
   });
+
+  if (miningRows.length) saveMiningSnapshot(miningRows);
 }
 
 function tally<T extends string>(items: T[]): Array<[T, number]> {
   const m = new Map<T, number>();
   for (const it of items) m.set(it, (m.get(it) ?? 0) + 1);
   return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function loadMiningRows(): MiningRow[] {
+  const snapshot = loadMiningSnapshot();
+  return loadWorldPlayerStats().map((row) => ({
+    uuid: row.uuid,
+    mcName: row.mcName,
+    totalBlocks: row.blocksBroken,
+    blocksToday: snapshot ? Math.max(0, row.blocksBroken - (snapshot.players[row.uuid]?.totalBlocks ?? 0)) : row.blocksBroken,
+  })).sort(
+    (a, b) => b.blocksToday - a.blocksToday || b.totalBlocks - a.totalBlocks || a.mcName.localeCompare(b.mcName, 'fr'),
+  );
+}
+
+function saveMiningSnapshot(rows: MiningRow[]): void {
+  const snapshot: MiningSnapshot = {
+    capturedAt: new Date().toISOString(),
+    players: Object.fromEntries(
+      rows.map((row) => [
+        row.uuid,
+        {
+          mcName: row.mcName,
+          totalBlocks: row.totalBlocks,
+        },
+      ]),
+    ),
+  };
+  kvSet(MINING_SNAPSHOT_KEY, JSON.stringify(snapshot));
+}
+
+function loadMiningSnapshot(): MiningSnapshot | undefined {
+  const raw = kvGet(MINING_SNAPSHOT_KEY);
+  if (!raw) return;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<MiningSnapshot>;
+    const players = parsed.players;
+    if (!players || typeof players !== 'object') return;
+
+    const normalized: Record<string, MiningSnapshotPlayer> = {};
+    for (const [uuid, player] of Object.entries(players)) {
+      if (!player || typeof player !== 'object') continue;
+      const mcName = typeof player.mcName === 'string' && player.mcName ? player.mcName : uuid;
+      const totalBlocks = Number.isFinite(player.totalBlocks) ? player.totalBlocks : 0;
+      normalized[uuid.toLowerCase()] = { mcName, totalBlocks };
+    }
+
+    return {
+      capturedAt: typeof parsed.capturedAt === 'string' ? parsed.capturedAt : '',
+      players: normalized,
+    };
+  } catch {
+    return;
+  }
 }
