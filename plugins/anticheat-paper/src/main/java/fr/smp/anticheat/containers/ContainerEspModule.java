@@ -42,9 +42,12 @@ public final class ContainerEspModule {
     private final VisibilityEngine visibility;
 
     private static final Field BLOCK_ENTITIES_FIELD;
-    private static final Method BEI_TYPE;
-    private static final Method BEI_PACKED_XZ;
-    private static final Method BEI_Y;
+    private static final Method BEI_TYPE_METHOD;
+    private static final Method BEI_PACKED_XZ_METHOD;
+    private static final Method BEI_Y_METHOD;
+    private static final Field BEI_TYPE_FIELD;
+    private static final Field BEI_PACKED_XZ_FIELD;
+    private static final Field BEI_Y_FIELD;
 
     static {
         Field beField = null;
@@ -57,18 +60,25 @@ public final class ContainerEspModule {
         }
         BLOCK_ENTITIES_FIELD = beField;
 
-        Method type = null, packed = null, y = null;
+        Method typeMethod = null, packedMethod = null, yMethod = null;
+        Field typeField = null, packedField = null, yField = null;
         for (Class<?> inner : ClientboundLevelChunkPacketData.class.getDeclaredClasses()) {
             if (inner.getSimpleName().equals("BlockEntityInfo")) {
-                try { type = inner.getDeclaredMethod("type"); type.setAccessible(true); } catch (Throwable ignored) {}
-                try { packed = inner.getDeclaredMethod("packedXZ"); packed.setAccessible(true); } catch (Throwable ignored) {}
-                try { y = inner.getDeclaredMethod("y"); y.setAccessible(true); } catch (Throwable ignored) {}
+                try { typeMethod = inner.getDeclaredMethod("type"); typeMethod.setAccessible(true); } catch (Throwable ignored) {}
+                try { packedMethod = inner.getDeclaredMethod("packedXZ"); packedMethod.setAccessible(true); } catch (Throwable ignored) {}
+                try { yMethod = inner.getDeclaredMethod("y"); yMethod.setAccessible(true); } catch (Throwable ignored) {}
+                try { typeField = inner.getDeclaredField("type"); typeField.setAccessible(true); } catch (Throwable ignored) {}
+                try { packedField = inner.getDeclaredField("packedXZ"); packedField.setAccessible(true); } catch (Throwable ignored) {}
+                try { yField = inner.getDeclaredField("y"); yField.setAccessible(true); } catch (Throwable ignored) {}
                 break;
             }
         }
-        BEI_TYPE = type;
-        BEI_PACKED_XZ = packed;
-        BEI_Y = y;
+        BEI_TYPE_METHOD = typeMethod;
+        BEI_PACKED_XZ_METHOD = packedMethod;
+        BEI_Y_METHOD = yMethod;
+        BEI_TYPE_FIELD = typeField;
+        BEI_PACKED_XZ_FIELD = packedField;
+        BEI_Y_FIELD = yField;
     }
 
     public ContainerEspModule(AntiCheatPlugin plugin, AntiCheatConfig cfg, VisibilityEngine visibility) {
@@ -86,7 +96,7 @@ public final class ContainerEspModule {
      * Returns the same packet, mutated. If no hidden entries are present, no modification occurs.
      */
     public ClientboundLevelChunkWithLightPacket rewriteChunk(Player player, ClientboundLevelChunkWithLightPacket pkt) {
-        if (BLOCK_ENTITIES_FIELD == null || BEI_TYPE == null) return pkt;
+        if (BLOCK_ENTITIES_FIELD == null || (BEI_TYPE_METHOD == null && BEI_TYPE_FIELD == null)) return pkt;
         try {
             ClientboundLevelChunkPacketData data = pkt.getChunkData();
             @SuppressWarnings("unchecked")
@@ -102,7 +112,7 @@ public final class ContainerEspModule {
             List<int[]> toWatch = new ArrayList<>();
 
             for (Object info : list) {
-                BlockEntityType<?> beType = (BlockEntityType<?>) BEI_TYPE.invoke(info);
+                BlockEntityType<?> beType = readType(info);
                 Identifier rl = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(beType);
                 if (rl == null) {
                     kept.add(info);
@@ -113,8 +123,8 @@ public final class ContainerEspModule {
                     kept.add(info);
                     continue;
                 }
-                int packedXZ = (int) BEI_PACKED_XZ.invoke(info);
-                int y = (int) BEI_Y.invoke(info);
+                int packedXZ = readPackedXZ(info);
+                int y = readY(info);
                 int worldX = (chunkX << 4) | (packedXZ >> 4);
                 int worldZ = (chunkZ << 4) | (packedXZ & 0xF);
                 toWatch.add(new int[]{worldX, y, worldZ});
@@ -176,5 +186,26 @@ public final class ContainerEspModule {
         } catch (Throwable t) {
             plugin.getLogger().fine("container reveal failed: " + t.getMessage());
         }
+    }
+
+    private static BlockEntityType<?> readType(Object info) throws ReflectiveOperationException {
+        if (BEI_TYPE_METHOD != null) {
+            return (BlockEntityType<?>) BEI_TYPE_METHOD.invoke(info);
+        }
+        return (BlockEntityType<?>) BEI_TYPE_FIELD.get(info);
+    }
+
+    private static int readPackedXZ(Object info) throws ReflectiveOperationException {
+        if (BEI_PACKED_XZ_METHOD != null) {
+            return (int) BEI_PACKED_XZ_METHOD.invoke(info);
+        }
+        return (int) BEI_PACKED_XZ_FIELD.get(info);
+    }
+
+    private static int readY(Object info) throws ReflectiveOperationException {
+        if (BEI_Y_METHOD != null) {
+            return (int) BEI_Y_METHOD.invoke(info);
+        }
+        return (int) BEI_Y_FIELD.get(info);
     }
 }
