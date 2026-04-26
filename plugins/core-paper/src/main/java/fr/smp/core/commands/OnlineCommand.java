@@ -69,6 +69,7 @@ public class OnlineCommand implements CommandExecutor {
             String color = switch (srv) {
                 case "lobby" -> "<aqua>";
                 case "survival" -> "<green>";
+                case "ptr" -> "<yellow>";
                 default -> "<gold>";
             };
             StringBuilder names = new StringBuilder();
