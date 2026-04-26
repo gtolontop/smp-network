@@ -18,6 +18,7 @@ import fr.smp.core.holograms.HologramManager;
 import fr.smp.core.npc.NpcCommand;
 import fr.smp.core.npc.NpcManager;
 import fr.smp.core.voidstone.VoidstoneManager;
+import fr.smp.core.listeners.AttributeSwapListener;
 import fr.smp.core.listeners.ChainClimbListener;
 import fr.smp.core.listeners.ChatListener;
 import fr.smp.core.listeners.CombatListener;
@@ -337,6 +338,7 @@ public class SMPCore extends JavaPlugin {
         pm.registerEvents(new GrindstoneListener(this), this);
         if (!isLobby()) {
             pm.registerEvents(new EnchantBreakListener(this), this);
+            pm.registerEvents(new AttributeSwapListener(), this);
             enchantArmor = new EnchantArmorTask(this);
             enchantArmor.start();
         }
