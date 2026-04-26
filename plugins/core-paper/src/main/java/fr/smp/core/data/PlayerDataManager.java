@@ -17,6 +17,17 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerDataManager {
 
+    /**
+     * Snapshot of real (production) values for fields that must be isolated on PTR.
+     * When the server is PTR, we read the real values from the shared DB, stash them
+     * here, then zero-out the in-memory PlayerData so the PTR player starts fresh.
+     * On save, we swap the real values back in before writing to the shared DB,
+     * ensuring PTR activity never pollutes production stats.
+     * Playtime is explicitly NOT isolated — it syncs normally.
+     */
+    private record PtrSnapshot(double money, long shards, int kills, int deaths, int dailyKills, String dailyKillsDate) {}
+    private final Map<UUID, PtrSnapshot> ptrSnapshots = new ConcurrentHashMap<>();
+
     private final SMPCore plugin;
     private final Database db;
     private final Map<UUID, PlayerData> cache = new ConcurrentHashMap<>();
@@ -47,6 +58,19 @@ public class PlayerDataManager {
         } else {
             data.setName(name);
         }
+        // On PTR, isolate money/kills/deaths so players cannot exploit /give + /sell.
+        // We snapshot the real DB values and give the player fresh zeros.
+        if (plugin.isPtr()) {
+            ptrSnapshots.put(uuid, new PtrSnapshot(
+                    data.money(), data.shards(), data.kills(), data.deaths(),
+                    data.dailyKills(), data.dailyKillsDate()));
+            data.setMoney(0);
+            data.setShards(0);
+            data.setKills(0);
+            data.setDeaths(0);
+            data.setDailyKills(0);
+            data.setDailyKillsDate(null);
+        }
         cache.put(uuid, data);
         return data;
     }
@@ -54,6 +78,7 @@ public class PlayerDataManager {
     public void unload(UUID uuid) {
         PlayerData d = cache.remove(uuid);
         if (d != null) save(d);
+        ptrSnapshots.remove(uuid);
     }
 
     public void saveAll() {
@@ -67,7 +92,7 @@ public class PlayerDataManager {
     private PlayerData loadFromDb(UUID uuid) {
         try (Connection c = db.get();
              PreparedStatement ps = c.prepareStatement(
-                     "SELECT name, money, shards, kills, deaths, playtime_sec, first_join, last_seen, team_id, scoreboard, shards_last_mc_min, daily_kills, daily_kills_date, survival_joined, last_world, last_x, last_y, last_z, last_yaw, last_pitch FROM players WHERE uuid=?")) {
+                      "SELECT name, money, shards, kills, deaths, playtime_sec, first_join, last_seen, team_id, scoreboard, fullbright, shards_last_mc_min, daily_kills, daily_kills_date, survival_joined, last_world, last_x, last_y, last_z, last_yaw, last_pitch, nickname FROM players WHERE uuid=?")) {
             ps.setString(1, uuid.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return null;
@@ -81,19 +106,21 @@ public class PlayerDataManager {
                 d.setLastSeen(rs.getLong(8));
                 d.setTeamId(rs.getString(9));
                 d.setScoreboardEnabled(rs.getInt(10) != 0);
-                d.setShardsLastMcMin(rs.getLong(11));
-                d.setDailyKills(rs.getInt(12));
-                d.setDailyKillsDate(rs.getString(13));
-                d.setSurvivalJoined(rs.getInt(14) != 0);
-                String lw = rs.getString(15);
+                d.setFullbrightEnabled(rs.getInt(11) != 0);
+                d.setShardsLastMcMin(rs.getLong(12));
+                d.setDailyKills(rs.getInt(13));
+                d.setDailyKillsDate(rs.getString(14));
+                d.setSurvivalJoined(rs.getInt(15) != 0);
+                String lw = rs.getString(16);
                 if (lw != null) {
-                    double lx = rs.getDouble(16);
-                    double ly = rs.getDouble(17);
-                    double lz = rs.getDouble(18);
-                    float lyaw = rs.getFloat(19);
-                    float lpitch = rs.getFloat(20);
+                    double lx = rs.getDouble(17);
+                    double ly = rs.getDouble(18);
+                    double lz = rs.getDouble(19);
+                    float lyaw = rs.getFloat(20);
+                    float lpitch = rs.getFloat(21);
                     d.setLastLocation(lw, lx, ly, lz, lyaw, lpitch);
                 }
+                d.setNickname(rs.getString(22));
                 return d;
             }
         } catch (SQLException e) {
@@ -106,7 +133,7 @@ public class PlayerDataManager {
         long now = System.currentTimeMillis() / 1000L;
         try (Connection c = db.get();
              PreparedStatement ps = c.prepareStatement(
-                     "INSERT INTO players(uuid, name, money, shards, kills, deaths, playtime_sec, first_join, last_seen, team_id, scoreboard, shards_last_mc_min, daily_kills, daily_kills_date) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+                      "INSERT INTO players(uuid, name, money, shards, kills, deaths, playtime_sec, first_join, last_seen, team_id, scoreboard, fullbright, shards_last_mc_min, daily_kills, daily_kills_date, nickname) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
             ps.setString(1, d.uuid().toString());
             ps.setString(2, d.name());
             ps.setDouble(3, d.money());
@@ -118,9 +145,11 @@ public class PlayerDataManager {
             ps.setLong(9, now);
             ps.setString(10, d.teamId());
             ps.setInt(11, d.scoreboardEnabled() ? 1 : 0);
-            ps.setLong(12, d.shardsLastMcMin());
-            ps.setInt(13, d.dailyKills());
-            ps.setString(14, d.dailyKillsDate());
+            ps.setInt(12, d.fullbrightEnabled() ? 1 : 0);
+            ps.setLong(13, d.shardsLastMcMin());
+            ps.setInt(14, d.dailyKills());
+            ps.setString(15, d.dailyKillsDate());
+            ps.setString(16, d.nickname());
             ps.executeUpdate();
         } catch (SQLException e) {
             plugin.getLogger().warning("Failed to insert player: " + e.getMessage());
@@ -131,38 +160,64 @@ public class PlayerDataManager {
         long now = System.currentTimeMillis() / 1000L;
         d.setLastSeen(now);
 
+        // On PTR, restore real production values before writing to the shared DB
+        // so that PTR activity (money from /sell, kills, deaths) never leaks.
+        // Playtime is the only field that PTR is allowed to update.
+        double writeMoney = d.money();
+        long writeShards = d.shards();
+        int writeKills = d.kills();
+        int writeDeaths = d.deaths();
+        int writeDailyKills = d.dailyKills();
+        String writeDailyKillsDate = d.dailyKillsDate();
+        long writeShardsLastMcMin = d.shardsLastMcMin();
+
+        if (plugin.isPtr()) {
+            PtrSnapshot snap = ptrSnapshots.get(d.uuid());
+            if (snap != null) {
+                writeMoney = snap.money();
+                writeShards = snap.shards();
+                writeKills = snap.kills();
+                writeDeaths = snap.deaths();
+                writeDailyKills = snap.dailyKills();
+                writeDailyKillsDate = snap.dailyKillsDate();
+                writeShardsLastMcMin = d.shardsLastMcMin(); // keep real shard timing
+            }
+        }
+
         try (Connection c = db.get();
              PreparedStatement ps = c.prepareStatement(
-                     "UPDATE players SET name=?, money=?, shards=?, kills=?, deaths=?, playtime_sec=?, last_seen=?, team_id=?, scoreboard=?, shards_last_mc_min=?, daily_kills=?, daily_kills_date=?, survival_joined=?, last_world=?, last_x=?, last_y=?, last_z=?, last_yaw=?, last_pitch=? WHERE uuid=?")) {
+                      "UPDATE players SET name=?, money=?, shards=?, kills=?, deaths=?, playtime_sec=?, last_seen=?, team_id=?, scoreboard=?, fullbright=?, shards_last_mc_min=?, daily_kills=?, daily_kills_date=?, survival_joined=?, last_world=?, last_x=?, last_y=?, last_z=?, last_yaw=?, last_pitch=?, nickname=? WHERE uuid=?")) {
             ps.setString(1, d.name());
-            ps.setDouble(2, d.money());
-            ps.setLong(3, d.shards());
-            ps.setInt(4, d.kills());
-            ps.setInt(5, d.deaths());
-            ps.setLong(6, d.playtimeSec());
+            ps.setDouble(2, writeMoney);
+            ps.setLong(3, writeShards);
+            ps.setInt(4, writeKills);
+            ps.setInt(5, writeDeaths);
+            ps.setLong(6, d.playtimeSec());  // playtime always syncs (not isolated)
             ps.setLong(7, now);
             ps.setString(8, d.teamId());
             ps.setInt(9, d.scoreboardEnabled() ? 1 : 0);
-            ps.setLong(10, d.shardsLastMcMin());
-            ps.setInt(11, d.dailyKills());
-            ps.setString(12, d.dailyKillsDate());
-            ps.setInt(13, d.survivalJoined() ? 1 : 0);
+            ps.setInt(10, d.fullbrightEnabled() ? 1 : 0);
+            ps.setLong(11, writeShardsLastMcMin);
+            ps.setInt(12, writeDailyKills);
+            ps.setString(13, writeDailyKillsDate);
+            ps.setInt(14, d.survivalJoined() ? 1 : 0);
             if (d.hasLastLocation()) {
-                ps.setString(14, d.lastWorld());
-                ps.setDouble(15, d.lastX());
-                ps.setDouble(16, d.lastY());
-                ps.setDouble(17, d.lastZ());
-                ps.setFloat(18, d.lastYaw());
-                ps.setFloat(19, d.lastPitch());
+                ps.setString(15, d.lastWorld());
+                ps.setDouble(16, d.lastX());
+                ps.setDouble(17, d.lastY());
+                ps.setDouble(18, d.lastZ());
+                ps.setFloat(19, d.lastYaw());
+                ps.setFloat(20, d.lastPitch());
             } else {
-                ps.setNull(14, java.sql.Types.VARCHAR);
-                ps.setNull(15, java.sql.Types.REAL);
+                ps.setNull(15, java.sql.Types.VARCHAR);
                 ps.setNull(16, java.sql.Types.REAL);
                 ps.setNull(17, java.sql.Types.REAL);
                 ps.setNull(18, java.sql.Types.REAL);
                 ps.setNull(19, java.sql.Types.REAL);
+                ps.setNull(20, java.sql.Types.REAL);
             }
-            ps.setString(20, d.uuid().toString());
+            ps.setString(21, d.nickname());
+            ps.setString(22, d.uuid().toString());
             ps.executeUpdate();
         } catch (SQLException e) {
             plugin.getLogger().warning("Failed to save player: " + e.getMessage());
