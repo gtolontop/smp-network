@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 
 import { linkFor, player, playerByName } from '../../db/queries.js';
+import { worldPlayerStatsByUuid } from '../../stats/worldStats.js';
 import { hub } from '../../bridge/hub.js';
 import { COLOR, baseEmbed, fail } from '../../utils/embeds.js';
 import { avatarUrlFor, bodyUrlFor } from '../../utils/format.js';
@@ -37,6 +38,11 @@ const profile: SlashCommand = {
     }
 
     const online = hub.playerByName(row.mcName);
+    const worldStats = worldPlayerStatsByUuid(row.mcUuid);
+    const blocksBroken = worldStats?.blocksBroken ?? (row.blocksBroken > 0 ? row.blocksBroken : null);
+    const blocksPlaced = row.blocksPlaced > 0 ? row.blocksPlaced : null;
+    const blockValue =
+      `${blocksBroken != null ? blocksBroken.toLocaleString('fr-FR') : 'indisponible'} / ${blocksPlaced != null ? blocksPlaced.toLocaleString('fr-FR') : 'indisponible'}`;
 
     await ix.reply({
       embeds: [
@@ -53,7 +59,7 @@ const profile: SlashCommand = {
             { name: 'Kills / Morts', value: `${row.kills} / ${row.deaths}`, inline: true },
             {
               name: 'Blocs cassés / posés',
-              value: `${row.blocksBroken.toLocaleString('fr-FR')} / ${row.blocksPlaced.toLocaleString('fr-FR')}`,
+              value: blockValue,
               inline: true,
             },
           ],
