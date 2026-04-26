@@ -32,7 +32,7 @@ public class PlaytimeManager {
                 long shardsPerMin = plugin.getConfig().getLong("economy.shards-per-minute", 1);
                 for (Player p : Bukkit.getOnlinePlayers()) tick(p, shardsPerMin);
             }
-        }.runTaskTimer(plugin, 20L, 20L);
+        }.runTaskTimer(plugin, 7L, 20L);
     }
 
     public void syncNow(Player p) {
