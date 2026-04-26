@@ -15,6 +15,7 @@ public class PlayerData {
     private long lastSeen;
     private String teamId;
     private boolean scoreboard;
+    private boolean fullbright;
     private long shardsLastMcMin = -1;
     private int dailyKills;
     private String dailyKillsDate;
@@ -25,6 +26,7 @@ public class PlayerData {
     private Double lastZ;
     private Float lastYaw;
     private Float lastPitch;
+    private String nickname;
 
     public PlayerData(UUID uuid, String name) {
         this.uuid = uuid;
@@ -71,6 +73,9 @@ public class PlayerData {
     public boolean scoreboardEnabled() { return scoreboard; }
     public void setScoreboardEnabled(boolean v) { this.scoreboard = v; }
 
+    public boolean fullbrightEnabled() { return fullbright; }
+    public void setFullbrightEnabled(boolean v) { this.fullbright = v; }
+
     public long shardsLastMcMin() { return shardsLastMcMin; }
     public void setShardsLastMcMin(long v) { this.shardsLastMcMin = v; }
 
@@ -106,4 +111,7 @@ public class PlayerData {
         this.lastYaw = yaw;
         this.lastPitch = pitch;
     }
+
+    public String nickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
 }
