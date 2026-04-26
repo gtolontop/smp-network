@@ -87,7 +87,7 @@ entities:
     allow-spider-world-border-climbing: true
     baby-zombie-movement-modifier: 0.5
     cooldown-failed-beehive-releases: true
-    disable-chest-cat-detection: false
+    disable-chest-cat-detection: true
     disable-creeper-lingering-effect: false
     disable-player-crits: false
     door-breaking-difficulty:
@@ -258,9 +258,9 @@ environment:
       villager-trade: true
   void-damage-amount: 4.0
   void-damage-min-build-height-offset: -64.0
-  water-over-lava-flow-speed: 5
+  water-over-lava-flow-speed: 1
 feature-seeds:
-  generate-random-seeds-for-all: false
+  generate-random-seeds-for-all: true
 fishing-time-range:
   MaximumTicks: 600
   MinimumTicks: 100
