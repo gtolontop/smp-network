@@ -5,6 +5,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.Locale;
+import java.util.logging.Level;
 
 /**
  * Entry point for the Discord bridge on the Paper side. Owns the
@@ -68,9 +69,38 @@ public class DiscordBridge {
 
     public void shutdown() {
         if (!enabled) return;
-        if (telemetry != null) telemetry.stop();
-        if (capture != null) capture.stop();
-        if (client != null) client.shutdown();
+        enabled = false;
+        if (telemetry != null) {
+            try {
+                telemetry.stop();
+            } catch (Throwable t) {
+                plugin.getLogger().log(Level.WARNING, "Discord bridge telemetry shutdown failed", t);
+            } finally {
+                telemetry = null;
+            }
+        }
+        if (capture != null) {
+            try {
+                capture.stop();
+            } catch (Throwable t) {
+                plugin.getLogger().log(Level.WARNING, "Discord bridge capture shutdown failed", t);
+            } finally {
+                capture = null;
+            }
+        }
+        if (client != null) {
+            try {
+                client.shutdown();
+            } catch (Throwable t) {
+                plugin.getLogger().log(Level.WARNING, "Discord bridge socket shutdown failed", t);
+            } finally {
+                client = null;
+            }
+        }
+    }
+
+    public BridgeClient getClient() {
+        return client;
     }
 
     private String inferOrigin() {
