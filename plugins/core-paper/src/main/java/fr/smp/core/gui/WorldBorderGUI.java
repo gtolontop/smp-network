@@ -122,7 +122,7 @@ public class WorldBorderGUI extends GUIHolder {
                         p.sendMessage(Msg.err("Nombre invalide.")); return;
                     }
                     if (v <= 0) { p.sendMessage(Msg.err("Taille > 0 requise.")); return; }
-                    border.setSize(v);
+                    plugin.worldborders().setBorder(w, v, border.getCenter().getX(), border.getCenter().getZ());
                     p.sendMessage(Msg.ok("<green>Taille mise à <yellow>" + (int) v + "</yellow>.</green>"));
                     openEdit(p, editingWorld);
                 });
@@ -130,7 +130,7 @@ public class WorldBorderGUI extends GUIHolder {
             }
             default -> { return; }
         }
-        border.setSize(next);
+        plugin.worldborders().setBorder(w, next, border.getCenter().getX(), border.getCenter().getZ());
         p.sendMessage(Msg.ok("<green>Taille: <yellow>" + (int) next + "</yellow>.</green>"));
         openEdit(p, editingWorld);
     }
