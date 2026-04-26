@@ -56,7 +56,7 @@ public class AuctionGUI extends GUIHolder {
             lore.add(MM.deserialize("<!italic><gray>Vendeur: <white>" + l.sellerName() + "</white></gray>"));
             long left = (l.expiresAt() - System.currentTimeMillis()) / 1000;
             lore.add(MM.deserialize("<!italic><gray>Expire dans <white>" + Msg.duration(left) + "</white></gray>"));
-            double worth = plugin.worth().worth(l.item().getType()) * l.item().getAmount();
+            double worth = plugin.worth().worth(l.item());
             if (worth > 0) {
                 lore.add(MM.deserialize("<!italic><dark_gray>Worth: <gray>$" + Msg.money(worth) + "</gray></dark_gray>"));
             }
@@ -133,9 +133,14 @@ public class AuctionGUI extends GUIHolder {
 
         p.sendMessage(Msg.ok("<green>Acheté pour $" + Msg.money(l.price()) + ".</green>"));
         Player seller = Bukkit.getPlayer(l.seller());
+        String itemName = l.item().hasItemMeta() && l.item().getItemMeta().hasDisplayName()
+                ? l.item().getItemMeta().getDisplayName() : l.item().getType().name();
         if (seller != null) {
-            seller.sendMessage(Msg.info("<green>Ton item a été vendu pour $" +
-                    Msg.money(l.price()) + " à " + p.getName() + ".</green>"));
+            seller.sendMessage(Msg.info("<green>Ton item <white>" + itemName
+                    + "</white> a été vendu pour <yellow>$" + Msg.money(l.price())
+                    + "</yellow> à <white>" + p.getName() + "</white>.</green>"));
+        } else {
+            plugin.auction().saveSoldNotification(l.seller(), p.getName(), l.price(), itemName);
         }
         plugin.logs().log(LogCategory.AUCTION, p, "buy id=" + id + " price=" + l.price());
         open(p, page);
