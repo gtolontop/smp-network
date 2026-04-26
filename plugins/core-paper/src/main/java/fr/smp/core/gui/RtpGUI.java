@@ -101,13 +101,13 @@ public class RtpGUI extends GUIHolder {
             default -> { return; }
         }
 
-        // Cross-server: if we're on lobby, persist RTP intent + transfer.
-        if (plugin.isLobby()) {
+        // Cross-server: if we're not on survival, persist RTP intent + transfer.
+        if (!plugin.isMainSurvival()) {
             plugin.pendingTp().set(p.getUniqueId(),
                     new fr.smp.core.managers.PendingTeleportManager.Pending(
                             fr.smp.core.managers.PendingTeleportManager.Kind.RTP,
                             worldName, 0, 0, 0, 0, 0,
-                            System.currentTimeMillis()));
+                            System.currentTimeMillis(), "survival"));
             p.sendMessage(Msg.info("<aqua>Transfert vers survie pour RTP...</aqua>"));
             plugin.getMessageChannel().sendTransfer(p, "survival");
             return;
