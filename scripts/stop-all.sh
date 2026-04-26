@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 #  Graceful shutdown for the SMP network.
-#  Sends "save-all flush" + "stop" via RCON to lobby/survival,
+#  Sends "save-all flush" + "stop" via RCON to lobby/survival/ptr,
 #  waits for the port to close, then stops Velocity.
 #  Never SIGKILL or close the terminal: always run this.
 # ============================================================
@@ -19,6 +19,11 @@ SURVIVAL_HOST=127.0.0.1
 SURVIVAL_PORT=25576
 SURVIVAL_PASS=ZFhJ7bUXe1mNq7vNvtrBQULrNC6WMPh
 SURVIVAL_MC_PORT=25567
+
+PTR_HOST=127.0.0.1
+PTR_PORT=25578
+PTR_PASS=43b9fc9853494223a5d6889cc4e9b025
+PTR_MC_PORT=25568
 
 if [ ! -f "$JAVA" ]; then
   echo "ERROR: Java 25 not found at $JAVA"
@@ -62,6 +67,7 @@ echo "  Graceful shutdown (RCON + save-all flush)"
 echo "============================================"
 
 stop_paper Survival "$SURVIVAL_HOST" "$SURVIVAL_PORT" "$SURVIVAL_PASS" "$SURVIVAL_MC_PORT"
+stop_paper PTR      "$PTR_HOST"      "$PTR_PORT"      "$PTR_PASS"      "$PTR_MC_PORT"
 stop_paper Lobby    "$LOBBY_HOST"    "$LOBBY_PORT"    "$LOBBY_PASS"    "$LOBBY_MC_PORT"
 
 # Velocity has no world data; stop via PID file if available, else leave it.
@@ -81,7 +87,7 @@ if [ -f "$VELOCITY_PID_FILE" ]; then
 fi
 
 # Clean up old Paper PID files too (no longer needed - shutdown went through RCON).
-rm -f "$BASE_DIR/scripts/.lobby.pid" "$BASE_DIR/scripts/.survival.pid"
+rm -f "$BASE_DIR/scripts/.lobby.pid" "$BASE_DIR/scripts/.survival.pid" "$BASE_DIR/scripts/.ptr.pid"
 
 echo
 echo "All servers saved and stopped cleanly."
