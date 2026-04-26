@@ -39,7 +39,7 @@ public class AuctionManager {
     }
 
     public int maxPerPlayer() {
-        return plugin.getConfig().getInt("auction.max-per-player", 5);
+        return plugin.getConfig().getInt("auction.max-per-player", 50);
     }
 
     public double feePercent() {
