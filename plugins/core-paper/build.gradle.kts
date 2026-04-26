@@ -1,5 +1,6 @@
 plugins {
     java
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.21"
     id("com.gradleup.shadow") version "9.2.2"
 }
 
@@ -17,7 +18,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:26.1.2.build.7-alpha")
+    paperweight.paperDevBundle("26.1.2.build.7-alpha")
     implementation("org.xerial:sqlite-jdbc:3.47.1.0")
     implementation("org.java-websocket:Java-WebSocket:1.5.7")
 }
