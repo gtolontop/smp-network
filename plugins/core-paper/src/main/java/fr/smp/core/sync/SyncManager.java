@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.potion.PotionEffect;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,6 +18,8 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Saves/loads cross-server player state via flat YAML files under shared-data.
@@ -30,11 +33,21 @@ public class SyncManager {
     private final File dataDir;
     private final boolean enabled;
     private final boolean clearOnMissing;
+    private final boolean autosaveEnabled;
+    private final long autosaveIntervalTicks;
+    private final long dirtyDelayTicks;
+    private final ConcurrentMap<UUID, BukkitTask> pendingDirtySaves = new ConcurrentHashMap<>();
+    private BukkitTask autosaveTask;
 
     public SyncManager(SMPCore plugin) {
         this.plugin = plugin;
         this.enabled = plugin.getConfig().getBoolean("sync.enabled", true);
         this.clearOnMissing = plugin.getConfig().getBoolean("sync.clear-on-missing", false);
+        this.autosaveEnabled = plugin.getConfig().getBoolean("sync.autosave.enabled", true);
+        int autosaveSeconds = Math.max(5, plugin.getConfig().getInt("sync.autosave.interval-seconds", 30));
+        this.autosaveIntervalTicks = autosaveSeconds * 20L;
+        int dirtyDelaySeconds = Math.max(1, plugin.getConfig().getInt("sync.autosave.dirty-delay-seconds", 3));
+        this.dirtyDelayTicks = dirtyDelaySeconds * 20L;
         String relative = plugin.getConfig().getString("sync.directory", "../shared-data/players");
         File base = new File(plugin.getServer().getWorldContainer(), relative);
         this.dataDir = base;
@@ -48,6 +61,41 @@ public class SyncManager {
 
     public boolean isEnabled() { return enabled; }
     public File getSyncDataDir() { return dataDir; }
+
+    public void startAutosave() {
+        if (!enabled || !autosaveEnabled || autosaveTask != null) return;
+        autosaveTask = Bukkit.getScheduler().runTaskTimer(plugin, this::saveAllOnline,
+                autosaveIntervalTicks, autosaveIntervalTicks);
+        plugin.getLogger().info("Inventory sync autosave enabled "
+                + "(interval=" + (autosaveIntervalTicks / 20) + "s, dirty-delay="
+                + (dirtyDelayTicks / 20) + "s)");
+    }
+
+    public void stopAutosave() {
+        if (autosaveTask != null) {
+            autosaveTask.cancel();
+            autosaveTask = null;
+        }
+        for (BukkitTask task : pendingDirtySaves.values()) {
+            task.cancel();
+        }
+        pendingDirtySaves.clear();
+    }
+
+    public void markDirty(Player player) {
+        if (!enabled || !autosaveEnabled || player.hasPermission("smp.sync.bypass")) return;
+        UUID uuid = player.getUniqueId();
+        if (pendingDirtySaves.containsKey(uuid)) return;
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            pendingDirtySaves.remove(uuid);
+            Player live = Bukkit.getPlayer(uuid);
+            if (live != null && live.isOnline()) {
+                save(live);
+            }
+        }, dirtyDelayTicks);
+        BukkitTask previous = pendingDirtySaves.putIfAbsent(uuid, task);
+        if (previous != null) task.cancel();
+    }
 
     private File fileFor(UUID uuid) {
         return new File(dataDir, uuid.toString() + ".yml");
@@ -239,8 +287,23 @@ public class SyncManager {
 
     private YamlConfiguration loadSnapshot(Player player) {
         File primary = fileFor(player.getUniqueId());
+        File backup = backupFor(player.getUniqueId());
+
         YamlConfiguration primaryYaml = tryLoad(primary);
-        if (isValidSnapshot(primaryYaml)) {
+        boolean primaryValid = isValidSnapshot(primaryYaml);
+
+        YamlConfiguration backupYaml = tryLoad(backup);
+        boolean backupValid = isValidSnapshot(backupYaml);
+
+        if (primaryValid && backupValid && shouldPreferBackup(primaryYaml, backupYaml)) {
+            plugin.getLogger().warning("Recovered sync data for " + player.getName()
+                    + " from backup snapshot because primary source-server="
+                    + sourceServer(primaryYaml) + " and backup source-server="
+                    + sourceServer(backupYaml) + ".");
+            return backupYaml;
+        }
+
+        if (primaryValid) {
             return primaryYaml;
         }
         if (primary.exists()) {
@@ -248,9 +311,7 @@ public class SyncManager {
                     + " in " + primary.getName() + ", trying backup.");
         }
 
-        File backup = backupFor(player.getUniqueId());
-        YamlConfiguration backupYaml = tryLoad(backup);
-        if (isValidSnapshot(backupYaml)) {
+        if (backupValid) {
             plugin.getLogger().warning("Recovered sync data for " + player.getName()
                     + " from backup snapshot.");
             return backupYaml;
@@ -274,6 +335,25 @@ public class SyncManager {
                 && yaml.contains("inventory.contents")
                 && yaml.contains("inventory.armor")
                 && yaml.contains("enderchest");
+    }
+
+    private boolean shouldPreferBackup(YamlConfiguration primaryYaml, YamlConfiguration backupYaml) {
+        String primarySource = sourceServer(primaryYaml);
+        String backupSource = sourceServer(backupYaml);
+        if (!plugin.isLobby()
+                && primarySource.equalsIgnoreCase("lobby")
+                && !backupSource.equalsIgnoreCase("lobby")
+                && !backupSource.isBlank()) {
+            return true;
+        }
+        String currentSource = plugin.getServerType();
+        return !currentSource.isBlank()
+                && !primarySource.equalsIgnoreCase(currentSource)
+                && backupSource.equalsIgnoreCase(currentSource);
+    }
+
+    private String sourceServer(YamlConfiguration yaml) {
+        return yaml == null ? "" : yaml.getString("source-server", "");
     }
 
     private boolean shouldApplyGamemode(YamlConfiguration yaml, String gamemode) {
