@@ -55,7 +55,7 @@ public class InventoryHistoryManager implements Listener {
         this.db = db;
         this.sync = sync;
         this.enabled = plugin.getConfig().getBoolean("sync.history.enabled", true);
-        int minutes = Math.max(1, plugin.getConfig().getInt("sync.history.interval-minutes", 5));
+        int minutes = Math.max(1, plugin.getConfig().getInt("sync.history.interval-minutes", 1));
         this.intervalTicks = minutes * 60 * 20;
         this.keepPerPlayer = Math.max(5, plugin.getConfig().getInt("sync.history.keep-per-player", 50));
     }
