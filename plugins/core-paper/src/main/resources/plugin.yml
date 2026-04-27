@@ -169,6 +169,10 @@ commands:
   spawner:
     description: "Gérer les spawners custom (give/types)"
     permission: smp.admin
+  amethyst:
+    description: "Booster de croissance des budding amethyst (presets, set, toggle)"
+    aliases: [bud, amethystboost]
+    permission: smp.admin
   voidstone:
     description: "Administer voidstones (give/materials)"
     aliases: [vstone]
@@ -262,6 +266,10 @@ commands:
   invrollback:
     description: "Historique d'inventaires : list / peek / apply / snap"
     aliases: [invroll, invhistory, invhist]
+    permission: smp.admin
+  vanillabackup:
+    description: "Backups des fichiers vanilla joueur : data / stats / advancements"
+    aliases: [vbackup, playerbackup, pbackup]
     permission: smp.admin
   repair:
     description: "Repair item durability: hand, player hand, or all"
