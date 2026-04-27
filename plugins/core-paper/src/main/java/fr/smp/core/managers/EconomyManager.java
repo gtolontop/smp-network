@@ -23,8 +23,8 @@ public class EconomyManager {
         return players.loadOffline(uuid);
     }
 
-    private void persistIfOffline(UUID uuid, PlayerData d) {
-        if (players.get(uuid) == null && d != null) players.save(d);
+    private void persist(PlayerData d) {
+        if (d != null) players.save(d);
     }
 
     public double balance(UUID uuid) {
@@ -40,7 +40,7 @@ public class EconomyManager {
         PlayerData d = fetch(uuid);
         if (d == null || d.money() < amount) return false;
         d.addMoney(-amount);
-        persistIfOffline(uuid, d);
+        persist(d);
         plugin.logs().log(LogCategory.ECONOMY, "withdraw " + d.name() + " -" + amount + " (" + reason + ")");
         return true;
     }
@@ -49,7 +49,7 @@ public class EconomyManager {
         PlayerData d = fetch(uuid);
         if (d == null) return;
         d.addMoney(amount);
-        persistIfOffline(uuid, d);
+        persist(d);
         plugin.logs().log(LogCategory.ECONOMY, "deposit " + d.name() + " +" + amount + " (" + reason + ")");
     }
 
@@ -64,7 +64,7 @@ public class EconomyManager {
         PlayerData d = fetch(uuid);
         if (d == null) return;
         d.setMoney(amount);
-        persistIfOffline(uuid, d);
+        persist(d);
     }
 
 }
