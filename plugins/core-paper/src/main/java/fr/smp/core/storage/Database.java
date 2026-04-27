@@ -431,6 +431,14 @@ public class Database {
               yaml TEXT NOT NULL
             )
             """,
+            """
+            CREATE TABLE IF NOT EXISTS leaderboard_stats (
+              uuid TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              distance_cm INTEGER NOT NULL DEFAULT 0,
+              updated_at INTEGER NOT NULL
+            )
+            """,
             "CREATE INDEX IF NOT EXISTS idx_auctions_seller ON auctions(seller, sold)",
             "CREATE INDEX IF NOT EXISTS idx_auctions_active ON auctions(sold, expires_at)",
             "CREATE INDEX IF NOT EXISTS idx_mailbox_uuid ON mailbox(uuid)",
