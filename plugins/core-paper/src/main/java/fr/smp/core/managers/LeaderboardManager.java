@@ -10,6 +10,7 @@ import fr.smp.core.utils.Msg;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -193,6 +194,7 @@ public class LeaderboardManager {
     private final Database db;
     private final PlayerDataManager players;
     private final Object distanceCacheLock = new Object();
+    private BukkitTask distanceBackupTask;
 
     private volatile Map<UUID, Long> cachedDistances = Map.of();
     private volatile long distanceCacheUntilMs = 0L;
@@ -201,6 +203,22 @@ public class LeaderboardManager {
         this.plugin = plugin;
         this.db = db;
         this.players = players;
+    }
+
+    public void start() {
+        if (distanceBackupTask != null) return;
+        int seconds = Math.max(30, plugin.getConfig().getInt("leaderboard.distance-backup.interval-seconds", 60));
+        long ticks = seconds * 20L;
+        distanceBackupTask = Bukkit.getScheduler().runTaskTimer(plugin,
+                this::backupLiveDistances, 100L, ticks);
+        plugin.getLogger().info("Leaderboard distance backup enabled (interval=" + seconds + "s)");
+    }
+
+    public void stop() {
+        if (distanceBackupTask != null) {
+            distanceBackupTask.cancel();
+            distanceBackupTask = null;
+        }
     }
 
     public Result ranking(Category category, Scope scope, UUID viewerUuid) {
@@ -402,26 +420,123 @@ public class LeaderboardManager {
                 return cachedDistances;
             }
 
-            File statsDir = resolveStatsDirectory();
-            if (statsDir == null) {
-                cachedDistances = Map.of();
-                distanceCacheUntilMs = now + DISTANCE_CACHE_TTL_MS;
-                return cachedDistances;
-            }
-
-            Map<UUID, Long> out = new HashMap<>();
-            File[] files = statsDir.listFiles((dir, name) -> name.endsWith(".json"));
-            if (files != null) {
-                for (File file : files) {
-                    UUID uuid = uuidFromStatsFile(file.getName());
-                    if (uuid == null) continue;
-                    out.put(uuid, readDistance(file));
-                }
+            Map<UUID, Long> out = new HashMap<>(loadBackedUpDistances());
+            for (var live : loadLiveDistances().entrySet()) {
+                out.merge(live.getKey(), live.getValue(), Math::max);
             }
 
             cachedDistances = Map.copyOf(out);
             distanceCacheUntilMs = now + DISTANCE_CACHE_TTL_MS;
             return cachedDistances;
+        }
+    }
+
+    private Map<UUID, Long> loadLiveDistances() {
+        File statsDir = resolveStatsDirectory();
+        if (statsDir == null) {
+            return Map.of();
+        }
+
+        Map<UUID, Long> out = new HashMap<>();
+        File[] files = statsDir.listFiles((dir, name) -> name.endsWith(".json"));
+        if (files != null) {
+            for (File file : files) {
+                UUID uuid = uuidFromStatsFile(file.getName());
+                if (uuid == null) continue;
+                out.put(uuid, readDistance(file));
+            }
+        }
+        return out;
+    }
+
+    private Map<UUID, Long> loadBackedUpDistances() {
+        Map<UUID, Long> out = new HashMap<>();
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT uuid, distance_cm FROM leaderboard_stats")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    try {
+                        out.put(UUID.fromString(rs.getString(1)), rs.getLong(2));
+                    } catch (IllegalArgumentException ignored) {
+                        // Skip malformed historical rows.
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("leaderboard.distanceBackups: " + e.getMessage());
+        }
+        return out;
+    }
+
+    private void backupLiveDistances() {
+        Map<UUID, Long> live = loadLiveDistances();
+        if (live.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        Map<UUID, String> names = loadPlayerNames();
+
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement(
+                     "INSERT INTO leaderboard_stats(uuid, name, distance_cm, updated_at) VALUES(?,?,?,?) "
+                             + "ON CONFLICT(uuid) DO UPDATE SET "
+                             + "name=excluded.name, "
+                             + "distance_cm=MAX(leaderboard_stats.distance_cm, excluded.distance_cm), "
+                             + "updated_at=excluded.updated_at")) {
+            for (var entry : live.entrySet()) {
+                ps.setString(1, entry.getKey().toString());
+                ps.setString(2, names.getOrDefault(entry.getKey(), entry.getKey().toString().substring(0, 8)));
+                ps.setLong(3, Math.max(0L, entry.getValue()));
+                ps.setLong(4, now);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        } catch (SQLException e) {
+            plugin.getLogger().warning("leaderboard.backupDistances: " + e.getMessage());
+        }
+    }
+
+    private Map<UUID, String> loadPlayerNames() {
+        Map<UUID, String> out = new HashMap<>();
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement("SELECT uuid, name FROM players")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    try {
+                        out.put(UUID.fromString(rs.getString(1)), rs.getString(2));
+                    } catch (IllegalArgumentException ignored) {
+                        // Skip malformed rows.
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("leaderboard.playerNames: " + e.getMessage());
+        }
+        return out;
+    }
+
+    public boolean setDistance(UUID uuid, String name, long centimeters, String actor) {
+        long safeCentimeters = Math.max(0L, centimeters);
+        long now = System.currentTimeMillis();
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement(
+                     "INSERT INTO leaderboard_stats(uuid, name, distance_cm, updated_at) VALUES(?,?,?,?) "
+                             + "ON CONFLICT(uuid) DO UPDATE SET "
+                             + "name=excluded.name, distance_cm=excluded.distance_cm, updated_at=excluded.updated_at")) {
+            ps.setString(1, uuid.toString());
+            ps.setString(2, name);
+            ps.setLong(3, safeCentimeters);
+            ps.setLong(4, now);
+            ps.executeUpdate();
+            cachedDistances = Map.of();
+            distanceCacheUntilMs = 0L;
+            plugin.logs().log(fr.smp.core.logging.LogCategory.ADMIN,
+                    "leaderboard distance set target=" + name
+                            + " cm=" + safeCentimeters
+                            + " actor=" + actor);
+            return true;
+        } catch (SQLException e) {
+            plugin.getLogger().warning("leaderboard.setDistance " + uuid + ": " + e.getMessage());
+            return false;
         }
     }
 
