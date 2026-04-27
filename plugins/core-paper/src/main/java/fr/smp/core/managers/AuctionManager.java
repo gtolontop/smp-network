@@ -35,7 +35,7 @@ public class AuctionManager {
     }
 
     public long listingTtlMs() {
-        return plugin.getConfig().getLong("auction.ttl-hours", 48) * 3600_000L;
+        return plugin.getConfig().getLong("auction.ttl-hours", 172) * 3600_000L;
     }
 
     public int maxPerPlayer() {
