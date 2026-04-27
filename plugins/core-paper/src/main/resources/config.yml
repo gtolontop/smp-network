@@ -109,12 +109,36 @@ hub-spawn:
 sync:
   enabled: true
   directory: "../shared-data/players"
+  autosave:
+    enabled: true
+    interval-seconds: 30      # Full save cadence for crash recovery.
+    dirty-delay-seconds: 3    # Throttled save after inventory/XP mutations.
   # Rolling inventory history → /invrollback list|peek|apply|snap <joueur>
   # Only active on non-lobby servers. Stored in the shared SQLite (inv_snapshots).
   history:
     enabled: true
-    interval-minutes: 5       # auto-snapshot cadence for every online player
+    interval-minutes: 1       # auto-snapshot cadence for every online player
     keep-per-player: 50       # retention cap; older snapshots are pruned
+
+# Durable DB state for money, saphirs, playtime and last survival location.
+player-data:
+  autosave:
+    enabled: true
+    interval-seconds: 30
+
+# Leaderboard stats that come from vanilla JSON files are mirrored in SQLite
+# with monotonic max values, so a playerdata rollback cannot lower rankings.
+leaderboard:
+  distance-backup:
+    interval-seconds: 60
+
+# Backups for vanilla Paper files that are not in SMPCore SQLite:
+# player data, advancements and statistics JSON. Active only on survival.
+player-file-backups:
+  enabled: true
+  directory: "../shared-data/player-file-backups"
+  interval-seconds: 60
+  keep-per-player: 48
 
 # ------ RTP ------
 rtp:
@@ -183,10 +207,27 @@ machines:
     cook-speed-multiplier: 200.0
     fuel-time-multiplier: 64.0
 
+# ------ Amethyst booster ------
+# Force la croissance des budding amethyst à un rythme custom au lieu du
+# random-tick vanilla (qui est très lent). Le preset détermine le rythme :
+#   off     — désactivé
+#   slow    — proche du vanilla (40t pulse, 0.5 chance)
+#   medium  — quelques sec / étape (20t pulse, 1 essai)
+#   fast    — 2 essais / 0.5s
+#   hyper   — 4 essais / 0.25s
+#   insane  — 6 essais / tick (instantané)
+# Les overrides ci-dessous prennent le pas sur les valeurs du preset.
+amethyst:
+  preset: fast
+  # enabled: true
+  # pulse-ticks: 20
+  # attempts-per-pulse: 1
+  # chance: 1.0
+
 # ------ Teams ------
 teams:
-  creation-cost: 500
-  max-members: 4
+  creation-cost: 5000
+  max-members: 3
 
 # ------ Economy ------
 economy:
@@ -195,7 +236,7 @@ economy:
 
 # ------ Auction House ------
 auction:
-  ttl-hours: 48
+  ttl-hours: 172
   max-per-player: 50
   fee-percent: 5.0
 
