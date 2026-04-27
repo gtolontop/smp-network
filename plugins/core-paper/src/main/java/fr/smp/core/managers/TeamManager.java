@@ -33,11 +33,11 @@ public class TeamManager {
     }
 
     public double creationCost() {
-        return plugin.getConfig().getDouble("teams.creation-cost", 500);
+        return plugin.getConfig().getDouble("teams.creation-cost", 5000);
     }
 
     public int maxMembers() {
-        return Math.max(1, plugin.getConfig().getInt("teams.max-members", 4));
+        return Math.max(1, plugin.getConfig().getInt("teams.max-members", 3));
     }
 
     public int memberCount(String teamId) {
