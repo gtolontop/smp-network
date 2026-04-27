@@ -74,12 +74,8 @@ public class WorthManager {
         generatedFile = new File(plugin.getDataFolder(), "worth.generated.yml");
         missingFile = new File(plugin.getDataFolder(), "worth.missing.yml");
 
-        if (!configFile.exists()) {
-            plugin.saveResource("worth.yml", false);
-        }
-        if (!overridesFile.exists()) {
-            plugin.saveResource("worth.overrides.yml", false);
-        }
+        plugin.saveResource("worth.yml", true);
+        plugin.saveResource("worth.overrides.yml", true);
 
         FileConfiguration config = YamlConfiguration.loadConfiguration(configFile);
         loadConfiguration(config);
