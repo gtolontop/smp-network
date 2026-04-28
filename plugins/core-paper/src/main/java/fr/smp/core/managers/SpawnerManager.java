@@ -16,6 +16,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.entity.LivingEntity;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -47,6 +48,8 @@ public class SpawnerManager {
     public static final int MAX_STACK = Integer.MAX_VALUE;
     /** Cap interne sur les rolls/tick pour la perf (au-delà le stockage sature de toute façon). */
     private static final int MAX_ROLLS_PER_TICK = 2000;
+    /** Max mobs added to pool per tick in XP mode. */
+    private static final int MAX_MOBS_PER_TICK_XP = 6;
     /** Période du tick (en secondes). */
     public static final int TICK_PERIOD_SEC = 10;
 
@@ -60,9 +63,13 @@ public class SpawnerManager {
     private final NamespacedKey typeKey;
     private final NamespacedKey stackKey;
     private final NamespacedKey markerKey;
+    private final NamespacedKey xpMobKey;
+
+    private static final int NAME_VISIBILITY_RANGE = 5;
 
     private BukkitTask tickTask;
     private BukkitTask saveTask;
+    private BukkitTask visibilityTask;
 
     public SpawnerManager(SMPCore plugin) {
         this.plugin = plugin;
@@ -70,11 +77,13 @@ public class SpawnerManager {
         this.typeKey = new NamespacedKey(plugin, "spawner_type");
         this.stackKey = new NamespacedKey(plugin, "spawner_stack");
         this.markerKey = new NamespacedKey(plugin, "spawner_marker");
+        this.xpMobKey = new NamespacedKey(plugin, "spawner_xp_mob");
     }
 
     public NamespacedKey typeKey() { return typeKey; }
     public NamespacedKey stackKey() { return stackKey; }
     public NamespacedKey markerKey() { return markerKey; }
+    public NamespacedKey xpMobKey() { return xpMobKey; }
 
     // =================== LIFECYCLE ===================
 
@@ -84,11 +93,14 @@ public class SpawnerManager {
                 TICK_PERIOD_SEC * 20L, TICK_PERIOD_SEC * 20L);
         saveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::saveDirty,
                 30 * 20L, 30 * 20L);
+        visibilityTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickVisibility,
+                10L, 10L);
     }
 
     public void stop() {
         if (tickTask != null) tickTask.cancel();
         if (saveTask != null) saveTask.cancel();
+        if (visibilityTask != null) visibilityTask.cancel();
         saveAll();
     }
 
@@ -164,6 +176,7 @@ public class SpawnerManager {
     public Spawner remove(Location loc) {
         Spawner s = spawners.remove(key(loc));
         if (s != null) {
+            removeActiveXpMobs(s);
             closeViewers(s);
             deleteFromDb(s);
         }
@@ -252,21 +265,188 @@ public class SpawnerManager {
         for (Spawner s : spawners.values()) {
             World w = Bukkit.getWorld(s.world);
             if (w == null) continue;
-            // Chunk non chargé: on skip (ne PAS lire getType qui force-load ou
-            // retourne AIR selon Paper, ce qui supprimerait le spawner à tort).
             if (!w.isChunkLoaded(s.x >> 4, s.z >> 4)) continue;
-            // Chunk chargé: on peut vérifier que le bloc est toujours un SPAWNER.
             Block b = w.getBlockAt(s.x, s.y, s.z);
             if (b.getType() != Material.SPAWNER) {
                 spawners.remove(key(w, s.x, s.y, s.z));
+                removeActiveXpMobs(s);
                 closeViewers(s);
                 deleteFromDb(s);
                 continue;
             }
 
-            int rolls = Math.min(s.stack, MAX_ROLLS_PER_TICK);
-            for (int i = 0; i < rolls; i++) rollLoot(s);
+            if (s.mode == SpawnerMode.XP) {
+                tickXpSpawner(s, w);
+            } else {
+                int rolls = Math.min(s.stack, MAX_ROLLS_PER_TICK);
+                for (int i = 0; i < rolls; i++) rollLoot(s);
+            }
         }
+    }
+
+    private void tickXpSpawner(Spawner s, World w) {
+        s.xpPool += Math.min(s.stack, MAX_MOBS_PER_TICK_XP);
+        s.markDirty();
+
+        Location spawnLoc = new Location(w, s.x + 0.5, s.y + 1, s.z + 0.5);
+        List<LivingEntity> active = activeXpMobs(s, w);
+        if (active.isEmpty() && s.xpPool > 0) {
+            spawnXpMob(s, spawnLoc, w);
+        }
+        refreshXpMobNames(s, w);
+    }
+
+    private void spawnXpMob(Spawner s, Location loc, World w) {
+        var entity = w.spawnEntity(loc, s.type.entityType());
+        if (entity instanceof LivingEntity living) {
+            living.setAI(false);
+            living.setCollidable(false);
+            living.setSilent(true);
+            living.setRemoveWhenFarAway(false);
+            living.setMaxHealth(1.0);
+            living.setHealth(1.0);
+            living.getPersistentDataContainer().set(xpMobKey, PersistentDataType.STRING, spawnerKey(s));
+            stripSpawnInvulnerability(living);
+        }
+    }
+
+    public boolean isXpMob(LivingEntity entity) {
+        if (entity == null) return false;
+        return entity.getPersistentDataContainer().has(xpMobKey, PersistentDataType.STRING);
+    }
+
+    public void stripSpawnInvulnerability(LivingEntity entity) {
+        if (entity == null) return;
+        entity.setMaximumNoDamageTicks(0);
+        entity.setNoDamageTicks(0);
+    }
+
+    public void onXpMobKilled(LivingEntity entity) {
+        Spawner s = spawnerFromXpMob(entity);
+        if (s == null) return;
+        s.xpPool = Math.max(0, s.xpPool - 1);
+        s.markDirty();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            World w = Bukkit.getWorld(s.world);
+            if (w == null) return;
+            if (s.xpPool > 0) {
+                Location spawnLoc = new Location(w, s.x + 0.5, s.y + 1, s.z + 0.5);
+                spawnXpMob(s, spawnLoc, w);
+            }
+            refreshXpMobNames(s, w);
+        });
+    }
+
+    public void refreshXpMobNames(LivingEntity entity) {
+        Spawner s = spawnerFromXpMob(entity);
+        if (s == null) return;
+        World w = Bukkit.getWorld(s.world);
+        if (w != null) refreshXpMobNames(s, w);
+    }
+
+    public int setMode(Spawner s, SpawnerMode mode) {
+        if (s == null || mode == null || s.mode == mode) return 0;
+        int converted = 0;
+        if (s.mode == SpawnerMode.XP && mode == SpawnerMode.LOOT) {
+            converted = convertActiveXpMobsToLoot(s);
+        }
+        s.mode = mode;
+        s.markDirty();
+        return converted;
+    }
+
+    private Spawner spawnerFromXpMob(LivingEntity entity) {
+        if (entity == null) return null;
+        String raw = entity.getPersistentDataContainer().get(xpMobKey, PersistentDataType.STRING);
+        return raw == null ? null : spawners.get(raw);
+    }
+
+    private String spawnerKey(Spawner s) {
+        return key(s.world, s.x, s.y, s.z);
+    }
+
+    private List<LivingEntity> activeXpMobs(Spawner s, World w) {
+        if (s == null || w == null) return List.of();
+        String expected = spawnerKey(s);
+        Location spawnLoc = new Location(w, s.x + 0.5, s.y + 1, s.z + 0.5);
+        List<LivingEntity> out = new ArrayList<>();
+        for (var entity : w.getNearbyEntities(spawnLoc, 3, 3, 3)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (living.isDead() || living.getType() != s.type.entityType()) continue;
+            String raw = living.getPersistentDataContainer().get(xpMobKey, PersistentDataType.STRING);
+            if (expected.equals(raw)) {
+                out.add(living);
+            } else if (raw == null && looksLikeLegacyXpMob(living)) {
+                living.getPersistentDataContainer().set(xpMobKey, PersistentDataType.STRING, expected);
+                out.add(living);
+            }
+        }
+        return out;
+    }
+
+    private boolean looksLikeLegacyXpMob(LivingEntity living) {
+        return !living.hasAI()
+                && !living.isCollidable()
+                && living.isSilent()
+                && living.getHealth() <= 1.0;
+    }
+
+    private void refreshXpMobNames(Spawner s, World w) {
+        List<LivingEntity> active = activeXpMobs(s, w);
+        if (active.isEmpty()) return;
+        Component name = MiniMessage.miniMessage().deserialize(
+                s.type.colorTag() + "<bold>" + s.type.display() + "</bold> <yellow>×" + s.xpPool + "</yellow>");
+        for (LivingEntity living : active) {
+            stripSpawnInvulnerability(living);
+            living.customName(name);
+            living.setCustomNameVisible(false);
+        }
+    }
+
+    private void tickVisibility() {
+        for (Spawner s : spawners.values()) {
+            if (s.mode != SpawnerMode.XP) continue;
+            World w = Bukkit.getWorld(s.world);
+            if (w == null) continue;
+            if (!w.isChunkLoaded(s.x >> 4, s.z >> 4)) continue;
+            List<LivingEntity> active = activeXpMobs(s, w);
+            if (active.isEmpty()) continue;
+            Location mobLoc = new Location(w, s.x + 0.5, s.y + 1, s.z + 0.5);
+            double rangeSq = NAME_VISIBILITY_RANGE * NAME_VISIBILITY_RANGE;
+            boolean anyNearby = false;
+            for (org.bukkit.entity.Player p : w.getPlayers()) {
+                if (p.getLocation().distanceSquared(mobLoc) <= rangeSq) {
+                    anyNearby = true;
+                    break;
+                }
+            }
+            for (LivingEntity living : active) {
+                living.setCustomNameVisible(anyNearby);
+            }
+        }
+    }
+
+    private int convertActiveXpMobsToLoot(Spawner s) {
+        Location loc = s.location();
+        if (loc == null || loc.getWorld() == null) return 0;
+        int converted = s.xpPool;
+        for (int i = 0; i < s.xpPool; i++) rollLoot(s);
+        for (LivingEntity living : activeXpMobs(s, loc.getWorld())) {
+            if (!living.isDead()) living.remove();
+        }
+        s.xpPool = 0;
+        s.markDirty();
+        return converted;
+    }
+
+    private void removeActiveXpMobs(Spawner s) {
+        Location loc = s.location();
+        if (loc == null || loc.getWorld() == null) return;
+        for (LivingEntity living : activeXpMobs(s, loc.getWorld())) {
+            if (!living.isDead()) living.remove();
+        }
+        s.xpPool = 0;
+        s.markDirty();
     }
 
     private void rollLoot(Spawner s) {
@@ -298,7 +478,7 @@ public class SpawnerManager {
 
     public void loadAll() {
         spawners.clear();
-        String selSp = "SELECT id, world, x, y, z, type, stack FROM spawners";
+        String selSp = "SELECT id, world, x, y, z, type, stack, mode, xp_pool FROM spawners";
         String selLoot = "SELECT spawner_id, material, amount FROM spawner_loot";
         try (Connection c = db.get()) {
             Map<Long, Spawner> byId = new ConcurrentHashMap<>();
@@ -313,6 +493,8 @@ public class SpawnerManager {
                     s.z = rs.getInt(5);
                     s.type = SpawnerType.fromId(rs.getString(6));
                     s.stack = rs.getInt(7);
+                    s.mode = SpawnerMode.fromString(rs.getString(8));
+                    s.xpPool = rs.getInt(9);
                     s.loot = new EnumMap<>(Material.class);
                     if (s.type == null) continue;
                     byId.put(s.dbId, s);
@@ -368,7 +550,7 @@ public class SpawnerManager {
     private void persist(Connection c, Spawner s) throws SQLException {
         if (s.dbId <= 0) {
             try (PreparedStatement ps = c.prepareStatement(
-                    "INSERT INTO spawners(world,x,y,z,type,stack) VALUES(?,?,?,?,?,?)",
+                    "INSERT INTO spawners(world,x,y,z,type,stack,mode,xp_pool) VALUES(?,?,?,?,?,?,?,?)",
                     PreparedStatement.RETURN_GENERATED_KEYS)) {
                 ps.setString(1, s.world);
                 ps.setInt(2, s.x);
@@ -376,6 +558,8 @@ public class SpawnerManager {
                 ps.setInt(4, s.z);
                 ps.setString(5, s.type.name());
                 ps.setInt(6, s.stack);
+                ps.setString(7, s.mode.name());
+                ps.setInt(8, s.xpPool);
                 ps.executeUpdate();
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     if (keys.next()) s.dbId = keys.getLong(1);
@@ -383,10 +567,12 @@ public class SpawnerManager {
             }
         } else {
             try (PreparedStatement ps = c.prepareStatement(
-                    "UPDATE spawners SET type=?, stack=? WHERE id=?")) {
+                    "UPDATE spawners SET type=?, stack=?, mode=?, xp_pool=? WHERE id=?")) {
                 ps.setString(1, s.type.name());
                 ps.setInt(2, s.stack);
-                ps.setLong(3, s.dbId);
+                ps.setString(3, s.mode.name());
+                ps.setInt(4, s.xpPool);
+                ps.setLong(5, s.dbId);
                 ps.executeUpdate();
             }
         }
@@ -429,6 +615,16 @@ public class SpawnerManager {
 
     // =================== DATA ===================
 
+    public enum SpawnerMode {
+        LOOT, XP;
+
+        public static SpawnerMode fromString(String s) {
+            if (s == null) return LOOT;
+            try { return valueOf(s.toUpperCase()); }
+            catch (IllegalArgumentException e) { return LOOT; }
+        }
+    }
+
     /** Etat runtime d'un spawner. */
     public static class Spawner {
         public long dbId;
@@ -436,6 +632,8 @@ public class SpawnerManager {
         public int x, y, z;
         public SpawnerType type;
         public int stack;
+        public SpawnerMode mode = SpawnerMode.LOOT;
+        public int xpPool = 0;
         public Map<Material, Integer> loot = new EnumMap<>(Material.class);
         public volatile boolean dirty = false;
 
