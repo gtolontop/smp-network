@@ -15,13 +15,14 @@ import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.Vector;
 
+import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,9 @@ public class NpcManager implements Listener {
     private final Random rng = new Random();
     private BukkitTask wanderTask;
     private BukkitTask nameTask;
+    /** Cached NMS Entity#setPos(double,double,double) — looked up lazily once
+     *  per JVM since the wander tick re-resolves it 5 NPCs/sec otherwise. */
+    private static volatile Method setPosMethod;
 
     public NpcManager(SMPCore plugin, Database db) {
         this.plugin = plugin;
@@ -119,6 +123,14 @@ public class NpcManager implements Listener {
     }
 
     public Npc create(Location loc, String displayName, SkinFetcher.Skin skin, boolean wander) {
+        if (!NpcNms.ok()) {
+            // Sans accès NMS, on ne peut pas spawner d'entité — on refuse la création
+            // pour ne pas écrire des lignes fantômes en DB qui réapparaîtraient invisibles
+            // au prochain démarrage.
+            plugin.getLogger().warning("Refus de création NPC : init NMS en échec — "
+                    + (NpcNms.initError() != null ? NpcNms.initError().getMessage() : "raison inconnue"));
+            return null;
+        }
         long id;
         try (Connection c = db.get();
              PreparedStatement ps = c.prepareStatement(
@@ -328,8 +340,12 @@ public class NpcManager implements Listener {
         double dz = (rng.nextDouble() - 0.5) * 2.0;
         double nx = cur.getX() + dx;
         double nz = cur.getZ() + dz;
-        // Reste dans le rayon de balade autour du spawn initial
-        if (base.toVector().setY(0).distance(new Vector(nx, 0, nz).setY(0)) > npc.wanderRadius()) {
+        // Reste dans le rayon de balade autour du spawn initial — squared compare
+        // évite l'allocation de 2 Vector + un sqrt par tick × NPCs en wander.
+        double rdx = nx - base.getX();
+        double rdz = nz - base.getZ();
+        double radius = npc.wanderRadius();
+        if (rdx * rdx + rdz * rdz > radius * radius) {
             dx = base.getX() - cur.getX();
             dz = base.getZ() - cur.getZ();
             nx = cur.getX() + Math.signum(dx) * 0.5;
@@ -341,17 +357,24 @@ public class NpcManager implements Listener {
         if (next.getBlock().getType().isSolid()) return;
         npc.setCurrentLocation(next);
         try {
-            if (npc.nmsPlayer() != null) {
-                // Met à jour l'état NMS avant d'envoyer le packet de téléport.
-                Object data = npc.nmsPlayer();
-                data.getClass().getMethod("setPos", double.class, double.class, double.class)
-                        .invoke(data, nx, cur.getY(), nz);
+            Object data = npc.nmsPlayer();
+            if (data != null) {
+                // Cache the reflective lookup — same NMS class for every NPC.
+                Method setPos = setPosMethod;
+                if (setPos == null) {
+                    setPos = data.getClass().getMethod("setPos", double.class, double.class, double.class);
+                    setPos.setAccessible(true);
+                    setPosMethod = setPos;
+                }
+                setPos.invoke(data, nx, cur.getY(), nz);
                 // Envoie téléport + rotation de tête
-                Object tp = NpcNms.buildTeleportPacket(npc.nmsPlayer());
-                Object rot = NpcNms.buildRotateHeadPacket(npc.nmsPlayer(), yaw);
+                Object tp = NpcNms.buildTeleportPacket(data);
+                Object rot = NpcNms.buildRotateHeadPacket(data, yaw);
+                World npcWorld = npc.world();
+                java.util.Set<UUID> shown = npc.shownTo();
                 for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (!p.getWorld().equals(npc.world())) continue;
-                    if (!npc.shownTo().contains(p.getUniqueId())) continue;
+                    if (p.getWorld() != npcWorld) continue;
+                    if (!shown.contains(p.getUniqueId())) continue;
                     NpcNms.sendAll(p, tp, rot);
                 }
             }
@@ -366,14 +389,30 @@ public class NpcManager implements Listener {
      * hors rayon de vision (le client drop l'entité si trop loin).
      */
     private void tickNameVisibility() {
-        for (Npc npc : npcs.values()) {
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (!p.getWorld().equals(npc.world())) continue;
-                double d = p.getLocation().distanceSquared(npc.currentLocation());
-                boolean shown = npc.shownTo().contains(p.getUniqueId());
-                if (d <= 64 * 64 && !shown) {
+        Collection<? extends Player> online = Bukkit.getOnlinePlayers();
+        if (online.isEmpty() || npcs.isEmpty()) return;
+        // Iterate per-player (typically much fewer than NPCs) and bail out on world
+        // mismatch before paying the distance maths. Inlines the squared distance to
+        // avoid Location.distanceSquared() (allocates + revalidates worlds) — saves
+        // ~10× CPU on the hot path with N NPCs × M players.
+        final double SHOW_SQ = 64.0 * 64.0;
+        final double HIDE_SQ = 96.0 * 96.0;
+        for (Player p : online) {
+            World pw = p.getWorld();
+            Location ploc = p.getLocation();
+            double px = ploc.getX(), py = ploc.getY(), pz = ploc.getZ();
+            UUID pid = p.getUniqueId();
+            for (Npc npc : npcs.values()) {
+                if (npc.world() != pw) continue;
+                Location nloc = npc.currentLocation();
+                double dx = nloc.getX() - px;
+                double dy = nloc.getY() - py;
+                double dz = nloc.getZ() - pz;
+                double d2 = dx * dx + dy * dy + dz * dz;
+                boolean shown = npc.shownTo().contains(pid);
+                if (d2 <= SHOW_SQ && !shown) {
                     npc.spawnTo(p, plugin);
-                } else if (d > 96 * 96 && shown) {
+                } else if (d2 > HIDE_SQ && shown) {
                     npc.despawnFor(p);
                 }
             }
