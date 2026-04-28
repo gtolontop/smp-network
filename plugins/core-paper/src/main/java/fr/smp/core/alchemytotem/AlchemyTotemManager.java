@@ -168,11 +168,15 @@ public final class AlchemyTotemManager implements Listener {
     }
 
     private void apply(Player player, Session session, AlchemyEffect effect) {
-        // Si l'effet a changé (rechange d'item en cours de session), nettoyer l'ancien.
         if (session.activeEffect != null && session.activeEffect != effect) {
             player.removePotionEffect(session.activeEffect.type());
         }
-        player.addPotionEffect(new PotionEffect(effect.type(), EFFECT_DURATION_TICKS, effect.amplifier(),
+        int ticks = EFFECT_DURATION_TICKS;
+        if (session.expiresAt > 0) {
+            long remaining = session.expiresAt - System.currentTimeMillis();
+            ticks = (int) Math.max(TICK_PERIOD + 10, remaining / 50L);
+        }
+        player.addPotionEffect(new PotionEffect(effect.type(), ticks, effect.amplifier(),
                 false, true, true));
         session.activeEffect = effect;
     }
