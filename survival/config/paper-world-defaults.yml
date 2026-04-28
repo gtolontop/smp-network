@@ -81,7 +81,7 @@ command-blocks:
 config-version: 30
 entities:
   armor-stands:
-    do-collision-entity-lookups: true
+    do-collision-entity-lookups: false
     tick: true
   behavior:
     allow-spider-world-border-climbing: true
@@ -131,7 +131,7 @@ entities:
     zombie-villager-infection-chance: default
     zombies-target-turtle-eggs: true
   markers:
-    tick: true
+    tick: false
   mob-effects:
     immune-to-wither-effect:
       wither: true
