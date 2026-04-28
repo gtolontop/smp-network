@@ -103,6 +103,7 @@ public class RtpGUI extends GUIHolder {
 
         // Cross-server: if we're not on survival, persist RTP intent + transfer.
         if (!plugin.isMainSurvival()) {
+            plugin.getLogger().info("[RTP] " + p.getName() + " a cliqué " + worldName + " -> cross-server vers survival");
             plugin.pendingTp().set(p.getUniqueId(),
                     new fr.smp.core.managers.PendingTeleportManager.Pending(
                             fr.smp.core.managers.PendingTeleportManager.Kind.RTP,
@@ -122,6 +123,7 @@ public class RtpGUI extends GUIHolder {
             p.sendMessage(Msg.err("Cooldown: <white>" + Msg.duration(cd) + "</white>"));
             return;
         }
+        plugin.getLogger().info("[RTP] " + p.getName() + " a cliqué " + worldName + " (recherche en cours...)");
         p.sendMessage(Msg.info("<aqua>Recherche d'un lieu sûr...</aqua>"));
         plugin.rtp().teleport(p, target);
     }
