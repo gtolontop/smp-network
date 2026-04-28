@@ -65,7 +65,10 @@ public class FurnaceCommand implements CommandExecutor {
 
     private String displayName(ItemStack item) {
         if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
-            return item.getItemMeta().getDisplayName();
+            net.kyori.adventure.text.Component comp = item.getItemMeta().displayName();
+            if (comp != null) {
+                return net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(comp);
+            }
         }
         String name = item.getType().name().toLowerCase().replace('_', ' ');
         return name.substring(0, 1).toUpperCase() + name.substring(1);
