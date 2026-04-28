@@ -28,6 +28,10 @@ public class TpEndCommand implements CommandExecutor {
             p.sendMessage(Msg.err("Tu es en combat. Attends <white>" + plugin.combat().remainingSec(p) + "s</white>."));
             return true;
         }
+        if (plugin.dragonEgg() != null && plugin.dragonEgg().inventoryContainsEgg(p)) {
+            p.sendMessage(Msg.err("Tu portes l'<gradient:#a78bfa:#67e8f9>Œuf du Dragon</gradient> — pose-le avant de te téléporter."));
+            return true;
+        }
         String worldName = plugin.getConfig().getString("rtp.world-end", "world_the_end");
         World w = plugin.resolveWorld(worldName, World.Environment.THE_END);
         if (w == null) {
