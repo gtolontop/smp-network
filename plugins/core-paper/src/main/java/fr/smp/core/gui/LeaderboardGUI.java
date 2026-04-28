@@ -21,24 +21,14 @@ public class LeaderboardGUI extends GUIHolder {
     private static final MiniMessage MM = MiniMessage.miniMessage();
     private static final int PER_PAGE = 17;
 
-    private static final int SLOT_INFO = 0;
-    private static final int SLOT_HELP = 8;
+    private static final int SLOT_BACK = 0;
+    private static final int SLOT_INFO = 4;
     private static final int SLOT_PREV = 45;
-    private static final int SLOT_HIGHLIGHT = 46;
-    private static final int SLOT_SOLO = 47;
+    private static final int SLOT_HIGHLIGHT = 47;
     private static final int SLOT_PAGE = 49;
-    private static final int SLOT_TEAM = 51;
-    private static final int SLOT_SUMMARY = 52;
+    private static final int SLOT_SCOPE = 51;
     private static final int SLOT_NEXT = 53;
 
-    private static final int[] TAB_SLOTS = {1, 2, 3, 4, 5};
-    private static final LeaderboardManager.Category[] TABS = {
-            LeaderboardManager.Category.MONEY,
-            LeaderboardManager.Category.PLAYTIME,
-            LeaderboardManager.Category.KILLS,
-            LeaderboardManager.Category.DEATHS,
-            LeaderboardManager.Category.DISTANCE
-    };
     private static final int[] PODIUM_SLOTS = {13, 11, 15};
     private static final int[] LIST_SLOTS = {19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34};
 
@@ -71,24 +61,16 @@ public class LeaderboardGUI extends GUIHolder {
         Inventory inv = Bukkit.createInventory(this, 54, GUIUtil.title(category.titleMiniMessage()));
         GUIUtil.fillBorder(inv, category.border());
 
-        inv.setItem(SLOT_INFO, GUIUtil.item(Material.BOOK,
-                "<white><bold>Leaderboard</bold></white>",
-                "<gray>Catégorie: <white>" + category.display() + "</white></gray>",
-                "<gray>Mode: <white>" + scope.display() + "</white></gray>",
-                "<gray>Commande: <white>/leaderboard</white></gray>"));
-        inv.setItem(SLOT_HELP, GUIUtil.item(Material.COMPASS,
-                "<yellow><bold>Navigation rapide</bold></yellow>",
-                "<gray>Haut: change de classement</gray>",
-                "<gray>Bas: swap solo / team</gray>",
-                "<gray>Flèches: change de page</gray>"));
+        inv.setItem(SLOT_BACK, GUIUtil.item(Material.ARROW,
+                "<yellow>◀ Retour</yellow>",
+                "<gray>Revenir au menu des classements.</gray>"));
 
-        for (int i = 0; i < TABS.length; i++) {
-            LeaderboardManager.Category tab = TABS[i];
-            boolean active = tab == category;
-            inv.setItem(TAB_SLOTS[i], GUIUtil.item(tab.icon(),
-                    (active ? "<yellow><bold>" : "<gray>") + tab.display() + (active ? "</bold></yellow>" : "</gray>"),
-                    active ? "<gold>Tu es déjà ici.</gold>" : "<yellow>▶ Clic pour ouvrir</yellow>"));
-        }
+        inv.setItem(SLOT_INFO, GUIUtil.item(category.icon(),
+                "<white><bold>" + category.display() + "</bold></white>",
+                summaryLine(),
+                "<gray>Mode actuel: " + (scope == LeaderboardManager.Scope.SOLO
+                        ? "<green>Solo</green>"
+                        : "<aqua>Team</aqua>") + "</gray>"));
 
         int start = page * PER_PAGE;
         int onPage = Math.min(PER_PAGE, Math.max(0, entries.size() - start));
@@ -113,21 +95,25 @@ public class LeaderboardGUI extends GUIHolder {
             inv.setItem(SLOT_NEXT, GUIUtil.item(Material.ARROW, "<yellow>Page suivante ▶</yellow>"));
         }
 
-        inv.setItem(SLOT_SOLO, GUIUtil.item(LeaderboardManager.Scope.SOLO.icon(),
-                scope == LeaderboardManager.Scope.SOLO ? "<green><bold>Solo</bold></green>" : "<gray>Solo</gray>",
-                "<gray>Voir les joueurs individuellement.</gray>"));
-        inv.setItem(SLOT_TEAM, GUIUtil.item(LeaderboardManager.Scope.TEAM.icon(),
-                scope == LeaderboardManager.Scope.TEAM ? "<aqua><bold>Team</bold></aqua>" : "<gray>Team</gray>",
-                "<gray>Voir les équipes agrégées.</gray>"));
+        if (category == LeaderboardManager.Category.DUEL_ELO) {
+            inv.setItem(SLOT_SCOPE, GUIUtil.item(Material.BARRIER,
+                    "<gray>Solo uniquement</gray>",
+                    "<dark_gray>Les duels ne supportent pas le mode team.</dark_gray>"));
+        } else {
+            boolean isSolo = scope == LeaderboardManager.Scope.SOLO;
+            inv.setItem(SLOT_SCOPE, GUIUtil.item(
+                    isSolo ? LeaderboardManager.Scope.SOLO.icon() : LeaderboardManager.Scope.TEAM.icon(),
+                    isSolo
+                            ? "<green><bold>Solo</bold></green> <dark_gray>•</dark_gray> <gray>Team</gray>"
+                            : "<gray>Solo</gray> <dark_gray>•</dark_gray> <aqua><bold>Team</bold></aqua>",
+                    "<gray>Affiche les " + (isSolo ? "joueurs" : "équipes") + ".</gray>",
+                    "",
+                    "<yellow>▶ Clic pour basculer</yellow>"));
+        }
+
         inv.setItem(SLOT_PAGE, GUIUtil.item(Material.PAPER,
                 "<white><bold>Page " + (page + 1) + " / " + totalPages + "</bold></white>",
                 "<gray>Entrées: <white>" + entries.size() + "</white></gray>"));
-        inv.setItem(SLOT_SUMMARY, GUIUtil.item(category.icon(),
-                "<white><bold>" + category.display() + "</bold></white>",
-                summaryLine(),
-                scope == LeaderboardManager.Scope.TEAM
-                        ? "<gray>Astuce: clique sur <white>Solo</white> pour comparer joueur par joueur.</gray>"
-                        : "<gray>Astuce: clique sur <white>Team</white> pour voir le total d'équipe.</gray>"));
 
         if (result.highlight() != null) {
             String title = scope == LeaderboardManager.Scope.TEAM
@@ -203,6 +189,7 @@ public class LeaderboardGUI extends GUIHolder {
             case KILLS -> "<gray>Plus gros chasseurs du serveur.</gray>";
             case DEATHS -> "<gray>Les morts comptent aussi.</gray>";
             case DISTANCE -> "<gray>Lecture des stats vanilla de déplacement.</gray>";
+            case DUEL_ELO -> "<gray>Classement ELO des duels PvP — solo uniquement.</gray>";
         };
     }
 
@@ -212,22 +199,17 @@ public class LeaderboardGUI extends GUIHolder {
         int raw = event.getRawSlot();
         if (raw < 0 || raw >= event.getView().getTopInventory().getSize()) return;
 
+        if (raw == SLOT_BACK) {
+            new LeaderboardHubGUI(plugin).open(player);
+            return;
+        }
         if (raw == SLOT_PREV) { open(player, category, scope, page - 1); return; }
         if (raw == SLOT_NEXT) { open(player, category, scope, page + 1); return; }
-        if (raw == SLOT_SOLO && scope != LeaderboardManager.Scope.SOLO) {
-            open(player, category, LeaderboardManager.Scope.SOLO, 0);
-            return;
-        }
-        if (raw == SLOT_TEAM && scope != LeaderboardManager.Scope.TEAM) {
-            open(player, category, LeaderboardManager.Scope.TEAM, 0);
-            return;
-        }
-
-        for (int i = 0; i < TAB_SLOTS.length; i++) {
-            if (raw == TAB_SLOTS[i] && category != TABS[i]) {
-                open(player, TABS[i], scope, 0);
-                return;
-            }
+        if (raw == SLOT_SCOPE && category != LeaderboardManager.Category.DUEL_ELO) {
+            LeaderboardManager.Scope next = scope == LeaderboardManager.Scope.SOLO
+                    ? LeaderboardManager.Scope.TEAM
+                    : LeaderboardManager.Scope.SOLO;
+            open(player, category, next, 0);
         }
     }
 }
