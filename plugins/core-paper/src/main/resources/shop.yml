@@ -185,15 +185,6 @@ categories:
     slot: 32
     description: "<gray>Achetables uniquement en <aqua>saphirs</aqua>.</gray>"
     items:
-      zombie_spawner:
-        material: SPAWNER
-        display-material: ZOMBIE_SPAWN_EGG
-        spawner-type: ZOMBIE
-        name: "Spawner Zombie"
-        currency: SHARDS
-        buy: 200
-        sell: -1
-        stack: 1
       skeleton_spawner:
         material: SPAWNER
         display-material: SKELETON_SPAWN_EGG
@@ -237,6 +228,15 @@ categories:
         name: "Spawner Golem de fer"
         currency: SHARDS
         buy: 400
+        sell: -1
+        stack: 1
+      creeper_spawner:
+        material: SPAWNER
+        display-material: CREEPER_SPAWN_EGG
+        spawner-type: CREEPER
+        name: "Spawner Creeper"
+        currency: SHARDS
+        buy: 600
         sell: -1
         stack: 1
       magma_cube_spawner:
