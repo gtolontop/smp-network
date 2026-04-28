@@ -116,9 +116,7 @@ public class EnchantBreakListener implements Listener {
                 ItemStack s = it.getItemStack();
                 Material cooked = smeltResult(s.getType());
                 if (cooked != null) {
-                    ItemStack replaced = s.clone();
-                    replaced.setType(cooked);
-                    it.setItemStack(replaced);
+                    it.setItemStack(new ItemStack(cooked, s.getAmount()));
                 }
             }
         }
