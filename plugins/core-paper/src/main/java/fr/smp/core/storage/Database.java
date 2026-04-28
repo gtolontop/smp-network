@@ -439,6 +439,58 @@ public class Database {
               updated_at INTEGER NOT NULL
             )
             """,
+            """
+            CREATE TABLE IF NOT EXISTS duel_arenas (
+              name TEXT PRIMARY KEY COLLATE NOCASE,
+              server TEXT NOT NULL,
+              world TEXT NOT NULL,
+              center_x REAL NOT NULL, center_y REAL NOT NULL, center_z REAL NOT NULL,
+              radius REAL NOT NULL,
+              floor_y INTEGER NOT NULL,
+              dig_depth INTEGER NOT NULL DEFAULT 5,
+              ceiling INTEGER NOT NULL DEFAULT 30,
+              spawns_yaml TEXT NOT NULL DEFAULT '',
+              kit_yaml TEXT,
+              enabled INTEGER NOT NULL DEFAULT 1,
+              created_at INTEGER NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS duel_stats (
+              uuid TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              elo INTEGER NOT NULL DEFAULT 1000,
+              wins INTEGER NOT NULL DEFAULT 0,
+              losses INTEGER NOT NULL DEFAULT 0,
+              streak INTEGER NOT NULL DEFAULT 0,
+              best_streak INTEGER NOT NULL DEFAULT 0,
+              updated_at INTEGER NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS duel_kill_history (
+              killer TEXT NOT NULL,
+              victim TEXT NOT NULL,
+              kill_time INTEGER NOT NULL,
+              same_team INTEGER NOT NULL DEFAULT 0,
+              PRIMARY KEY (killer, victim, kill_time)
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS podium_slots (
+              rank    INTEGER PRIMARY KEY CHECK(rank BETWEEN 1 AND 3),
+              category TEXT NOT NULL DEFAULT 'money',
+              scope    TEXT NOT NULL DEFAULT 'solo',
+              world    TEXT NOT NULL,
+              x        REAL NOT NULL,
+              y        REAL NOT NULL,
+              z        REAL NOT NULL,
+              yaw      REAL NOT NULL DEFAULT 0,
+              pitch    REAL NOT NULL DEFAULT 0
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_duel_kill_killer ON duel_kill_history(killer, kill_time DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_duel_kill_pair ON duel_kill_history(killer, victim, kill_time DESC)",
             "CREATE INDEX IF NOT EXISTS idx_auctions_seller ON auctions(seller, sold)",
             "CREATE INDEX IF NOT EXISTS idx_auctions_active ON auctions(sold, expires_at)",
             "CREATE INDEX IF NOT EXISTS idx_mailbox_uuid ON mailbox(uuid)",
@@ -496,6 +548,10 @@ public class Database {
             try { s.execute("ALTER TABLE hunted_state ADD COLUMN target_kills INTEGER NOT NULL DEFAULT 0"); }
             catch (SQLException ignored) {}
             try { s.execute("ALTER TABLE players ADD COLUMN nickname TEXT"); }
+            catch (SQLException ignored) {}
+            try { s.execute("ALTER TABLE spawners ADD COLUMN mode TEXT NOT NULL DEFAULT 'LOOT'"); }
+            catch (SQLException ignored) {}
+            try { s.execute("ALTER TABLE spawners ADD COLUMN xp_pool INTEGER NOT NULL DEFAULT 0"); }
             catch (SQLException ignored) {}
         } catch (SQLException ignored) {}
     }
