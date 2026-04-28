@@ -209,8 +209,9 @@ entity-esp:
     - glow_item_frame
     - painting
     - armor_stand
-  # Re-check visibility every N ticks per entity (per viewer).
-  check-interval-ticks: 20
+  # Re-check visibility every N ticks per entity (per viewer). 30t (1.5s) is
+  # imperceptible for ESP defeat — players don't gain LoS that fast on foot.
+  check-interval-ticks: 30
 
 movement:
   enabled: true
@@ -264,18 +265,18 @@ movement:
 
 raytrace:
   # Cap on raytraces dispatched per player per tick. Each watched position does up to 4
-  # samples internally (center + 3 face centers), so budget=64 lets the engine keep up
-  # with dense ore fields while the invalidate-on-block-change listener cuts TTL latency.
-  max-per-player-per-tick: 24
+  # samples internally (center + 3 face centers), so budget=16 still lets the engine
+  # keep up with dense ore fields while halving worst-case CPU for 60-player loads.
+  max-per-player-per-tick: 16
   # Reuse cached visibility for this many ms before re-evaluating. Block break/place
   # events force an immediate re-check on nearby watches, so the TTL only bounds the
-  # latency for player-movement-based visibility changes.
-  cache-ttl-ms: 1500
+  # latency for player-movement-based visibility changes. 2.5s is below the time it
+  # takes a player to walk to a new LoS angle, so no perceptible change.
+  cache-ttl-ms: 2500
   # How often (in ticks) the xray module re-reconciles reveal/mask state against player
-  # position. 4 ticks = 200 ms, imperceptible latency, but 4× cheaper than per-tick. The
-  # reconcile is also chunk-scoped to the reveal-distance neighbourhood of the player, so
-  # total cost is O(chunksInRange × oresPerChunk) rather than O(allWatches).
-  tick-reveal-interval: 8
+  # position. 10 ticks = 500 ms — still imperceptible but lighter than 8t. Reconcile
+  # is chunk-scoped to the reveal neighbourhood, so cost stays O(local oresInRange).
+  tick-reveal-interval: 10
 
 # ------------------------------------------------------------------------------------
 # Detection de clients trichés (meteor, wurst, impact, freecam, WDL, schematica…).
