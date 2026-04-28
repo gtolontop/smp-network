@@ -227,11 +227,11 @@ entities:
   tracking-range-y:
     animal: default
     display: default
-    enabled: false
-    misc: default
-    monster: default
-    other: default
-    player: default
+    enabled: true
+    misc: 32
+    monster: 32
+    other: 32
+    player: 64
 environment:
   disable-explosion-knockback: false
   disable-ice-and-snow: true
