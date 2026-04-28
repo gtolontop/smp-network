@@ -1,6 +1,7 @@
 package fr.smp.core.gui;
 
 import fr.smp.core.SMPCore;
+import fr.smp.core.commands.SellCommand;
 import fr.smp.core.logging.LogCategory;
 import fr.smp.core.utils.Msg;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -11,6 +12,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Sell drop chest: a double-chest-sized inventory the player can drop items into.
@@ -31,6 +35,7 @@ public class SellGUI extends GUIHolder {
                 GUIUtil.title("<gradient:#f6d365:#fda085><bold>Sell</bold></gradient>"));
         this.inventory = inv;
         p.openInventory(inv);
+        plugin.getLogger().info("[SELL] " + p.getName() + " a ouvert le GUI sell");
         p.sendMessage(Msg.info("<gray>Dépose les items dans le coffre. Ferme pour vendre.</gray>"));
     }
 
@@ -46,6 +51,8 @@ public class SellGUI extends GUIHolder {
         double total = 0;
         int items = 0;
         int returned = 0;
+        Map<Material, double[]> breakdown = new LinkedHashMap<>();
+        Map<Material, Integer> returnedBreakdown = new LinkedHashMap<>();
         for (int i = 0; i < inventory.getSize(); i++) {
             ItemStack s = inventory.getItem(i);
             if (s == null || s.getType().isAir()) continue;
@@ -55,17 +62,31 @@ public class SellGUI extends GUIHolder {
                 var overflow = p.getInventory().addItem(s.clone());
                 overflow.values().forEach(it -> p.getWorld().dropItemNaturally(p.getLocation(), it));
                 returned += s.getAmount();
+                returnedBreakdown.merge(s.getType(), s.getAmount(), Integer::sum);
             } else {
                 total += v;
                 items += s.getAmount();
+                SellCommand.accumulate(breakdown, s.getType(), s.getAmount(), v);
             }
             inventory.setItem(i, null);
         }
         if (total > 0) {
+            double before = plugin.economy().balance(p.getUniqueId());
             plugin.economy().deposit(p.getUniqueId(), total, "sell.gui");
+            double after = plugin.economy().balance(p.getUniqueId());
             p.sendMessage(Msg.ok("<green>Vendu <yellow>×" + items + "</yellow> pour <yellow>$" +
                     Msg.money(total) + "</yellow>.</green>"));
-            plugin.logs().log(LogCategory.SELL, p, "gui items=" + items + " $" + total);
+            String log = SellCommand.formatLog("gui", items, total, before, after, breakdown);
+            if (returned > 0) {
+                StringBuilder rb = new StringBuilder();
+                returnedBreakdown.forEach((m, c) -> {
+                    if (rb.length() > 0) rb.append(" | ");
+                    rb.append(m.name()).append(" x").append(c);
+                });
+                log += " returned=" + returned + " returnedBreakdown={" + rb + "}";
+            }
+            plugin.logs().log(LogCategory.SELL, p, log);
+            plugin.getLogger().info("[SELL] " + p.getName() + " " + log);
         } else if (returned == 0) {
             p.sendMessage(Msg.info("<gray>Rien à vendre.</gray>"));
         }
