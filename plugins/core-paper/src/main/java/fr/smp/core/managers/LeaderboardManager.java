@@ -37,7 +37,8 @@ public class LeaderboardManager {
         PLAYTIME("playtime", "Playtime", Material.CLOCK, Material.LIGHT_BLUE_STAINED_GLASS_PANE, "#84fab0", "#8fd3f4"),
         KILLS("kills", "Kills", Material.DIAMOND_SWORD, Material.RED_STAINED_GLASS_PANE, "#f85032", "#e73827"),
         DEATHS("deaths", "Deaths", Material.SKELETON_SKULL, Material.GRAY_STAINED_GLASS_PANE, "#cfd9df", "#e2ebf0"),
-        DISTANCE("distance", "Distance", Material.ELYTRA, Material.CYAN_STAINED_GLASS_PANE, "#43cea2", "#185a9d");
+        DISTANCE("distance", "Distance", Material.ELYTRA, Material.CYAN_STAINED_GLASS_PANE, "#43cea2", "#185a9d"),
+        DUEL_ELO("elo", "Duel ELO", Material.GOLDEN_SWORD, Material.ORANGE_STAINED_GLASS_PANE, "#f7971e", "#ffd200");
 
         private final String key;
         private final String display;
@@ -72,6 +73,7 @@ public class LeaderboardManager {
                 case "kills", "kill", "frags" -> KILLS;
                 case "deaths", "death", "morts", "mort" -> DEATHS;
                 case "distance", "dist", "travel", "parcouru", "parcourue" -> DISTANCE;
+                case "elo", "duel", "duelelo", "pvp" -> DUEL_ELO;
                 default -> null;
             };
         }
@@ -137,6 +139,8 @@ public class LeaderboardManager {
             int kills,
             int deaths
     ) {}
+
+    private record DuelSnapshot(UUID uuid, String name, int elo, int wins, int losses, int streak, int bestStreak) {}
 
     private record TeamSnapshot(
             String id,
@@ -222,6 +226,9 @@ public class LeaderboardManager {
     }
 
     public Result ranking(Category category, Scope scope, UUID viewerUuid) {
+        if (category == Category.DUEL_ELO) {
+            return buildDuelRanking(viewerUuid);
+        }
         players.saveAll();
         return switch (scope) {
             case SOLO -> buildSoloRanking(category, viewerUuid);
@@ -324,6 +331,51 @@ public class LeaderboardManager {
         }
         Highlight highlight = highlight(entries, viewerTeamId);
         return new Result(entries, highlight);
+    }
+
+    private Result buildDuelRanking(UUID viewerUuid) {
+        List<DuelSnapshot> rows = loadDuelStats();
+        List<Entry> entries = new ArrayList<>(rows.size());
+        for (DuelSnapshot d : rows) {
+            int total = d.wins() + d.losses();
+            double wr = total == 0 ? 0.0 : (d.wins() * 100.0 / total);
+            entries.add(new Entry(
+                    d.uuid().toString(),
+                    safeName(d.name(), d.uuid()),
+                    "<white>" + safeName(d.name(), d.uuid()) + "</white>",
+                    Material.PLAYER_HEAD,
+                    d.uuid(),
+                    d.elo(),
+                    formatValue(Category.DUEL_ELO, d.elo()),
+                    List.of(
+                            "<gray>Wins: <green>" + d.wins() + "</green>  Losses: <red>" + d.losses() + "</red>",
+                            "<gray>Winrate: <white>" + String.format(Locale.US, "%.1f", wr) + "%</white>",
+                            "<gray>Streak: <gold>" + d.streak() + "</gold> <dark_gray>(best " + d.bestStreak() + ")</dark_gray>"
+                    )
+            ));
+        }
+        entries.sort(entryComparator());
+        Highlight highlight = highlight(entries, viewerUuid == null ? null : viewerUuid.toString());
+        return new Result(entries, highlight);
+    }
+
+    private List<DuelSnapshot> loadDuelStats() {
+        List<DuelSnapshot> out = new ArrayList<>();
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT uuid, name, elo, wins, losses, streak, best_streak FROM duel_stats ORDER BY elo DESC")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    UUID uuid;
+                    try { uuid = UUID.fromString(rs.getString(1)); } catch (IllegalArgumentException ignored) { continue; }
+                    out.add(new DuelSnapshot(uuid, rs.getString(2), rs.getInt(3),
+                            rs.getInt(4), rs.getInt(5), rs.getInt(6), rs.getInt(7)));
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("leaderboard.duelStats: " + e.getMessage());
+        }
+        return out;
     }
 
     private List<PlayerSnapshot> loadPlayers() {
@@ -612,6 +664,7 @@ public class LeaderboardManager {
             case KILLS -> player.kills();
             case DEATHS -> player.deaths();
             case DISTANCE -> distances.getOrDefault(player.uuid(), 0L);
+            case DUEL_ELO -> 0;
         };
     }
 
@@ -620,31 +673,32 @@ public class LeaderboardManager {
         switch (category) {
             case MONEY -> {
                 lines.add(team == null
-                        ? "<gray>Team: <white>Aucune</white></gray>"
-                        : "<gray>Team: " + formatTeamDisplay(team) + "</gray>");
-                lines.add("<gray>Playtime: <white>" + Msg.duration(player.playtimeSec()) + "</white></gray>");
+                        ? "<gray>Team: <white>Aucune</white>"
+                        : "<gray>Team: " + formatTeamDisplay(team));
+                lines.add("<gray>Playtime: <white>" + Msg.duration(player.playtimeSec()) + "</white>");
             }
             case PLAYTIME -> {
-                lines.add("<gray>Kills: <red>" + player.kills() + "</red> <dark_gray>•</dark_gray> Deaths: <white>" + player.deaths() + "</white></gray>");
+                lines.add("<gray>Kills: <red>" + player.kills() + "</red> <dark_gray>•</dark_gray> Deaths: <white>" + player.deaths() + "</white>");
                 lines.add(team == null
-                        ? "<gray>Team: <white>Aucune</white></gray>"
-                        : "<gray>Team: " + formatTeamDisplay(team) + "</gray>");
+                        ? "<gray>Team: <white>Aucune</white>"
+                        : "<gray>Team: " + formatTeamDisplay(team));
             }
             case KILLS -> {
-                lines.add("<gray>Deaths: <white>" + player.deaths() + "</white></gray>");
-                lines.add("<gray>KD: <white>" + formatKd(player.kills(), player.deaths()) + "</white></gray>");
+                lines.add("<gray>Deaths: <white>" + player.deaths() + "</white>");
+                lines.add("<gray>KD: <white>" + formatKd(player.kills(), player.deaths()) + "</white>");
             }
             case DEATHS -> {
-                lines.add("<gray>Kills: <white>" + player.kills() + "</white></gray>");
-                lines.add("<gray>Playtime: <white>" + Msg.duration(player.playtimeSec()) + "</white></gray>");
+                lines.add("<gray>Kills: <white>" + player.kills() + "</white>");
+                lines.add("<gray>Playtime: <white>" + Msg.duration(player.playtimeSec()) + "</white>");
             }
             case DISTANCE -> {
-                lines.add("<gray>Playtime: <white>" + Msg.duration(player.playtimeSec()) + "</white></gray>");
+                lines.add("<gray>Playtime: <white>" + Msg.duration(player.playtimeSec()) + "</white>");
                 lines.add(team == null
-                        ? "<gray>Team: <white>Aucune</white></gray>"
-                        : "<gray>Team: " + formatTeamDisplay(team) + "</gray>");
-                lines.add("<gray>Total lu: <white>" + formatDistance(distances.getOrDefault(player.uuid(), 0L)) + "</white></gray>");
+                        ? "<gray>Team: <white>Aucune</white>"
+                        : "<gray>Team: " + formatTeamDisplay(team));
+                lines.add("<gray>Total lu: <white>" + formatDistance(distances.getOrDefault(player.uuid(), 0L)) + "</white>");
             }
+            case DUEL_ELO -> {}
         }
         return lines;
     }
@@ -653,40 +707,41 @@ public class LeaderboardManager {
         List<String> lines = new ArrayList<>();
         switch (category) {
             case MONEY -> {
-                lines.add("<gray>Fortune des joueurs: <gold>$" + Msg.money(memberTotal) + "</gold></gray>");
-                lines.add("<gray>Banque de team: <gold>$" + Msg.money(team.balance()) + "</gold></gray>");
+                lines.add("<gray>Fortune des joueurs: <gold>$" + Msg.money(memberTotal) + "</gold>");
+                lines.add("<gray>Banque de team: <gold>$" + Msg.money(team.balance()) + "</gold>");
                 lines.add(spotlight == null
-                        ? "<gray>Membres: <white>" + members + "</white></gray>"
-                        : "<gray>Le plus riche: <white>" + spotlight.name() + "</white> <dark_gray>•</dark_gray> " + spotlight.valueDisplay() + "</gray>");
+                        ? "<gray>Membres: <white>" + members + "</white>"
+                        : "<gray>Le plus riche: <white>" + spotlight.name() + "</white> <dark_gray>•</dark_gray> " + spotlight.valueDisplay());
             }
             case PLAYTIME -> {
-                lines.add("<gray>Membres: <white>" + members + "</white></gray>");
+                lines.add("<gray>Membres: <white>" + members + "</white>");
                 if (spotlight != null) {
-                    lines.add("<gray>No-life MVP: <white>" + spotlight.name() + "</white></gray>");
-                    lines.add("<gray>Temps: " + spotlight.valueDisplay() + "</gray>");
+                    lines.add("<gray>No-life MVP: <white>" + spotlight.name() + "</white>");
+                    lines.add("<gray>Temps: " + spotlight.valueDisplay());
                 }
             }
             case KILLS -> {
-                lines.add("<gray>Membres: <white>" + members + "</white></gray>");
+                lines.add("<gray>Membres: <white>" + members + "</white>");
                 if (spotlight != null) {
-                    lines.add("<gray>Carry: <white>" + spotlight.name() + "</white></gray>");
-                    lines.add("<gray>Score: " + spotlight.valueDisplay() + "</gray>");
+                    lines.add("<gray>Carry: <white>" + spotlight.name() + "</white>");
+                    lines.add("<gray>Score: " + spotlight.valueDisplay());
                 }
             }
             case DEATHS -> {
-                lines.add("<gray>Membres: <white>" + members + "</white></gray>");
+                lines.add("<gray>Membres: <white>" + members + "</white>");
                 if (spotlight != null) {
-                    lines.add("<gray>Le plus maudit: <white>" + spotlight.name() + "</white></gray>");
-                    lines.add("<gray>Score: " + spotlight.valueDisplay() + "</gray>");
+                    lines.add("<gray>Le plus maudit: <white>" + spotlight.name() + "</white>");
+                    lines.add("<gray>Score: " + spotlight.valueDisplay());
                 }
             }
             case DISTANCE -> {
-                lines.add("<gray>Membres: <white>" + members + "</white></gray>");
+                lines.add("<gray>Membres: <white>" + members + "</white>");
                 if (spotlight != null) {
-                    lines.add("<gray>Explorateur: <white>" + spotlight.name() + "</white></gray>");
-                    lines.add("<gray>Distance: " + spotlight.valueDisplay() + "</gray>");
+                    lines.add("<gray>Explorateur: <white>" + spotlight.name() + "</white>");
+                    lines.add("<gray>Distance: " + spotlight.valueDisplay());
                 }
             }
+            case DUEL_ELO -> {}
         }
         return lines;
     }
@@ -715,6 +770,7 @@ public class LeaderboardManager {
             case KILLS -> "<red>" + Math.round(value) + " kills</red>";
             case DEATHS -> "<gray>" + Math.round(value) + " deaths</gray>";
             case DISTANCE -> "<blue>" + formatDistance(Math.round(value)) + "</blue>";
+            case DUEL_ELO -> "<gold>" + Math.round(value) + " ELO</gold>";
         };
     }
 
