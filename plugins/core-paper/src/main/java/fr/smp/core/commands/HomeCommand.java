@@ -29,6 +29,11 @@ public class HomeCommand implements CommandExecutor {
             p.sendMessage(Msg.err("Tu es en combat. Attends <white>" + plugin.combat().remainingSec(p) + "s</white>."));
             return true;
         }
+        if (plugin.dragonEgg() != null && plugin.dragonEgg().inventoryContainsEgg(p)
+                && !mode.equals("homes") && !mode.equals("sethome") && !mode.equals("delhome")) {
+            p.sendMessage(Msg.err("Tu portes l'<gradient:#a78bfa:#67e8f9>Œuf du Dragon</gradient> — pose-le avant de te téléporter."));
+            return true;
+        }
 
         int max = plugin.homes().maxSlots(p);
 
