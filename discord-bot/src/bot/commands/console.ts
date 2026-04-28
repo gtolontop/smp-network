@@ -24,6 +24,7 @@ const consoleCmd: SlashCommand = {
         .setName('target')
         .setDescription('Serveur, proxy, ou all')
         .setRequired(true)
+        .setAutocomplete(true)
     )
     .addStringOption((o) => o.setName('commande').setDescription('Commande sans /').setRequired(true)),
   async execute(ix) {
@@ -88,6 +89,18 @@ const consoleCmd: SlashCommand = {
       ],
     });
     await audit({ actor: ix.user.tag, action: 'console', target, details: command, ok: true });
+  },
+  async autocomplete(ix) {
+    const focused = ix.options.getFocused(true);
+    if (focused.name !== 'target') return;
+    const input = focused.value.toLowerCase().trim();
+    const origins = listConnectedOrigins();
+    const choices = [
+      { name: 'all (tout le réseau)', value: 'all' },
+      ...origins.map((o) => ({ name: o, value: o })),
+    ];
+    const filtered = input ? choices.filter((c) => c.value.includes(input) || c.name.toLowerCase().includes(input)) : choices;
+    await ix.respond(filtered.slice(0, 25));
   },
 };
 
