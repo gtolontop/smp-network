@@ -135,8 +135,13 @@ public final class MovementModule implements Listener {
         }
 
         boolean inDamageGrace = now < s.damageUntilNs;
+        // Levitation (shulker bullet in The End) pushes you up against gravity, and
+        // slow_falling extends air time. Both confuse the fly check and the no-friction
+        // air drift confuses the speed window. Exempt both checks while these are active.
+        boolean verticalEffect = p.getPotionEffect(PotionEffectType.LEVITATION) != null
+                || p.getPotionEffect(PotionEffectType.SLOW_FALLING) != null;
 
-        if (!violated && profile.speedEnabled && !inDamageGrace) {
+        if (!violated && profile.speedEnabled && !inDamageGrace && !verticalEffect) {
             // Sliding window: accumulate horizontal distance and reset once the window
             // elapses. This smooths out per-tick peaks (sprint-jump bursts, lag spikes).
             if (now - s.windowStartNs >= SPEED_WINDOW_NS) {
@@ -155,8 +160,8 @@ public final class MovementModule implements Listener {
                     reason = "speed (" + String.format("%.2f", bps) + " bps > " + String.format("%.2f", allowed) + ")";
                 }
             }
-        } else if (inDamageGrace) {
-            // Keep the window fresh during grace so we don't snap-check right after.
+        } else if (inDamageGrace || verticalEffect) {
+            // Keep the window fresh during grace / vertical-effect so we don't snap-check right after.
             s.windowStartNs = now;
             s.windowHoriz = 0.0;
         }
@@ -164,8 +169,8 @@ public final class MovementModule implements Listener {
         if (!violated && profile.flyEnabled) {
             boolean inPortal = isInPortal(p);
             boolean airborne = !p.isOnGround() && !p.isInWater() && !p.isInLava()
-                    && !isClimbable(p) && !p.isGliding() && !inPortal;
-            if (inPortal) s.airborneTicks = 0;
+                    && !isClimbable(p) && !p.isGliding() && !inPortal && !verticalEffect;
+            if (inPortal || verticalEffect) s.airborneTicks = 0;
             if (airborne) {
                 if (dy >= -0.001) s.airborneTicks++;
                 else s.airborneTicks = Math.max(0, s.airborneTicks - 2);
