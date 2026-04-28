@@ -3,7 +3,9 @@ package fr.smp.core.data;
 import fr.smp.core.SMPCore;
 import fr.smp.core.storage.Database;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -31,10 +33,16 @@ public class PlayerDataManager {
     private final SMPCore plugin;
     private final Database db;
     private final Map<UUID, PlayerData> cache = new ConcurrentHashMap<>();
+    private final boolean autosaveEnabled;
+    private final long autosaveIntervalTicks;
+    private BukkitTask autosaveTask;
 
     public PlayerDataManager(SMPCore plugin, Database db) {
         this.plugin = plugin;
         this.db = db;
+        this.autosaveEnabled = plugin.getConfig().getBoolean("player-data.autosave.enabled", true);
+        int autosaveSeconds = Math.max(5, plugin.getConfig().getInt("player-data.autosave.interval-seconds", 30));
+        this.autosaveIntervalTicks = autosaveSeconds * 20L;
     }
 
     public PlayerData get(UUID uuid) {
@@ -43,6 +51,21 @@ public class PlayerDataManager {
 
     public PlayerData get(Player p) {
         return cache.get(p.getUniqueId());
+    }
+
+    public void startAutosave() {
+        if (!autosaveEnabled || autosaveTask != null) return;
+        autosaveTask = Bukkit.getScheduler().runTaskTimer(plugin, this::autosaveOnline,
+                autosaveIntervalTicks, autosaveIntervalTicks);
+        plugin.getLogger().info("Player data autosave enabled (interval="
+                + (autosaveIntervalTicks / 20) + "s)");
+    }
+
+    public void stopAutosave() {
+        if (autosaveTask != null) {
+            autosaveTask.cancel();
+            autosaveTask = null;
+        }
     }
 
     public PlayerData loadOrCreate(UUID uuid, String name) {
@@ -83,6 +106,28 @@ public class PlayerDataManager {
 
     public void saveAll() {
         for (PlayerData d : cache.values()) save(d);
+    }
+
+    private void autosaveOnline() {
+        captureOnlineState();
+        saveAll();
+    }
+
+    public void captureOnlineState() {
+        long now = System.currentTimeMillis() / 1000L;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            PlayerData data = loadOrCreate(player.getUniqueId(), player.getName());
+            data.setName(player.getName());
+            data.setLastSeen(now);
+            if (!plugin.isMainSurvival()) {
+                continue;
+            }
+            Location loc = player.getLocation();
+            if (loc.getWorld() != null) {
+                data.setLastLocation(loc.getWorld().getName(), loc.getX(), loc.getY(), loc.getZ(),
+                        loc.getYaw(), loc.getPitch());
+            }
+        }
     }
 
     public Iterable<PlayerData> onlineData() {
