@@ -8,6 +8,18 @@ import fr.smp.core.auth.AuthManager;
 import fr.smp.core.commands.*;
 import fr.smp.core.data.PlayerDataManager;
 import fr.smp.core.discord.DiscordBridge;
+import fr.smp.core.dragonegg.DragonEggCommand;
+import fr.smp.core.dragonegg.DragonEggListener;
+import fr.smp.core.dragonegg.DragonEggManager;
+import fr.smp.core.duels.DuelArenaCommand;
+import fr.smp.core.duels.DuelArenaListener;
+import fr.smp.core.duels.DuelArenaManager;
+import fr.smp.core.duels.DuelCommand;
+import fr.smp.core.duels.DuelMatchListener;
+import fr.smp.core.duels.DuelMatchManager;
+import fr.smp.core.duels.DuelNpcClickInjector;
+import fr.smp.core.duels.DuelQueueManager;
+import fr.smp.core.duels.DuelRewardManager;
 import fr.smp.core.enchants.CustomEnchantListener;
 import fr.smp.core.enchants.EnchantArmorTask;
 import fr.smp.core.enchants.EnchantBreakListener;
@@ -17,7 +29,10 @@ import fr.smp.core.holograms.HologramCommand;
 import fr.smp.core.holograms.HologramManager;
 import fr.smp.core.npc.NpcCommand;
 import fr.smp.core.npc.NpcManager;
+import fr.smp.core.sellstick.SellStickListener;
+import fr.smp.core.sellstick.SellStickManager;
 import fr.smp.core.voidstone.VoidstoneManager;
+import fr.smp.core.listeners.AmethystBoostListener;
 import fr.smp.core.listeners.AttributeSwapListener;
 import fr.smp.core.listeners.BuddingAmethystListener;
 import fr.smp.core.listeners.ChainClimbListener;
@@ -49,6 +64,7 @@ import fr.smp.core.skins.SkinManager;
 import fr.smp.core.storage.Database;
 import fr.smp.core.sync.InventoryHistoryCommand;
 import fr.smp.core.sync.InventoryHistoryManager;
+import fr.smp.core.sync.SyncDirtyListener;
 import fr.smp.core.sync.SyncListener;
 import fr.smp.core.sync.SyncManager;
 import fr.smp.core.utils.ChatPrompt;
@@ -120,6 +136,8 @@ public class SMPCore extends JavaPlugin {
     private AlchemyTotemManager alchemyTotem;
     private SpawnerManager spawners;
     private VoidstoneManager voidstones;
+    private SellStickManager sellSticks;
+    private DragonEggManager dragonEgg;
     private EnchantArmorTask enchantArmor;
     private ResourcePackManager resourcePacks;
     private GateManager gates;
@@ -135,14 +153,23 @@ public class SMPCore extends JavaPlugin {
     private SkinManager skins;
     private GodManager god;
     private NoclipManager noclip;
+    private FreezeManager freeze;
     private BackManager back;
+    private VanillaPlayerBackupManager vanillaBackups;
+    private AmethystBoostManager amethyst;
+    private DuelArenaManager duelArenas;
+    private DuelMatchManager duelMatches;
+    private DuelQueueManager duelQueue;
+    private DuelRewardManager duelRewards;
+    private DuelNpcClickInjector duelNpcClick;
     private volatile boolean chatLocked = false;
 
     @Override
     public void onEnable() {
         instance = this;
         startedAtMillis = System.currentTimeMillis();
-        saveDefaultConfig();
+        saveResource("config.yml", false);
+        reloadConfig();
 
         serverType = resolveServerType();
         getLogger().info("Server type resolved to: " + serverType);
@@ -163,6 +190,7 @@ public class SMPCore extends JavaPlugin {
         spawns = new SpawnManager(this);
         worldborders = new WorldBorderManager(this);
         rtp = new RtpManager(this, worldborders);
+        rtp.startPoolFiller();
         combat = new CombatTagManager(this);
         combat.start();
         homes = new HomeManager(this, database);
@@ -170,6 +198,7 @@ public class SMPCore extends JavaPlugin {
         tpa = new TpaManager(this);
         teams = new TeamManager(this, database, players);
         leaderboards = new LeaderboardManager(this, database, players);
+        if (isMainSurvival()) leaderboards.start();
         teamInvites = new TeamInviteManager();
         chatPrompt = new ChatPrompt(this);
         serverStats = new ServerStatsManager();
@@ -194,6 +223,7 @@ public class SMPCore extends JavaPlugin {
         scoreboard.start();
         playtime = new PlaytimeManager(this, players);
         playtime.start();
+        players.startAutosave();
         tabList.start();
         nametags = new NametagManager(this);
         nametags.start();
@@ -209,7 +239,10 @@ public class SMPCore extends JavaPlugin {
         adminMode = new AdminModeManager(this);
         god = new GodManager();
         noclip = new NoclipManager();
+        freeze = new FreezeManager();
         back = new BackManager();
+        vanillaBackups = new VanillaPlayerBackupManager(this);
+        vanillaBackups.start();
         moderation = new ModerationManager(this, database);
         bounties = new BountyManager(this, database);
         if (isMainSurvival()) {
@@ -235,6 +268,17 @@ public class SMPCore extends JavaPlugin {
             voidstones.start();
         }
 
+        if (isMainSurvival()) {
+            sellSticks = new SellStickManager(this);
+            sellSticks.start();
+        }
+
+        // Œuf du Dragon : artefact unique à high pulvalue. Survival uniquement.
+        if (isMainSurvival()) {
+            dragonEgg = new DragonEggManager(this);
+            dragonEgg.start();
+        }
+
         // Per-dimension resource packs (Nether/End) — survival only.
         if (isMainSurvival()) {
             resourcePacks = new ResourcePackManager(this);
@@ -245,6 +289,19 @@ public class SMPCore extends JavaPlugin {
         gates.start();
         gateWandViz = new GateWandVisualizer(this);
         gateWandViz.start();
+
+        // Duel arenas — chargés partout (lookup par nom de monde fonctionne sur le
+        // serveur "duels" comme sur n'importe lequel). Les commandes admin sont
+        // disponibles partout pour pouvoir préparer des arènes depuis le lobby.
+        duelArenas = new DuelArenaManager(this, database);
+        duelArenas.load();
+        // Match orchestration + reward pipeline — only the duel server runs
+        // matches, but reward bookkeeping is shared (ELO, anti-farm tracker).
+        duelMatches = new DuelMatchManager(this);
+        duelRewards = new DuelRewardManager(this, database);
+        duelQueue = new DuelQueueManager(this);
+        duelQueue.start();
+        duelNpcClick = new DuelNpcClickInjector(this);
 
         // NPCs (fake-player) + holograms (TextDisplay) — utilisables sur les deux serveurs
         npcs = new NpcManager(this, database);
@@ -291,6 +348,8 @@ public class SMPCore extends JavaPlugin {
         }
         if (syncManager.isEnabled()) {
             pm.registerEvents(new SyncListener(this, syncManager), this);
+            pm.registerEvents(new SyncDirtyListener(syncManager), this);
+            syncManager.startAutosave();
         }
         // Inventory rollback history — only on servers with real inventories (skip lobby).
         if (syncManager.isEnabled() && !isLobby()) {
@@ -319,6 +378,9 @@ public class SMPCore extends JavaPlugin {
         if (isMainSurvival()) {
             pm.registerEvents(new VillagerBucketListener(this), this);
             pm.registerEvents(new BuddingAmethystListener(), this);
+            amethyst = new AmethystBoostManager(this);
+            amethyst.start();
+            pm.registerEvents(new AmethystBoostListener(this, amethyst), this);
         }
         pm.registerEvents(sit, this);
         pm.registerEvents(afk, this);
@@ -326,6 +388,7 @@ public class SMPCore extends JavaPlugin {
         pm.registerEvents(fullbright, this);
         pm.registerEvents(new GodListener(this), this);
         pm.registerEvents(noclip, this);
+        pm.registerEvents(freeze, this);
         pm.registerEvents(moderation, this);
         if (spawners != null) {
             pm.registerEvents(new SpawnerListener(this), this);
@@ -333,10 +396,18 @@ public class SMPCore extends JavaPlugin {
         if (voidstones != null) {
             pm.registerEvents(new VoidstoneListener(this), this);
         }
+        if (dragonEgg != null) {
+            pm.registerEvents(new DragonEggListener(this, dragonEgg), this);
+        }
         if (resourcePacks != null) {
             pm.registerEvents(resourcePacks, this);
         }
         pm.registerEvents(new GateListener(this), this);
+        pm.registerEvents(new DuelArenaListener(this), this);
+        pm.registerEvents(new DuelMatchListener(this), this);
+        pm.registerEvents(duelQueue, this);
+        pm.registerEvents(duelNpcClick, this);
+        duelNpcClick.start();
         if (npcs != null) pm.registerEvents(npcs, this);
 
         // Custom enchants (table + anvil + mob-drop + soulbound + area-break + armor task).
@@ -459,6 +530,11 @@ public class SMPCore extends JavaPlugin {
         NoclipCommand noclipCmd = new NoclipCommand(this);
         getCommand("noclip").setExecutor(noclipCmd);
         getCommand("noclip").setTabCompleter(noclipCmd);
+
+        FreezeCommand freezeCmd = new FreezeCommand(this);
+        getCommand("freeze").setExecutor(freezeCmd);
+        getCommand("freeze").setTabCompleter(freezeCmd);
+
         getCommand("heal").setExecutor(new HealCommand(this));
         getCommand("fly").setExecutor(new FlyCommand(this));
         getCommand("speed").setExecutor(new SpeedCommand(this));
@@ -484,10 +560,22 @@ public class SMPCore extends JavaPlugin {
             getCommand("spawner").setTabCompleter(spawnerCmd);
         }
 
+        if (getCommand("amethyst") != null && amethyst != null) {
+            AmethystCommand amethystCmd = new AmethystCommand(this);
+            getCommand("amethyst").setExecutor(amethystCmd);
+            getCommand("amethyst").setTabCompleter(amethystCmd);
+        }
+
         if (getCommand("voidstone") != null) {
             VoidstoneCommand voidstoneCmd = new VoidstoneCommand(this);
             getCommand("voidstone").setExecutor(voidstoneCmd);
             getCommand("voidstone").setTabCompleter(voidstoneCmd);
+        }
+
+        if (getCommand("dragonegg") != null && dragonEgg != null) {
+            DragonEggCommand eggCmd = new DragonEggCommand(this, dragonEgg);
+            getCommand("dragonegg").setExecutor(eggCmd);
+            getCommand("dragonegg").setTabCompleter(eggCmd);
         }
 
         if (getCommand("ce") != null) {
@@ -500,6 +588,18 @@ public class SMPCore extends JavaPlugin {
             GateCommand gateCmd = new GateCommand(this);
             getCommand("gate").setExecutor(gateCmd);
             getCommand("gate").setTabCompleter(gateCmd);
+        }
+
+        if (getCommand("duelarena") != null) {
+            DuelArenaCommand duelArenaCmd = new DuelArenaCommand(this);
+            getCommand("duelarena").setExecutor(duelArenaCmd);
+            getCommand("duelarena").setTabCompleter(duelArenaCmd);
+        }
+
+        if (getCommand("duel") != null) {
+            DuelCommand duelCmd = new DuelCommand(this);
+            getCommand("duel").setExecutor(duelCmd);
+            getCommand("duel").setTabCompleter(duelCmd);
         }
 
         if (getCommand("npc") != null) {
@@ -559,6 +659,12 @@ public class SMPCore extends JavaPlugin {
             getCommand("invrollback").setTabCompleter(invRollbackCmd);
         }
 
+        if (getCommand("vanillabackup") != null && vanillaBackups != null) {
+            VanillaBackupCommand vanillaBackupCmd = new VanillaBackupCommand(this);
+            getCommand("vanillabackup").setExecutor(vanillaBackupCmd);
+            getCommand("vanillabackup").setTabCompleter(vanillaBackupCmd);
+        }
+
         GiveCommand giveCmd = new GiveCommand(this);
         getCommand("give").setExecutor(giveCmd);
         getCommand("give").setTabCompleter(giveCmd);
@@ -578,6 +684,11 @@ public class SMPCore extends JavaPlugin {
         getCommand("nick").setTabCompleter(nickCmd);
 
         getCommand("link").setExecutor(new LinkCommand(this));
+        getCommand("discord").setExecutor(new DiscordCommand(this));
+        getCommand("discordconfig").setExecutor(new DiscordConfigCommand(this));
+        getCommand("help").setExecutor(new HelpCommand(this));
+        getCommand("tuto").setExecutor(new TutoCommand(this));
+        getCommand("tuto").setTabCompleter(new TutoCommand(this));
 
         BroadcastCommand bcCmd = new BroadcastCommand(this);
         getCommand("bc").setExecutor(bcCmd);
@@ -678,6 +789,15 @@ public class SMPCore extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        shutdownStep("rtp pool", () -> {
+            if (rtp != null) rtp.stopPoolFiller();
+        });
+        shutdownStep("stop sync autosave", () -> {
+            if (syncManager != null) syncManager.stopAutosave();
+        });
+        shutdownStep("stop player data autosave", () -> {
+            if (players != null) players.stopAutosave();
+        });
         // Persist player-facing state first so a later shutdown exception in a
         // non-critical subsystem can never skip the final inventory save.
         shutdownStep("snapshot online player state", this::snapshotOnlinePlayerState);
@@ -726,6 +846,9 @@ public class SMPCore extends JavaPlugin {
         shutdownStep("voidstones", () -> {
             if (voidstones != null) voidstones.shutdown();
         });
+        shutdownStep("dragon egg", () -> {
+            if (dragonEgg != null) dragonEgg.stop();
+        });
         shutdownStep("spawners", () -> {
             if (spawners != null) spawners.stop();
         });
@@ -735,8 +858,29 @@ public class SMPCore extends JavaPlugin {
         shutdownStep("tps reporter", () -> {
             if (tpsReporter != null) tpsReporter.stop();
         });
+        shutdownStep("leaderboards", () -> {
+            if (leaderboards != null) leaderboards.stop();
+        });
+        shutdownStep("vanilla player backups", () -> {
+            if (vanillaBackups != null) {
+                vanillaBackups.backupAllOnlineNow("shutdown");
+                vanillaBackups.stop();
+            }
+        });
         shutdownStep("inventory history", () -> {
             if (invHistory != null) invHistory.stop();
+        });
+        shutdownStep("amethyst booster", () -> {
+            if (amethyst != null) amethyst.stop();
+        });
+        shutdownStep("duel matches", () -> {
+            if (duelMatches != null) duelMatches.shutdown();
+        });
+        shutdownStep("duel queue", () -> {
+            if (duelQueue != null) duelQueue.stop();
+        });
+        shutdownStep("duel npc click", () -> {
+            if (duelNpcClick != null) duelNpcClick.stop();
         });
         shutdownStep("logs", () -> {
             if (logs != null) logs.stop();
@@ -823,6 +967,7 @@ public class SMPCore extends JavaPlugin {
     public AlchemyTotemManager alchemyTotem() { return alchemyTotem; }
     public SpawnerManager spawners() { return spawners; }
     public VoidstoneManager voidstones() { return voidstones; }
+    public DragonEggManager dragonEgg() { return dragonEgg; }
     public ResourcePackManager resourcePacks() { return resourcePacks; }
     public GateManager gates() { return gates; }
     public CooldownManager cooldowns() { return cooldowns; }
@@ -834,7 +979,14 @@ public class SMPCore extends JavaPlugin {
     public SkinManager skins() { return skins; }
     public GodManager god() { return god; }
     public NoclipManager noclip() { return noclip; }
+    public FreezeManager freeze() { return freeze; }
     public BackManager back() { return back; }
+    public VanillaPlayerBackupManager vanillaBackups() { return vanillaBackups; }
+    public AmethystBoostManager amethyst() { return amethyst; }
+    public DuelArenaManager duelArenas() { return duelArenas; }
+    public DuelMatchManager duelMatches() { return duelMatches; }
+    public DuelQueueManager duelQueue() { return duelQueue; }
+    public DuelRewardManager duelRewards() { return duelRewards; }
     public DiscordBridge discordBridge() { return discordBridge; }
 
     public boolean isChatLocked() { return chatLocked; }
@@ -842,22 +994,7 @@ public class SMPCore extends JavaPlugin {
 
     private void snapshotOnlinePlayerState() {
         if (players == null) return;
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            players.loadOrCreate(player.getUniqueId(), player.getName()).setName(player.getName());
-            if (!isMainSurvival()) {
-                continue;
-            }
-            Location loc = player.getLocation();
-            if (loc.getWorld() == null) {
-                continue;
-            }
-            // NB: on ne force PAS survivalJoined=true ici. Le JoinListener le
-            // met déjà à true après un RTP réussi, et si un joueur vient de
-            // mourir sans lit on veut conserver survivalJoined=false pour que
-            // son prochain retour déclenche un RTP (géré dans DeathListener).
-            players.get(player).setLastLocation(loc.getWorld().getName(),
-                    loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
-        }
+        players.captureOnlineState();
     }
 
     private void shutdownStep(String label, Runnable step) {
