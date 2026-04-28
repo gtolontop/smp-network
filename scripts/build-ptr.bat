@@ -21,12 +21,19 @@ cd /d "%BASE_DIR%\plugins\anticheat-paper"
 call gradlew.bat shadowJar
 if errorlevel 1 goto :error
 
+echo [4/5] Building SMPLogger plugin...
+cd /d "%BASE_DIR%\plugins\smp-logger"
+call .\gradlew.bat shadowJar
+if errorlevel 1 goto :error
+
 echo Deploying jars...
 copy /Y "%BASE_DIR%\plugins\core-paper\build\libs\SMPCore-Paper-1.0.0.jar"     "%BASE_DIR%\ptr\plugins\"
 REM AntiCheat deployed to both servers: survive fait le taf anti-xray/ESP/movement,
 REM lobby ne fait que la detection client (brand + channels + freecam) pour bloquer
 REM le transfert vers survival des joueurs avec meteor/wurst/WDL/etc.
 copy /Y "%BASE_DIR%\plugins\anticheat-paper\build\libs\AntiCheat-Paper-1.0.0.jar" "%BASE_DIR%\ptr\plugins\"
+copy /Y "%BASE_DIR%\plugins\smp-logger\build\libs\SMPLogger-Paper-1.0.0.jar"   "%BASE_DIR%\ptr\plugins\"
+
 
 if not exist "%BASE_DIR%\shared-data-ptr\players" mkdir "%BASE_DIR%\shared-data-ptr\players"
 
