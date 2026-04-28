@@ -90,14 +90,14 @@ misc:
   load-permissions-yml-before-plugins: true
   max-joins-per-tick: 5
   prevent-negative-villager-demand: false
-  region-file-cache-size: 2048
+  region-file-cache-size: 4096
   send-full-pos-for-item-entities: false
   strict-advancement-dimension-check: false
   use-alternative-luck-formula: false
   use-dimension-type-for-custom-spawners: false
   xp-orb-groups-per-area: default
 net:
-  compression-level: 6
+  compression-level: 3
   maxInboundPacketSize: 2097152
 packet-limiter:
   all-packets:
@@ -116,7 +116,7 @@ packet-limiter:
       interval: 4.0
       max-packet-rate: 5.0
 player-auto-save:
-  max-per-tick: -1
+  max-per-tick: 8
   rate: 600
 proxies:
   bungee-cord:
@@ -127,7 +127,7 @@ proxies:
     online-mode: true
     secret: smp-vF7kXq2mN9pRwL4tJhBcYeAsDuZi3G8n
 scoreboards:
-  save-empty-scoreboard-teams: true
+  save-empty-scoreboard-teams: false
   track-plugin-scoreboards: false
 spam-limiter:
   incoming-packet-threshold: 300
