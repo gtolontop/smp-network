@@ -39,6 +39,10 @@ public class TpaCommand implements CommandExecutor {
             p.sendMessage(Msg.err("Cooldown: <white>" + Msg.duration(plugin.cooldowns().remaining(p, "tpa")) + "</white>"));
             return;
         }
+        if (plugin.dragonEgg() != null && plugin.dragonEgg().inventoryContainsEgg(p)) {
+            p.sendMessage(Msg.err("Tu portes l'<gradient:#a78bfa:#67e8f9>Œuf du Dragon</gradient> — pose-le avant de te téléporter."));
+            return;
+        }
         TpaManager.Type type = action.equals("here") ? TpaManager.Type.HERE : TpaManager.Type.TO;
         if (args.length == 0) {
             p.sendMessage(Msg.err("/" + (type == TpaManager.Type.HERE ? "tpahere" : "tpa") + " <joueur>"));
@@ -107,6 +111,10 @@ public class TpaCommand implements CommandExecutor {
         if (plugin.combat().isTagged(p)) {
             p.sendMessage(Msg.err("Combat en cours.")); return;
         }
+        if (plugin.dragonEgg() != null && plugin.dragonEgg().inventoryContainsEgg(p)) {
+            p.sendMessage(Msg.err("Tu portes l'<gradient:#a78bfa:#67e8f9>Œuf du Dragon</gradient> — pose-le avant de te téléporter."));
+            return;
+        }
 
         String myServer = plugin.getServerType();
         boolean crossServer = r.fromServer() != null && !r.fromServer().equalsIgnoreCase(myServer);
@@ -116,6 +124,11 @@ public class TpaCommand implements CommandExecutor {
             if (from == null) { p.sendMessage(Msg.err("Demandeur hors-ligne.")); return; }
             if (plugin.combat().isTagged(from)) {
                 p.sendMessage(Msg.err("Combat en cours.")); return;
+            }
+            if (plugin.dragonEgg() != null && plugin.dragonEgg().inventoryContainsEgg(from)) {
+                p.sendMessage(Msg.err("Le demandeur porte l'<gradient:#a78bfa:#67e8f9>Œuf du Dragon</gradient>."));
+                from.sendMessage(Msg.err("Tu portes l'<gradient:#a78bfa:#67e8f9>Œuf du Dragon</gradient> — pose-le avant."));
+                return;
             }
             Location dest = r.type() == TpaManager.Type.TO ? p.getLocation() : from.getLocation();
             if (!dest.getWorld().getWorldBorder().isInside(dest)) {
