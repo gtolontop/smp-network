@@ -365,6 +365,11 @@ public final class XrayModule {
             if (sec == null || sec.hasOnlyAir()) continue;
             int baseY = chunkMinY + (si << 4);
             if (baseY + 16 < minY || baseY > maxY) continue;
+            // Palette short-circuit: skip the entire 4096-block iteration if no
+            // hidden block is present in the section's palette. Stone-only sections
+            // cost ~10 lookups instead of ~4096. Profile showed scanAndMask burning
+            // 9-10% of the tick on ImmutableSet.contains; this kills it.
+            if (!sec.maybeHas(s -> hiddenBlocks.contains(s.getBlock()))) continue;
             for (int dy = 0; dy < 16; dy++) {
                 int wy = baseY + dy;
                 if (wy < minY || wy > maxY) continue;
