@@ -17,6 +17,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -24,9 +26,20 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
 import java.util.Map;
-import java.util.regex.Pattern;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;public class ChatListener implements Listener {
 
-public class ChatListener implements Listener {
+    private static final Pattern EVERYONE_PATTERN = Pattern.compile("@@everyone", Pattern.CASE_INSENSITIVE);
+    private static final Pattern MD_BOLD = Pattern.compile("\\*\\*(.+?)\\*\\*");
+    private static final Pattern MD_ITALIC = Pattern.compile("\\*(.+?)\\*");
+    private static final Pattern MD_UNDERLINE = Pattern.compile("__(.+?)__");
+    private static final Pattern MD_STRIKETHROUGH = Pattern.compile("~~(.+?)~~");
+
+    /** Per-player cache of (name + nick) compiled patterns. Avoids re-compiling
+     *  Pattern.compile("\\b…\\b") for every online player on every chat message —
+     *  in the old code that was O(players × 2) Pattern compilations per chat. */
+    private record MentionPattern(String name, String nick, Pattern namePat, Pattern nickPat) {}
 
     private final SMPCore plugin;
     private final MiniMessage mm = MiniMessage.miniMessage();
@@ -35,6 +48,7 @@ public class ChatListener implements Listener {
             .hexColors()
             .extractUrls()
             .build();
+    private final Map<UUID, MentionPattern> mentionCache = new ConcurrentHashMap<>();
 
     private static final Map<String, String> EMOJI = Map.ofEntries(
             Map.entry(":heart:", "❤"),
@@ -119,8 +133,7 @@ public class ChatListener implements Listener {
                 .replace("%message%", "");
         boolean isAdmin = event.getPlayer().hasPermission("smp.admin");
         Component base = mm.deserialize(format).append(addMentionHovers(messageComp, isAdmin));
-        Component hover = buildHover(name, d);
-        Component finalLine = base.hoverEvent(HoverEvent.showText(hover));
+        Component hover = buildHover(name, d, plugin);        Component finalLine = base.hoverEvent(HoverEvent.showText(hover));
 
         // Play mention sound to pinged players
         playMentionSounds(raw, event.getPlayer());
@@ -142,6 +155,9 @@ public class ChatListener implements Listener {
     }
 
     private Component renderMessage(String text, boolean colors, boolean format) {
+        if (colors && format) {
+            text = applyMarkdown(text);
+        }
         if (!colors) {
             return Component.text(text).color(net.kyori.adventure.text.format.NamedTextColor.WHITE);
         }
@@ -156,6 +172,14 @@ public class ChatListener implements Listener {
         return comp;
     }
 
+    private String applyMarkdown(String text) {
+        text = MD_BOLD.matcher(text).replaceAll("&l$1&r");
+        text = MD_ITALIC.matcher(text).replaceAll("&o$1&r");
+        text = MD_UNDERLINE.matcher(text).replaceAll("&n$1&r");
+        text = MD_STRIKETHROUGH.matcher(text).replaceAll("&m$1&r");
+        return text;
+    }
+
     private String applyEmojis(String text) {
         for (Map.Entry<String, String> e : EMOJI.entrySet()) {
             if (text.contains(e.getKey())) text = text.replace(e.getKey(), e.getValue());
@@ -166,7 +190,7 @@ public class ChatListener implements Listener {
     private Component addMentionHovers(Component message, boolean isAdmin) {
         if (isAdmin) {
             message = message.replaceText(TextReplacementConfig.builder()
-                    .match(Pattern.compile("@@everyone", Pattern.CASE_INSENSITIVE))
+                    .match(EVERYONE_PATTERN)
                     .replacement(Component.text("@everyone")
                             .color(NamedTextColor.GOLD)
                             .decoration(TextDecoration.BOLD, true))
@@ -176,16 +200,17 @@ public class ChatListener implements Listener {
             String pName = online.getName();
             PlayerData pd = plugin.players().get(online);
             String nick = (pd != null && pd.nickname() != null && !pd.nickname().isEmpty()) ? pd.nickname() : null;
-            Component hover = buildHover(pName, pd);
+            MentionPattern mp = mentionPatternFor(online.getUniqueId(), pName, nick);
+            Component hover = buildHover(pName, pd, plugin);
             message = message.replaceText(TextReplacementConfig.builder()
-                    .match(Pattern.compile("\\b" + Pattern.quote(pName) + "\\b", Pattern.CASE_INSENSITIVE))
+                    .match(mp.namePat())
                     .replacement(Component.text(pName)
                             .color(NamedTextColor.YELLOW)
                             .hoverEvent(HoverEvent.showText(hover)))
                     .build());
-            if (nick != null && !nick.equalsIgnoreCase(pName)) {
+            if (mp.nickPat() != null) {
                 message = message.replaceText(TextReplacementConfig.builder()
-                        .match(Pattern.compile("\\b" + Pattern.quote(nick) + "\\b", Pattern.CASE_INSENSITIVE))
+                        .match(mp.nickPat())
                         .replacement(Component.text(nick)
                                 .color(NamedTextColor.YELLOW)
                                 .hoverEvent(HoverEvent.showText(hover)))
@@ -195,7 +220,44 @@ public class ChatListener implements Listener {
         return message;
     }
 
-    private Component buildHover(String playerName, PlayerData d) {
+    private MentionPattern mentionPatternFor(UUID id, String name, String nick) {
+        MentionPattern cached = mentionCache.get(id);
+        if (cached != null && cached.name().equals(name)
+                && java.util.Objects.equals(cached.nick(), nick)) {
+            return cached;
+        }
+        Pattern namePat = Pattern.compile("\\b" + Pattern.quote(name) + "\\b", Pattern.CASE_INSENSITIVE);
+        Pattern nickPat = (nick != null && !nick.equalsIgnoreCase(name))
+                ? Pattern.compile("\\b" + Pattern.quote(nick) + "\\b", Pattern.CASE_INSENSITIVE)
+                : null;
+        MentionPattern fresh = new MentionPattern(name, nick, namePat, nickPat);
+        mentionCache.put(id, fresh);
+        return fresh;
+    }
+
+    /** Public hook so /nick command handlers can drop the stale pattern. */
+    public void invalidateMention(UUID id) {
+        mentionCache.remove(id);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoinCachePrime(PlayerJoinEvent e) {
+        Player p = e.getPlayer();
+        PlayerData pd = plugin.players().get(p);
+        String nick = (pd != null && pd.nickname() != null && !pd.nickname().isEmpty()) ? pd.nickname() : null;
+        mentionPatternFor(p.getUniqueId(), p.getName(), nick);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onQuitDropCache(PlayerQuitEvent e) {
+        mentionCache.remove(e.getPlayer().getUniqueId());
+    }
+
+    public static Component buildJoinHover(String playerName, PlayerData d, SMPCore plugin) {
+        return buildHover(playerName, d, plugin);
+    }
+
+    private static Component buildHover(String playerName, PlayerData d, SMPCore plugin) {
         if (d == null) return Msg.mm("<gray>" + playerName + "</gray>");
         String team = "<gray>No team</gray>";
         if (d.teamId() != null) {
@@ -210,23 +272,22 @@ public class ChatListener implements Listener {
                 + "<red>☠ Deaths</red> <white>" + d.deaths() + "</white>\n"
                 + "<yellow>⏱ Playtime</yellow> <white>" + Msg.duration(d.totalPlaytimeWithSession()) + "</white>\n"
                 + "<blue>⚑ Team</blue> " + team;
-        return mm.deserialize(body);
+        return Msg.mm(body);
     }
 
     private void playMentionSounds(String text, Player sender) {
         boolean everyonePing = sender.hasPermission("smp.admin")
-                && Pattern.compile("@@everyone", Pattern.CASE_INSENSITIVE).matcher(text).find();
+                && EVERYONE_PATTERN.matcher(text).find();
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (online.getUniqueId().equals(sender.getUniqueId())) continue;
             if (!everyonePing) {
                 PlayerData pd = plugin.players().get(online);
                 String realName = online.getName();
                 String nick = (pd != null && pd.nickname() != null && !pd.nickname().isEmpty()) ? pd.nickname() : null;
-                boolean matched = Pattern.compile("\\b" + Pattern.quote(realName) + "\\b", Pattern.CASE_INSENSITIVE)
-                        .matcher(text).find();
-                if (!matched && nick != null) {
-                    matched = Pattern.compile("\\b" + Pattern.quote(nick) + "\\b", Pattern.CASE_INSENSITIVE)
-                            .matcher(text).find();
+                MentionPattern mp = mentionPatternFor(online.getUniqueId(), realName, nick);
+                boolean matched = mp.namePat().matcher(text).find();
+                if (!matched && mp.nickPat() != null) {
+                    matched = mp.nickPat().matcher(text).find();
                 }
                 if (!matched) continue;
             }
