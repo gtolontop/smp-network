@@ -1,8 +1,10 @@
 package fr.smp.core.enchants;
 
 import fr.smp.core.SMPCore;
+import fr.smp.core.enchants.EnchantEngine.BookPayload;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
@@ -13,10 +15,13 @@ import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.event.enchantment.PrepareItemEnchantEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.HashMap;
@@ -110,10 +115,11 @@ public class CustomEnchantListener implements Listener {
                 notify(e.getEnchanter(), customFinal, customLevelFinal);
             }
             if (overcapFinal != null) {
-                // Re-render lore so the overcap shows in our styled format too.
                 EnchantEngine.renderLore(item);
+                EnchantEngine.setVanillaEnchantUnsafe(item, overcapFinal.vanilla(), overcapFinal.maxLevel());
                 notify(e.getEnchanter(), overcapFinal, overcapFinal.maxLevel());
             }
+            plugin.getSyncManager().markDirty(e.getEnchanter());
         });
     }
 
@@ -195,12 +201,15 @@ public class CustomEnchantListener implements Listener {
         if (EnchantEngine.readBook(first) != null) { book = first; target = second; }
         else if (EnchantEngine.readBook(second) != null) { book = second; target = first; }
         if (book != null) {
-            // Once we detect one of our custom books, we OWN the result: vanilla must
-            // never take over, otherwise the dummy glow enchant (Unbreaking 1) on the
-            // book would get transferred to the target item (e.g. Excavator book on a
-            // hoe would land Unbreaking 1 on the hoe).
             ItemStack merged = (target == null) ? null : EnchantEngine.mergeBookOnto(target, book);
             if (merged == null) {
+                if (target != null) {
+                    BookPayload payload = EnchantEngine.readBook(book);
+                    if (payload != null && EnchantEngine.levelOf(target, payload.enchant()) >= payload.level()) {
+                        e.setResult(null);
+                        return;
+                    }
+                }
                 e.setResult(null);
                 return;
             }
@@ -225,7 +234,13 @@ public class CustomEnchantListener implements Listener {
         collectOvercaps(first, overcaps);
         collectOvercaps(second, overcaps);
 
-        if (customs.isEmpty() && overcaps.isEmpty()) return;
+        // Vanilla → overcap promotion: when both inputs share a vanilla enchant
+        // at the same level X and an overcap exists at X+1, promote.  Covers
+        // Prot IV+IV → Prot V (vanilla anvil silently caps the result), and
+        // Prot V+V → Prot VI (Sharp V+V → VI, Eff V+V → VI, ...).
+        java.util.Map<CustomEnchant, Integer> promotions = collectPromotions(first, second);
+
+        if (customs.isEmpty() && overcaps.isEmpty() && promotions.isEmpty()) return;
 
         ItemStack base = e.getResult();
         boolean synth = (base == null || base.getType() == Material.AIR);
@@ -256,6 +271,9 @@ public class CustomEnchantListener implements Listener {
                 EnchantEngine.apply(out, en.getKey(), en.getValue());
             }
         }
+        // Apply promotions LAST so they override any preserved overcap that the
+        // promotion supersedes (e.g. Prot V → Prot VI).
+        applyPromotions(out, promotions);
         e.setResult(out);
         if (synth) {
             int cost = plugin.getConfig().getInt("customenchants.anvil.merge-cost", 4);
@@ -274,6 +292,59 @@ public class CustomEnchantListener implements Listener {
         }
     }
 
+    /**
+     * Detects vanilla → overcap promotions for two anvil inputs.  When both
+     * items carry the same vanilla enchant at the same level X with X already
+     * at (or above) the vanilla cap, and an overcap CustomEnchant exists at
+     * X+1, returns a map containing the promoted overcap.  Below the vanilla
+     * cap we leave it alone — vanilla anvil already promotes correctly.
+     */
+    private static java.util.Map<CustomEnchant, Integer> collectPromotions(ItemStack first, ItemStack second) {
+        java.util.Map<CustomEnchant, Integer> out = new java.util.LinkedHashMap<>();
+        if (first == null || second == null || !first.hasItemMeta() || !second.hasItemMeta()) return out;
+        java.util.Map<Enchantment, Integer> map1 = enchantsAny(first.getItemMeta());
+        java.util.Map<Enchantment, Integer> map2 = enchantsAny(second.getItemMeta());
+        for (var entry : map1.entrySet()) {
+            Enchantment ench = entry.getKey();
+            int lvl1 = entry.getValue();
+            Integer lvl2 = map2.get(ench);
+            if (lvl2 == null || lvl1 != lvl2) continue;
+            if (lvl1 < ench.getMaxLevel()) continue;
+            int promoted = lvl1 + 1;
+            for (CustomEnchant ce : CustomEnchant.values()) {
+                if (!ce.isOvercap()) continue;
+                if (!ce.vanilla().equals(ench)) continue;
+                if (ce.maxLevel() != promoted) continue;
+                out.put(ce, promoted);
+                break;
+            }
+        }
+        return out;
+    }
+
+    /** Returns regular enchants, or stored enchants for an enchanted book. */
+    private static java.util.Map<Enchantment, Integer> enchantsAny(ItemMeta meta) {
+        if (meta instanceof EnchantmentStorageMeta esm) return esm.getStoredEnchants();
+        return meta.getEnchants();
+    }
+
+    private static void applyPromotions(ItemStack out, java.util.Map<CustomEnchant, Integer> promotions) {
+        if (promotions.isEmpty() || out == null) return;
+        boolean isBook = out.getItemMeta() instanceof EnchantmentStorageMeta;
+        for (var p : promotions.entrySet()) {
+            CustomEnchant ce = p.getKey();
+            int level = p.getValue();
+            if (isBook) {
+                // Book result: write the overcap level via the stored-enchants
+                // data component (the EnchantmentStorageMeta API clamps through
+                // the codec in Paper 26.x, dropping overcap levels).
+                EnchantEngine.setStoredEnchantUnsafe(out, ce.vanilla(), level);
+            } else if (ce.target().matches(out.getType())) {
+                EnchantEngine.apply(out, ce, level);
+            }
+        }
+    }
+
     // ═══ Mob drops ══════════════════════════════════════════════════════
 
     @EventHandler
@@ -281,6 +352,7 @@ public class CustomEnchantListener implements Listener {
         if (!plugin.getConfig().getBoolean("customenchants.mob-drop.enabled", true)) return;
         if (!(e.getEntity() instanceof Monster)) return;
         if (e.getEntity().getKiller() == null) return;
+        if (plugin.spawners() != null && plugin.spawners().isXpMob(e.getEntity())) return;
 
         double base = plugin.getConfig().getDouble("customenchants.mob-drop.chance", 0.015);
         double roll = rng.nextDouble();
@@ -387,5 +459,29 @@ public class CustomEnchantListener implements Listener {
             return false;
         }
         return left.getAmount() == right.getAmount() && left.isSimilar(right);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onInventoryClick(InventoryClickEvent e) {
+        if (!(e.getWhoClicked() instanceof Player player)) return;
+        if (e.getInventory().getType() == InventoryType.ENCHANTING) {
+            if (e.getRawSlot() == 0) {
+                ItemStack item = e.getCurrentItem();
+                if (item != null && !EnchantEngine.customOn(item).isEmpty()) {
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> EnchantEngine.renderLore(item), 1L);
+                }
+            }
+        }
+        if (e.getInventory() instanceof AnvilInventory) {
+            if (e.getRawSlot() == 2 && e.getCurrentItem() != null) {
+                ItemStack result = e.getCurrentItem();
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    ItemStack cursor = player.getItemOnCursor();
+                    if (cursor != null && !cursor.getType().isAir()) {
+                        EnchantEngine.renderLore(cursor);
+                    }
+                }, 1L);
+            }
+        }
     }
 }
