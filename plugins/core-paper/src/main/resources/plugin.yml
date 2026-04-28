@@ -234,6 +234,9 @@ commands:
     description: "Hologrammes TextDisplay : create / remove / list / lines / addline / setline / delline / tp / here"
     aliases: [hologram, holograms, hd]
     permission: smp.admin
+  podium:
+    description: "Podium physique leaderboard : set / remove / refresh / list"
+    permission: smp.admin
   admin:
     description: "Toggle entre une poche admin (creative + fly, inv séparé) et ta poche joueur"
     aliases: [adminmode, am]
