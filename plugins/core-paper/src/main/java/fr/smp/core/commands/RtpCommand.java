@@ -26,6 +26,10 @@ public class RtpCommand implements CommandExecutor {
             p.sendMessage(Msg.err("Tu es en combat. Attends <white>" + plugin.combat().remainingSec(p) + "s</white>."));
             return true;
         }
+        if (plugin.dragonEgg() != null && plugin.dragonEgg().inventoryContainsEgg(p)) {
+            p.sendMessage(Msg.err("Tu portes l'<gradient:#a78bfa:#67e8f9>Œuf du Dragon</gradient> — pose-le avant de te téléporter."));
+            return true;
+        }
         if (args.length == 0) {
             plugin.getLogger().info("[RTP] " + p.getName() + " ouvert GUI RTP");
             new RtpGUI(plugin).open(p);
@@ -35,7 +39,7 @@ public class RtpCommand implements CommandExecutor {
             long cd = plugin.rtp().cooldownLeft(p);
             if (cd > 0) {
                 plugin.getLogger().info("[RTP] " + p.getName() + " bloqué cooldown (" + cd + "s)");
-                p.sendMessage(Msg.err("Cooldown: <white>" + Msg.duration(cd) + "</white>"));
+                p.sendMessage(Msg.err("Cooldown: <white>" + cd + "s</white>"));
                 return true;
             }
         }
