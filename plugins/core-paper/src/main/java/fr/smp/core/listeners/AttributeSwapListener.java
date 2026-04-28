@@ -10,6 +10,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -34,14 +35,17 @@ public class AttributeSwapListener implements Listener {
         ItemMeta meta = item.getItemMeta();
         if (meta == null || !meta.hasAttributeModifiers()) return;
 
-        Multimap<Attribute, AttributeModifier> modifiers = meta.getAttributeModifiers(slot);
-        if (modifiers == null || modifiers.isEmpty()) return;
+        Multimap<Attribute, AttributeModifier> all = meta.getAttributeModifiers();
+        if (all == null || all.isEmpty()) return;
 
-        for (Map.Entry<Attribute, AttributeModifier> e : modifiers.entries()) {
+        for (Map.Entry<Attribute, AttributeModifier> e : all.entries()) {
+            AttributeModifier mod = e.getValue();
+            EquipmentSlotGroup group = mod.getSlotGroup();
+            if (!group.test(slot)) continue;
             AttributeInstance inst = player.getAttribute(e.getKey());
             if (inst == null) continue;
-            inst.removeModifier(e.getValue());
-            if (add) inst.addModifier(e.getValue());
+            inst.removeModifier(mod);
+            if (add) inst.addModifier(mod);
         }
     }
 }
