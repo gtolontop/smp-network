@@ -95,7 +95,7 @@ misc:
   load-permissions-yml-before-plugins: true
   max-joins-per-tick: 5
   prevent-negative-villager-demand: false
-  region-file-cache-size: 256
+  region-file-cache-size: 1024
   send-full-pos-for-item-entities: false
   strict-advancement-dimension-check: false
   use-alternative-luck-formula: false
@@ -109,7 +109,7 @@ packet-limiter:
   kick-message: <red><lang:disconnect.exceeded_packet_rate>
   overrides: {}
 player-auto-save:
-  max-per-tick: -1
+  max-per-tick: 4
   rate: -1
 proxies:
   bungee-cord:
