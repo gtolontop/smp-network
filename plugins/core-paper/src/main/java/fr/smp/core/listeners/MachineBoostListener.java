@@ -247,9 +247,9 @@ public final class MachineBoostListener implements Listener {
         return Math.max(min, Math.min(max, value));
     }
 
-    private record BlockKey(UUID worldId, long blockKey) {
+    private record BlockKey(UUID worldId, int x, int y, int z) {
         private static BlockKey from(Block block) {
-            return new BlockKey(block.getWorld().getUID(), block.getBlockKey());
+            return new BlockKey(block.getWorld().getUID(), block.getX(), block.getY(), block.getZ());
         }
     }
 }
