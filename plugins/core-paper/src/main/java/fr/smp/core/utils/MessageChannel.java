@@ -7,6 +7,7 @@ import fr.smp.core.managers.PendingTeleportManager;
 import fr.smp.core.managers.TpaManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -18,6 +19,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -59,6 +61,9 @@ public class MessageChannel implements PluginMessageListener {
             plugin.getLogger().warning("Blocked transfer for " + player.getName()
                     + " to " + targetServer + " (reason=" + reason + ")");
             return;
+        }
+        if (plugin.dragonEgg() != null && plugin.dragonEgg().inventoryContainsEgg(player)) {
+            plugin.dragonEgg().onHolderTransfer(player);
         }
         try {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -158,6 +163,28 @@ public class MessageChannel implements PluginMessageListener {
             carrier.sendPluginMessage(plugin, CHANNEL, bytes.toByteArray());
         } catch (IOException e) {
             plugin.getLogger().warning("Failed to send here: " + e.getMessage());
+        }
+    }
+
+    /** Cross-server /bc broadcast (chat + title): proxy relays to all other backends. */
+    public void sendBroadcast(String chatRendered, String titleRendered, String subtitleRendered,
+                              int fadeIn, int stay, int fadeOut) {
+        Player carrier = carrier();
+        if (carrier == null) return;
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(bytes);
+            out.writeUTF("broadcast");
+            out.writeUTF(plugin.getServerType());
+            out.writeUTF(chatRendered);
+            out.writeUTF(titleRendered);
+            out.writeUTF(subtitleRendered);
+            out.writeInt(fadeIn);
+            out.writeInt(stay);
+            out.writeInt(fadeOut);
+            carrier.sendPluginMessage(plugin, CHANNEL, bytes.toByteArray());
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to send broadcast: " + e.getMessage());
         }
     }
 
@@ -320,6 +347,33 @@ public class MessageChannel implements PluginMessageListener {
                     Bukkit.getScheduler().runTask(plugin, () -> {
                         for (Player p : Bukkit.getOnlinePlayers()) p.sendMessage(comp);
                         Bukkit.getConsoleSender().sendMessage(comp);
+                    });
+                }
+                case "broadcast" -> {
+                    String sourceServer = in.readUTF();
+                    String chatRendered = in.readUTF();
+                    String titleRendered = in.readUTF();
+                    String subtitleRendered = in.readUTF();
+                    int fadeIn = in.readInt();
+                    int stay = in.readInt();
+                    int fadeOut = in.readInt();
+                    if (sourceServer.equals(plugin.getServerType())) return;
+                    Component chat = mm.deserialize(chatRendered);
+                    Title title = Title.title(
+                            mm.deserialize(titleRendered),
+                            mm.deserialize(subtitleRendered),
+                            Title.Times.times(
+                                    Duration.ofMillis(fadeIn * 50L),
+                                    Duration.ofMillis(stay * 50L),
+                                    Duration.ofMillis(fadeOut * 50L)
+                            )
+                    );
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        for (Player p : Bukkit.getOnlinePlayers()) {
+                            p.sendMessage(chat);
+                            p.showTitle(title);
+                        }
+                        Bukkit.getConsoleSender().sendMessage(chat);
                     });
                 }
                 case "chat-lock" -> {
