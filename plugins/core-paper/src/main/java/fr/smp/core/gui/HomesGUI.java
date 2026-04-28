@@ -17,8 +17,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Homes GUI — 6 rows. Row 1 = banner + home row, rows 2-5 = gray-glass area.
- * Under each home the gray pane becomes a red delete button when a home exists.
+ * Homes GUI — 3 rows. Row 1 = top border, row 2 = banner + home row,
+ * row 3 = delete buttons (red pane when a home exists, light-blue border otherwise).
  */
 public class HomesGUI extends GUIHolder {
 
@@ -42,16 +42,9 @@ public class HomesGUI extends GUIHolder {
     }
 
     public void open() {
-        Inventory inv = Bukkit.createInventory(this, 54,
+        Inventory inv = Bukkit.createInventory(this, 27,
                 GUIUtil.title("<gradient:#67e8f9:#a78bfa><bold>Homes</bold></gradient>"));
         GUIUtil.fillBorder(inv, Material.LIGHT_BLUE_STAINED_GLASS_PANE);
-
-        // Gray-glass filler for the 4 rows below the home row (rows 2..5).
-        for (int row = 2; row < 6; row++) {
-            for (int col = 0; col < 9; col++) {
-                inv.setItem(row * 9 + col, GUIUtil.filler(Material.GRAY_STAINED_GLASS_PANE));
-            }
-        }
 
         // Spacer slot stays empty between banner and home row.
         inv.setItem(SLOT_SPACER, null);
@@ -121,9 +114,7 @@ public class HomesGUI extends GUIHolder {
                 inv.setItem(bedSlot, GUIUtil.item(bed,
                         "<aqua><bold>Home " + slot + "</bold></aqua>",
                         "",
-                        "<green>▶ Clic gauche: Téléport</green>",
-                        "<yellow>▶ Clic droit: Redéfinir</yellow>",
-                        "<red>▶ Shift-clic: Supprimer</red>"));
+                        "<green>▶ Clic: Téléport</green>"));
             }
             inv.setItem(deleteSlot, GUIUtil.item(
                     confirming ? Material.RED_STAINED_GLASS_PANE : Material.RED_STAINED_GLASS_PANE,
