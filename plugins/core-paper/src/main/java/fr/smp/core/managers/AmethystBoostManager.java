@@ -10,6 +10,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.Waterlogged;
+import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.LinkedHashMap;
@@ -75,6 +76,7 @@ public final class AmethystBoostManager {
     private int pulseTicks;
     private int attemptsPerPulse;
     private double chance;
+    private boolean requirePlayerSimulation = true;
 
     private BukkitTask task;
 
@@ -94,6 +96,7 @@ public final class AmethystBoostManager {
         if (c.isSet("amethyst.pulse-ticks"))     this.pulseTicks = Math.max(1, c.getInt("amethyst.pulse-ticks"));
         if (c.isSet("amethyst.attempts-per-pulse")) this.attemptsPerPulse = Math.max(0, c.getInt("amethyst.attempts-per-pulse"));
         if (c.isSet("amethyst.chance"))          this.chance = clamp01(c.getDouble("amethyst.chance"));
+        if (c.isSet("amethyst.require-player-simulation")) this.requirePlayerSimulation = c.getBoolean("amethyst.require-player-simulation");
     }
 
     public void start() {
@@ -257,6 +260,7 @@ public final class AmethystBoostManager {
             World w = Bukkit.getWorld(k.world);
             if (w == null) continue;
             if (!w.isChunkLoaded(k.cx, k.cz)) continue;
+            if (requirePlayerSimulation && !hasPlayerInSimulationRange(w, k.cx, k.cz)) continue;
 
             Set<BlockPos> set = entry.getValue();
             for (BlockPos pos : set) {
@@ -273,6 +277,19 @@ public final class AmethystBoostManager {
                 }
             }
         }
+    }
+
+    private static boolean hasPlayerInSimulationRange(World world, int chunkX, int chunkZ) {
+        int simulationDistance = Math.max(1, world.getSimulationDistance());
+        for (Player player : world.getPlayers()) {
+            int playerChunkX = player.getLocation().getBlockX() >> 4;
+            int playerChunkZ = player.getLocation().getBlockZ() >> 4;
+            if (Math.abs(playerChunkX - chunkX) <= simulationDistance
+                    && Math.abs(playerChunkZ - chunkZ) <= simulationDistance) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void tryGrow(Block budding, ThreadLocalRandom rng) {
@@ -351,6 +368,7 @@ public final class AmethystBoostManager {
         m.put("pulse-ticks", String.valueOf(pulseTicks));
         m.put("attempts-per-pulse", String.valueOf(attemptsPerPulse));
         m.put("chance", String.format("%.2f", chance));
+        m.put("require-player-simulation", String.valueOf(requirePlayerSimulation));
         m.put("tracked", String.valueOf(trackedCount()));
         return m;
     }
