@@ -40,7 +40,7 @@ public class FullbrightManager implements Listener {
             return;
         }
         if (data.fullbrightEnabled()) {
-            player.addPotionEffect(FULLBRIGHT_EFFECT, true);
+            player.addPotionEffect(FULLBRIGHT_EFFECT);
             return;
         }
         clear(player);
