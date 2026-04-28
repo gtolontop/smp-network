@@ -1,7 +1,9 @@
 package fr.smp.core.holograms;
 
 import fr.smp.core.SMPCore;
+import fr.smp.core.managers.LeaderboardManager;
 import fr.smp.core.utils.Msg;
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -47,13 +49,14 @@ public class HologramCommand implements CommandExecutor, TabCompleter {
             case "lines" -> cmdLines(s, a);
             case "tp" -> cmdTp(s, a);
             case "here", "move" -> cmdHere(s, a);
+            case "leaderboard", "lb", "top" -> cmdLeaderboard(s, a);
             default -> help(s);
         }
         return true;
     }
 
     private void help(CommandSender s) {
-        s.sendMessage(Msg.info("<gold>Holograms</gold> — /holo create|remove|list|addline|insert|setline|delline|lines|tp|here"));
+        s.sendMessage(Msg.info("<gold>Holograms</gold> — /holo create|remove|list|addline|insert|setline|delline|lines|tp|here|leaderboard"));
     }
 
     private void cmdCreate(CommandSender s, String[] a) {
@@ -158,6 +161,56 @@ public class HologramCommand implements CommandExecutor, TabCompleter {
         s.sendMessage(Msg.ok("Déplacé."));
     }
 
+    private void cmdLeaderboard(CommandSender s, String[] a) {
+        if (!(s instanceof Player p)) { s.sendMessage(Msg.err("Joueur uniquement.")); return; }
+        if (a.length < 2) { s.sendMessage(Msg.err("Usage: /holo leaderboard <nom> [category] [top]")); return; }
+        String name = a[1];
+        LeaderboardManager.Category cat = LeaderboardManager.Category.MONEY;
+        int topN = 10;
+        if (a.length >= 3) {
+            LeaderboardManager.Category parsed = LeaderboardManager.Category.parse(a[2]);
+            if (parsed != null) cat = parsed;
+        }
+        if (a.length >= 4) {
+            int n = parseInt(a[3], 10);
+            if (n > 0 && n <= 20) topN = n;
+        }
+
+        LeaderboardManager.Result result = plugin.leaderboards().ranking(cat, LeaderboardManager.Scope.SOLO, null);
+        List<String> lines = new ArrayList<>();
+        lines.add("<gradient:#ffd700:#ff8a00><bold>" + cat.display() + " Top " + topN + "</bold></gradient>");
+        lines.add("<dark_gray>──────────────</dark_gray>");
+
+        int count = 0;
+        for (LeaderboardManager.Entry entry : result.entries()) {
+            if (count >= topN) break;
+            count++;
+            String medal = switch (count) {
+                case 1 -> "<gold>🥇</gold>";
+                case 2 -> "<white>🥈</white>";
+                case 3 -> "<#cd7f32>🥉</#cd7f32>";
+                default -> "<gray>" + count + ".</gray>";
+            };
+            String nameStr = entry.displayName().replaceAll("<[^>]*>", "");
+            lines.add(medal + " <white>" + nameStr + "</white> " + entry.valueDisplay());
+        }
+
+        if (result.entries().isEmpty()) {
+            lines.add("<gray>Aucune donnée.</gray>");
+        }
+
+        Hologram existing = plugin.holograms().byName(name);
+        if (existing != null) {
+            plugin.holograms().setLines(existing, lines);
+            s.sendMessage(Msg.ok("Leaderboard <white>" + name + "</white> mis à jour (" + cat.display() + ", top " + topN + ")."));
+        } else {
+            Hologram h = plugin.holograms().create(name, p.getLocation().add(0, 3.0, 0));
+            if (h == null) { s.sendMessage(Msg.err("Nom déjà utilisé.")); return; }
+            plugin.holograms().setLines(h, lines);
+            s.sendMessage(Msg.ok("Leaderboard <white>" + name + "</white> créé (" + cat.display() + ", top " + topN + ")."));
+        }
+    }
+
     private static int parseInt(String s, int fallback) {
         try { return Integer.parseInt(s); } catch (NumberFormatException e) { return fallback; }
     }
@@ -177,7 +230,7 @@ public class HologramCommand implements CommandExecutor, TabCompleter {
         List<String> out = new ArrayList<>();
         if (a.length == 1) {
             for (String sub : List.of("create", "remove", "list", "addline", "insert",
-                    "setline", "delline", "lines", "tp", "here")) {
+                    "setline", "delline", "lines", "tp", "here", "leaderboard")) {
                 if (sub.startsWith(a[0].toLowerCase())) out.add(sub);
             }
             return out;
