@@ -83,13 +83,21 @@ public class TelemetryCollector {
 
     private static int totalLoadedChunks() {
         int n = 0;
-        for (org.bukkit.World w : Bukkit.getWorlds()) n += w.getLoadedChunks().length;
+        for (org.bukkit.World w : Bukkit.getWorlds()) {
+            // Paper exposes getChunkCount() that walks the chunk holder map without
+            // allocating a Chunk[] copy — w.getLoadedChunks() does, and is wasted here.
+            try { n += w.getChunkCount(); }
+            catch (Throwable t) { n += w.getLoadedChunks().length; }
+        }
         return n;
     }
 
     private static int totalEntities() {
         int n = 0;
-        for (org.bukkit.World w : Bukkit.getWorlds()) n += w.getEntities().size();
+        for (org.bukkit.World w : Bukkit.getWorlds()) {
+            try { n += w.getEntityCount(); }
+            catch (Throwable t) { n += w.getEntities().size(); }
+        }
         return n;
     }
 
