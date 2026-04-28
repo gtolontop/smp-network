@@ -57,7 +57,7 @@ public final class VoidstoneListener implements Listener {
 
         if (action == Action.RIGHT_CLICK_BLOCK
                 && event.getClickedBlock() != null
-                && event.getClickedBlock().getType().isInteractable()
+                && isInteractableBlock(event.getClickedBlock().getType())
                 && !event.getPlayer().isSneaking()) {
             return;
         }
@@ -66,6 +66,49 @@ public final class VoidstoneListener implements Listener {
         String itemId = manager.readId(event.getItem());
         if (itemId == null) return;
         new VoidstoneGUI(plugin, itemId).open(event.getPlayer());
+    }
+
+    private static boolean isInteractableBlock(org.bukkit.Material material) {
+        return org.bukkit.Tag.DOORS.isTagged(material)
+                || org.bukkit.Tag.TRAPDOORS.isTagged(material)
+                || org.bukkit.Tag.FENCE_GATES.isTagged(material)
+                || org.bukkit.Tag.BUTTONS.isTagged(material)
+                || org.bukkit.Tag.PRESSURE_PLATES.isTagged(material)
+                || material == org.bukkit.Material.CHEST
+                || material == org.bukkit.Material.TRAPPED_CHEST
+                || material == org.bukkit.Material.ENDER_CHEST
+                || material == org.bukkit.Material.FURNACE
+                || material == org.bukkit.Material.BLAST_FURNACE
+                || material == org.bukkit.Material.SMOKER
+                || material == org.bukkit.Material.CRAFTING_TABLE
+                || material == org.bukkit.Material.ANVIL
+                || material == org.bukkit.Material.CHIPPED_ANVIL
+                || material == org.bukkit.Material.DAMAGED_ANVIL
+                || material == org.bukkit.Material.ENCHANTING_TABLE
+                || material == org.bukkit.Material.GRINDSTONE
+                || material == org.bukkit.Material.STONECUTTER
+                || material == org.bukkit.Material.LOOM
+                || material == org.bukkit.Material.CARTOGRAPHY_TABLE
+                || material == org.bukkit.Material.SMITHING_TABLE
+                || material == org.bukkit.Material.BARREL
+                || material == org.bukkit.Material.SHULKER_BOX
+                || material.name().endsWith("_SHULKER_BOX")
+                || material == org.bukkit.Material.HOPPER
+                || material == org.bukkit.Material.DISPENSER
+                || material == org.bukkit.Material.DROPPER
+                || material == org.bukkit.Material.BEACON
+                || material == org.bukkit.Material.BREWING_STAND
+                || material == org.bukkit.Material.CAULDRON
+                || material == org.bukkit.Material.WATER_CAULDRON
+                || material == org.bukkit.Material.LAVA_CAULDRON
+                || material == org.bukkit.Material.POWDER_SNOW_CAULDRON
+                || material == org.bukkit.Material.LEVER
+                || material == org.bukkit.Material.NOTE_BLOCK
+                || material == org.bukkit.Material.JUKEBOX
+                || material == org.bukkit.Material.BELL
+                || material == org.bukkit.Material.LECTERN
+                || material == org.bukkit.Material.COMPOSTER
+                || material == org.bukkit.Material.FLOWER_POT;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
