@@ -4,11 +4,15 @@ import fr.smp.core.SMPCore;
 import fr.smp.core.gui.SellGUI;
 import fr.smp.core.logging.LogCategory;
 import fr.smp.core.utils.Msg;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class SellCommand implements CommandExecutor {
 
@@ -25,6 +29,7 @@ public class SellCommand implements CommandExecutor {
                 : label.equalsIgnoreCase("sellall") ? "all" : "gui";
         double total = 0;
         int items = 0;
+        Map<Material, double[]> breakdown = new LinkedHashMap<>();
 
         switch (mode) {
             case "gui" -> {
@@ -38,6 +43,7 @@ public class SellCommand implements CommandExecutor {
                 if (v <= 0) { p.sendMessage(Msg.err("Cet item n'a pas de valeur.")); return true; }
                 total += v;
                 items += it.getAmount();
+                accumulate(breakdown, it.getType(), it.getAmount(), v);
                 p.getInventory().setItemInMainHand(null);
             }
             case "all" -> {
@@ -49,6 +55,7 @@ public class SellCommand implements CommandExecutor {
                     if (v <= 0) continue;
                     total += v;
                     items += s.getAmount();
+                    accumulate(breakdown, s.getType(), s.getAmount(), v);
                     cts[i] = null;
                 }
                 p.getInventory().setStorageContents(cts);
@@ -60,10 +67,42 @@ public class SellCommand implements CommandExecutor {
         }
 
         if (total <= 0) { p.sendMessage(Msg.err("Rien à vendre.")); return true; }
+        double before = plugin.economy().balance(p.getUniqueId());
         plugin.economy().deposit(p.getUniqueId(), total, "sell." + mode);
+        double after = plugin.economy().balance(p.getUniqueId());
+        plugin.getSyncManager().markDirty(p);
         p.sendMessage(Msg.ok("<green>Vendu <yellow>×" + items + "</yellow> pour <yellow>$" +
                 Msg.money(total) + "</yellow>.</green>"));
-        plugin.logs().log(LogCategory.SELL, p, mode + " items=" + items + " $" + total);
+        String log = formatLog(mode, items, total, before, after, breakdown);
+        plugin.logs().log(LogCategory.SELL, p, log);
+        plugin.getLogger().info("[SELL] " + p.getName() + " " + log);
         return true;
+    }
+
+    public static void accumulate(Map<Material, double[]> breakdown, Material mat, int amount, double value) {
+        double[] agg = breakdown.computeIfAbsent(mat, k -> new double[2]);
+        agg[0] += amount;
+        agg[1] += value;
+    }
+
+    public static String formatLog(String mode, int items, double total,
+                                   double balanceBefore, double balanceAfter,
+                                   Map<Material, double[]> breakdown) {
+        StringBuilder details = new StringBuilder();
+        breakdown.forEach((mat, agg) -> {
+            if (details.length() > 0) details.append(" | ");
+            int cnt = (int) agg[0];
+            double sum = agg[1];
+            double per = cnt > 0 ? sum / cnt : sum;
+            details.append(mat.name()).append(" x").append(cnt)
+                    .append(" @$").append(String.format("%.2f", per))
+                    .append("=$").append(String.format("%.2f", sum));
+        });
+        return "mode=" + mode + " items=" + items
+                + " total=$" + String.format("%.2f", total)
+                + " balance=$" + String.format("%.2f", balanceBefore)
+                + "->$" + String.format("%.2f", balanceAfter)
+                + " types=" + breakdown.size()
+                + " breakdown={" + details + "}";
     }
 }
