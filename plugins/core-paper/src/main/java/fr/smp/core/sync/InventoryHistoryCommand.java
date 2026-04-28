@@ -1,6 +1,7 @@
 package fr.smp.core.sync;
 
 import fr.smp.core.SMPCore;
+import fr.smp.core.gui.InvRollbackGUI;
 import fr.smp.core.utils.Msg;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -48,6 +49,15 @@ public class InventoryHistoryCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(Msg.err("Historique d'inventaires désactivé sur ce serveur."));
             return true;
         }
+        // /invrollback <joueur> → GUI (admin joueur uniquement)
+        if (args.length == 1 && sender instanceof Player player
+                && !List.of("list","peek","apply","snap").contains(args[0].toLowerCase(Locale.ROOT))) {
+            UUID uuid = mgr.resolveUuid(args[0]);
+            if (uuid == null) { sender.sendMessage(Msg.err("Joueur inconnu.")); return true; }
+            InvRollbackGUI.open(plugin, player, uuid, args[0]);
+            return true;
+        }
+
         if (args.length == 0) { usage(sender); return true; }
 
         String sub = args[0].toLowerCase(Locale.ROOT);
