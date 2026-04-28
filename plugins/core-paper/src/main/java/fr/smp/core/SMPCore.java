@@ -29,6 +29,8 @@ import fr.smp.core.holograms.HologramCommand;
 import fr.smp.core.holograms.HologramManager;
 import fr.smp.core.npc.NpcCommand;
 import fr.smp.core.npc.NpcManager;
+import fr.smp.core.npc.PodiumCommand;
+import fr.smp.core.npc.PodiumManager;
 import fr.smp.core.sellstick.SellStickListener;
 import fr.smp.core.sellstick.SellStickManager;
 import fr.smp.core.voidstone.VoidstoneManager;
@@ -146,6 +148,7 @@ public class SMPCore extends JavaPlugin {
     private JoinListener joinListener;
     private NpcManager npcs;
     private HologramManager holograms;
+    private PodiumManager podium;
     private DiscordBridge discordBridge;
     private CooldownManager cooldowns;
     private WorthHoverListener worthHover;
@@ -308,6 +311,8 @@ public class SMPCore extends JavaPlugin {
         npcs.start();
         holograms = new HologramManager(this, database);
         holograms.start();
+        podium = new PodiumManager(this, database);
+        podium.start();
 
         // Discord bridge — WebSocket client towards the companion bot.
         discordBridge = new DiscordBridge(this);
@@ -409,6 +414,7 @@ public class SMPCore extends JavaPlugin {
         pm.registerEvents(duelNpcClick, this);
         duelNpcClick.start();
         if (npcs != null) pm.registerEvents(npcs, this);
+        if (podium != null) pm.registerEvents(podium, this);
 
         // Custom enchants (table + anvil + mob-drop + soulbound + area-break + armor task).
         // The gameplay listeners must run on both the live survival server and PTR;
@@ -606,6 +612,12 @@ public class SMPCore extends JavaPlugin {
             NpcCommand npcCmd = new NpcCommand(this);
             getCommand("npc").setExecutor(npcCmd);
             getCommand("npc").setTabCompleter(npcCmd);
+        }
+
+        if (getCommand("podium") != null) {
+            PodiumCommand podiumCmd = new PodiumCommand(this);
+            getCommand("podium").setExecutor(podiumCmd);
+            getCommand("podium").setTabCompleter(podiumCmd);
         }
 
         if (getCommand("holo") != null) {
@@ -825,6 +837,9 @@ public class SMPCore extends JavaPlugin {
         shutdownStep("discord bridge", () -> {
             if (discordBridge != null) discordBridge.shutdown();
         });
+        shutdownStep("podium", () -> {
+            if (podium != null) podium.stop();
+        });
         shutdownStep("npcs", () -> {
             if (npcs != null) npcs.stop();
         });
@@ -975,6 +990,7 @@ public class SMPCore extends JavaPlugin {
     public JoinListener joinListener() { return joinListener; }
     public NpcManager npcs() { return npcs; }
     public HologramManager holograms() { return holograms; }
+    public PodiumManager podium() { return podium; }
     public WorthHoverListener worthHover() { return worthHover; }
     public SkinManager skins() { return skins; }
     public GodManager god() { return god; }
