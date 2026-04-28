@@ -114,7 +114,7 @@ public final class EnchantEngine {
         Map<CustomEnchant, Integer> cur = decode(pdc.get(KEY_CE, PersistentDataType.STRING));
         cur.merge(ce, level, Math::max);
         pdc.set(KEY_CE, PersistentDataType.STRING, encode(cur));
-        item.setItemMeta(meta);
+        setItemMetaPreservingOvercaps(item, meta);
         renderLore(item);
     }
 
@@ -122,8 +122,38 @@ public final class EnchantEngine {
         if (item == null || !item.hasItemMeta()) return;
         ItemMeta meta = item.getItemMeta();
         meta.getPersistentDataContainer().remove(KEY_CE);
-        item.setItemMeta(meta);
+        setItemMetaPreservingOvercaps(item, meta);
         renderLore(item);
+    }
+
+    /**
+     * Executes {@link ItemStack#setItemMeta(ItemMeta)} while preserving overcap
+     * levels stored in the {@link DataComponentTypes#ENCHANTMENTS} and
+     * {@link DataComponentTypes#STORED_ENCHANTMENTS} data components. Paper
+     * 26.x silently clamps overcap levels (Prot VI, Sharp VI, Solidité V, Eff
+     * VI, Fortune IV, ...) back to vanilla max during the meta→component sync,
+     * which corrupts items that already carry overcaps.
+     */
+    public static void setItemMetaPreservingOvercaps(ItemStack item, ItemMeta meta) {
+        if (item == null || meta == null) return;
+        Map<Enchantment, Integer> overcaps = new HashMap<>();
+        Map<Enchantment, Integer> stored = new HashMap<>();
+        ItemEnchantments enchComp = item.getData(DataComponentTypes.ENCHANTMENTS);
+        ItemEnchantments storedComp = item.getData(DataComponentTypes.STORED_ENCHANTMENTS);
+        for (CustomEnchant ce : CustomEnchant.values()) {
+            if (!ce.isOvercap()) continue;
+            if (enchComp != null) {
+                Integer lvl = enchComp.enchantments().get(ce.vanilla());
+                if (lvl != null && lvl >= ce.maxLevel()) overcaps.merge(ce.vanilla(), lvl, Math::max);
+            }
+            if (storedComp != null) {
+                Integer lvl = storedComp.enchantments().get(ce.vanilla());
+                if (lvl != null && lvl >= ce.maxLevel()) stored.merge(ce.vanilla(), lvl, Math::max);
+            }
+        }
+        item.setItemMeta(meta);
+        for (var e : overcaps.entrySet()) setVanillaEnchantUnsafe(item, e.getKey(), e.getValue());
+        for (var e : stored.entrySet()) setStoredEnchantUnsafe(item, e.getKey(), e.getValue());
     }
 
     // ═══ Books ══════════════════════════════════════════════════════════
@@ -195,6 +225,25 @@ public final class EnchantEngine {
         }
         builder.add(ench, level);
         item.setData(DataComponentTypes.ENCHANTMENTS, builder.build());
+    }
+
+    /**
+     * Same as {@link #setVanillaEnchantUnsafe} but writes {@link
+     * DataComponentTypes#STORED_ENCHANTMENTS} — used for enchanted books.
+     */
+    public static void setStoredEnchantUnsafe(ItemStack book, Enchantment ench, int level) {
+        if (book == null || ench == null || level < 1) return;
+        ItemEnchantments current = book.getData(DataComponentTypes.STORED_ENCHANTMENTS);
+        ItemEnchantments.Builder builder = ItemEnchantments.itemEnchantments();
+        if (current != null) {
+            for (var e : current.enchantments().entrySet()) {
+                if (!e.getKey().equals(ench)) {
+                    builder.add(e.getKey(), e.getValue());
+                }
+            }
+        }
+        builder.add(ench, level);
+        book.setData(DataComponentTypes.STORED_ENCHANTMENTS, builder.build());
     }
 
     // ═══ Anvil merge ════════════════════════════════════════════════════
@@ -297,10 +346,24 @@ public final class EnchantEngine {
 
     public static void renderLore(ItemStack item) {
         if (item == null || !item.hasItemMeta()) return;
+
+        // Read overcap levels from the data component — meta.getEnchants() may
+        // expose Paper-clamped values, hiding overcap badges in the lore.
+        Map<Enchantment, Integer> rawOvercaps = new HashMap<>();
+        ItemEnchantments enchComp = item.getData(DataComponentTypes.ENCHANTMENTS);
+        if (enchComp != null) {
+            for (CustomEnchant ce : CustomEnchant.values()) {
+                if (!ce.isOvercap()) continue;
+                Integer lvl = enchComp.enchantments().get(ce.vanilla());
+                if (lvl != null && lvl >= ce.maxLevel()) rawOvercaps.merge(ce.vanilla(), lvl, Math::max);
+            }
+        }
+
         ItemMeta meta = item.getItemMeta();
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         Map<CustomEnchant, Integer> customs = decode(pdc.get(KEY_CE, PersistentDataType.STRING));
-        Map<Enchantment, Integer> vanilla = meta.getEnchants();
+        Map<Enchantment, Integer> vanilla = new HashMap<>(meta.getEnchants());
+        for (var e : rawOvercaps.entrySet()) vanilla.merge(e.getKey(), e.getValue(), Math::max);
         boolean hasVisibleEnchants = !vanilla.isEmpty() || !customs.isEmpty();
         boolean needsCustomGlint = vanilla.isEmpty() && !customs.isEmpty();
 
@@ -363,7 +426,7 @@ public final class EnchantEngine {
         } else {
             meta.removeItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
-        item.setItemMeta(meta);
+        setItemMetaPreservingOvercaps(item, meta);
         if (needsCustomGlint) {
             item.setData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
         } else {
