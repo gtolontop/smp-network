@@ -58,6 +58,20 @@ public class GiveCommand implements CommandExecutor, TabCompleter {
             }
         }
 
+        if (material == Material.DRAGON_EGG && plugin.dragonEgg() != null) {
+            int purged = plugin.dragonEgg().giveNewEgg(target, "give-command-" + sender.getName());
+            plugin.getSyncManager().markDirty(target);
+            if (purged > 0) {
+                sender.sendMessage(Msg.ok("<gray>(<yellow>" + purged + "</yellow> œuf(s) parasite(s) purgé(s))</gray>"));
+            }
+            sender.sendMessage(Msg.ok("<gray>Œuf du Dragon unique donné à <aqua>" + target.getName() + "</aqua>.</gray>"));
+            if (target != sender) {
+                String senderName = sender instanceof Player p ? p.getName() : "Console";
+                target.sendMessage(Msg.ok("<gray><aqua>" + senderName + "</aqua> t'a donné l'<gradient:#a78bfa:#67e8f9>Œuf du Dragon</gradient>.</gray>"));
+            }
+            return true;
+        }
+
         int maxStack = material.getMaxStackSize();
         int remaining = amount;
         while (remaining > 0) {
@@ -65,6 +79,7 @@ public class GiveCommand implements CommandExecutor, TabCompleter {
             target.getInventory().addItem(new ItemStack(material, give));
             remaining -= give;
         }
+        plugin.getSyncManager().markDirty(target);
 
         String itemName = material.name().toLowerCase().replace('_', ' ');
         sender.sendMessage(Msg.ok("<gray>Donné <aqua>" + amount + "× " + itemName
