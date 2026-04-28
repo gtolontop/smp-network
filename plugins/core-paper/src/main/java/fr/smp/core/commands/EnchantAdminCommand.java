@@ -87,6 +87,7 @@ public class EnchantAdminCommand implements CommandExecutor, TabCompleter {
         for (ItemStack over : leftover.values()) {
             target.getWorld().dropItemNaturally(target.getLocation(), over);
         }
+        plugin.getSyncManager().markDirty(target);
         s.sendMessage(Msg.ok("Livre donné à <aqua>" + target.getName() + "</aqua> : " +
                 ce.displayName() + " " + CustomEnchant.roman(level)));
     }
@@ -112,6 +113,7 @@ public class EnchantAdminCommand implements CommandExecutor, TabCompleter {
             return;
         }
         EnchantEngine.apply(hand, ce, level);
+        plugin.getSyncManager().markDirty(p);
         p.sendMessage(Msg.ok("Appliqué " + ce.displayName() + " " + CustomEnchant.roman(level) + "."));
     }
 
@@ -121,6 +123,7 @@ public class EnchantAdminCommand implements CommandExecutor, TabCompleter {
         ItemStack hand = p.getInventory().getItemInMainHand();
         if (hand == null || hand.getType().isAir()) { s.sendMessage(Msg.err("Tiens un objet en main.")); return; }
         EnchantEngine.removeAll(hand);
+        plugin.getSyncManager().markDirty(p);
         p.sendMessage(Msg.ok("Enchants customs retirés."));
     }
 
