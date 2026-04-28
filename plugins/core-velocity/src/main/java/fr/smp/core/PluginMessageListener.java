@@ -72,6 +72,26 @@ public class PluginMessageListener {
                     });
                     relayToOtherBackends(sourceServer, out);
                 }
+                case "broadcast" -> {
+                    String sourceServer = in.readUTF();
+                    String chatRendered = in.readUTF();
+                    String titleRendered = in.readUTF();
+                    String subtitleRendered = in.readUTF();
+                    int fadeIn = in.readInt();
+                    int stay = in.readInt();
+                    int fadeOut = in.readInt();
+                    byte[] out = encode(w -> {
+                        w.writeUTF("broadcast");
+                        w.writeUTF(sourceServer);
+                        w.writeUTF(chatRendered);
+                        w.writeUTF(titleRendered);
+                        w.writeUTF(subtitleRendered);
+                        w.writeInt(fadeIn);
+                        w.writeInt(stay);
+                        w.writeInt(fadeOut);
+                    });
+                    relayToOtherBackends(sourceServer, out);
+                }
                 case "chat-lock" -> {
                     String sourceServer = in.readUTF();
                     boolean locked = in.readBoolean();
