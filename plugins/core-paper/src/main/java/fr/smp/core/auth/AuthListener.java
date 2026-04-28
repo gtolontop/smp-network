@@ -120,6 +120,11 @@ public final class AuthListener implements Listener {
 
         auth.loadAsync(nameLower, account -> {
             if (!p.isOnline()) return;
+            // Cross-backend session relay (auth-validated from proxy) may have
+            // completed while this DB load was in flight. If so, the player is
+            // already authenticated and we must not run the cracked /login flow
+            // (which would call markAwaiting and re-freeze them).
+            if (auth.isAuthenticated(p)) return;
 
             // Premium connection — Mojang has authenticated them at the proxy.
             if (premium) {
