@@ -133,8 +133,15 @@ public class AuctionGUI extends GUIHolder {
 
         p.sendMessage(Msg.ok("<green>Acheté pour $" + Msg.money(l.price()) + ".</green>"));
         Player seller = Bukkit.getPlayer(l.seller());
-        String itemName = l.item().hasItemMeta() && l.item().getItemMeta().hasDisplayName()
-                ? l.item().getItemMeta().getDisplayName() : l.item().getType().name();
+        String itemName;
+        if (l.item().hasItemMeta() && l.item().getItemMeta().hasDisplayName()) {
+            net.kyori.adventure.text.Component comp = l.item().getItemMeta().displayName();
+            itemName = comp != null
+                    ? net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(comp)
+                    : l.item().getType().name();
+        } else {
+            itemName = l.item().getType().name();
+        }
         if (seller != null) {
             seller.sendMessage(Msg.info("<green>Ton item <white>" + itemName
                     + "</white> a été vendu pour <yellow>$" + Msg.money(l.price())
@@ -143,6 +150,7 @@ public class AuctionGUI extends GUIHolder {
             plugin.auction().saveSoldNotification(l.seller(), p.getName(), l.price(), itemName);
         }
         plugin.logs().log(LogCategory.AUCTION, p, "buy id=" + id + " price=" + l.price());
+        plugin.getLogger().info("[AH] " + p.getName() + " a acheté id=" + id + " " + l.item().getType() + " x" + l.item().getAmount() + " pour $" + Msg.money(l.price()) + " de " + l.sellerName());
         open(p, page);
     }
 
@@ -193,6 +201,7 @@ public class AuctionGUI extends GUIHolder {
         overflow.values().forEach(i -> p.getWorld().dropItemNaturally(p.getLocation(), i));
         p.sendMessage(Msg.ok("<green>Annonce retirée.</green>"));
         plugin.logs().log(LogCategory.AUCTION, p, "cancel id=" + id);
+        plugin.getLogger().info("[AH] " + p.getName() + " a retiré son annonce #" + id);
         openMine(p);
     }
 }
