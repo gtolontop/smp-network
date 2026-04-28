@@ -177,6 +177,10 @@ commands:
     description: "Administer voidstones (give/materials)"
     aliases: [vstone]
     permission: smp.admin
+  dragonegg:
+    description: "Œuf du Dragon — give / tracker / respawn / setspawn / status / destroy / tp"
+    aliases: [degg, oeufdragon]
+    permission: smp.admin
   ce:
     description: "Custom enchants admin — list, book, apply, clear"
     aliases: [customench, customenchant]
@@ -203,6 +207,13 @@ commands:
     description: "Portcullis / animated gates — create, list, delete, force open/close"
     aliases: [gates, portcullis]
     permission: smp.admin
+  duelarena:
+    description: "Création / gestion des arènes de duel (admin)"
+    aliases: [duela, da]
+    permission: smp.admin
+  duel:
+    description: "Système de duel : queue / leave / spectate / stats"
+    aliases: [duels, 1v1]
   login:
     description: "Authentifie-toi avec ton mot de passe"
     aliases: [l, log]
@@ -234,6 +245,10 @@ commands:
   noclip:
     description: "Toggle noclip (passe à travers les blocs)"
     aliases: [nc]
+    permission: smp.admin
+  freeze:
+    description: "Geler un joueur en place (empêche mouvement et interaction)"
+    aliases: [gel]
     permission: smp.admin
   heal:
     description: "Soigne complètement un joueur (vie + faim + effets)"
@@ -290,14 +305,24 @@ commands:
     aliases: [nickname]
   link:
     description: "Lier ton compte Discord à Minecraft"
-    aliases: [discordlink]
+  discord:
+    description: "Affiche le lien Discord du serveur"
+  discordconfig:
+    description: "Configurer le lien Discord affiché par /discord"
+    permission: smp.admin
   bc:
-    description: "Broadcast un message ou lance un countdown de redémarrage"
-    aliases: [broadcast, announce]
+    description: "Broadcast un message (cross-server avec title) ou lance un countdown de redémarrage"
+    aliases: [broadcast, announce, say]
     permission: smp.admin
   back:
     description: "Téléporte à la dernière mort (/back ou /back <joueur>)"
     permission: smp.admin
+  help:
+    description: "Affiche l'aide du serveur"
+    aliases: [aide, ?]
+  tuto:
+    description: "Tutoriels interactifs sur les fonctionnalités du serveur"
+    aliases: [tutorial, guide]
 
 permissions:
   smp.admin:
