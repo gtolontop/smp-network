@@ -24,6 +24,10 @@ public class SpawnCommand implements CommandExecutor {
                     plugin.combat().remainingSec(p) + "s</white>."));
             return true;
         }
+        if (plugin.dragonEgg() != null && plugin.dragonEgg().inventoryContainsEgg(p)) {
+            p.sendMessage(Msg.err("Tu portes l'<gradient:#a78bfa:#67e8f9>Œuf du Dragon</gradient> — pose-le avant de te téléporter."));
+            return true;
+        }
         if (plugin.isLobby()) {
             Location l = plugin.spawns().hub();
             if (l == null) {
