@@ -80,29 +80,22 @@ public class LinkCommand implements CommandExecutor {
         pkt.addProperty("name", p.getName());
         client.send(pkt);
 
-        // Timeout.
-        CompletableFuture<LinkResult> timeout = CompletableFuture
-                .<LinkResult>failedFuture(new InterruptedException("timeout"))
-                .orTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
-                .exceptionally(e -> new LinkResult(false, "", "Temps écoulé — réessaie /link " + code));
+        future.completeOnTimeout(
+                new LinkResult(false, "", "Temps écoulé — réessaie /link " + code),
+                TIMEOUT_SEC, TimeUnit.SECONDS);
 
-        CompletableFuture.anyOf(future, timeout).join();
-
-        pending.remove(uuid);
-
-        LinkResult result;
-        if (future.isDone() && !future.isCompletedExceptionally()) {
-            result = future.join();
-        } else {
-            result = new LinkResult(false, "", "Temps écoulé — réessaie /link " + code);
-        }
-
-        if (result.ok()) {
-            p.sendMessage(Msg.ok("Compte lié à Discord : <aqua>" + result.discordTag() + "</aqua>"));
-        } else {
-            p.sendMessage(Msg.err(result.error() != null && !result.error().isBlank()
-                    ? result.error() : "Code invalide ou expiré."));
-        }
+        future.whenComplete((result, ex) -> Bukkit.getScheduler().runTask(plugin, () -> {
+            pending.remove(uuid);
+            if (!p.isOnline()) return;
+            LinkResult r = result != null ? result
+                    : new LinkResult(false, "", "Erreur interne lors du link.");
+            if (r.ok()) {
+                p.sendMessage(Msg.ok("Compte lié à Discord : <aqua>" + r.discordTag() + "</aqua>"));
+            } else {
+                p.sendMessage(Msg.err(r.error() != null && !r.error().isBlank()
+                        ? r.error() : "Code invalide ou expiré."));
+            }
+        }));
 
         return true;
     }
