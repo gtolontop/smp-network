@@ -66,8 +66,10 @@ force-key-authentication = true
 	failover-on-unexpected-server-disconnect = true
 	# Enable Velocity's built-in query protocol
 	enable-player-address-logging = true
-	# Level of compression (0 = none, 9 = max). -1 uses Java default.
-	compression-level = -1
+	# Level of compression (0 = none, 9 = max). -1 uses Java default (~6).
+	# 3 trades a few % size for ~30% less CPU — net win since the client link
+	# is typically fast enough that the bytes saved aren't worth the cycles.
+	compression-level = 3
 	# Size of the compression threshold (bytes). -1 disables compression.
 	compression-threshold = 256
 	# Timeout (ms) for a player to complete the login process.
