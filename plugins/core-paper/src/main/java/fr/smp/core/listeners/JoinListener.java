@@ -28,7 +28,6 @@ public class JoinListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         Player p = event.getPlayer();
-        event.joinMessage(null);
 
         PlayerData data = plugin.players().loadOrCreate(p.getUniqueId(), p.getName());
         plugin.logs().log(LogCategory.JOIN, p, "join (new=" +
@@ -36,13 +35,16 @@ public class JoinListener implements Listener {
 
         if (plugin.permissions() != null) plugin.permissions().apply(p);
 
-        // If auth is loaded and the player is not yet authenticated, defer
-        // teleport / world placement until /login or /register completes —
-        // otherwise an unauthenticated cracker would be RTP'd to a real
-        // player's coordinates while frozen.
+        if (plugin.vanish() != null && plugin.vanish().isVanished(p)) {
+            event.joinMessage(null);
+            if (plugin.auth() != null && !plugin.auth().isAuthenticated(p)) return;
+            runJoinSetup(p, data);
+            return;
+        }
+
+        event.joinMessage(null); // annonce gérée côté Velocity ("a rejoint le réseau")
+
         if (plugin.auth() != null && !plugin.auth().isAuthenticated(p)) {
-            // Scoreboard / tab / nametags also wait for auth — the player
-            // is invisible/blind anyway.
             return;
         }
         runJoinSetup(p, data);
