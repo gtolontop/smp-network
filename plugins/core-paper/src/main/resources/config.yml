@@ -5,12 +5,16 @@
 # Server type: "lobby" or "survival"
 server-type: "lobby"
 
+# Discord public invite shown by /discord (changeable in-game via /discordconfig <lien>)
+discord:
+  invite-link: "https://discord.gg/jpG3pu4nFZ"
+
 # Discord bridge — WebSocket client to the companion Discord bot.
 # Must match the bot's BRIDGE_TOKEN; url points at BRIDGE_HOST:BRIDGE_PORT.
 discord-bridge:
-  enabled: false
+  enabled: true
   url: "ws://127.0.0.1:8787"
-  token: ""
+  token: "adbdaece1b667418b897c23755027d9b37080f57ac6a17bde9989c7b5775f48d"
   # origin defaults to server-type if omitted. Override for multi-instance setups.
   # origin: "survival"
   telemetry-interval-ticks: 40
@@ -90,20 +94,20 @@ chat:
 # Spawn (survival)
 spawn:
   world: "world"
-  x: 0.5
-  y: 100.0
-  z: 0.5
-  yaw: 0.0
-  pitch: 0.0
+  x: -23.491932098001076
+  y: -52.0
+  z: 48.6257834695584
+  yaw: -3.9000308513641357
+  pitch: 90.0
 
 # Hub spawn (lobby)
 hub-spawn:
   world: "world"
-  x: 0.5
-  y: 100.0
-  z: 0.5
-  yaw: 0.0
-  pitch: 0.0
+  x: -23.491932098001076
+  y: -52.0
+  z: 48.6257834695584
+  yaw: -3.9000308513641357
+  pitch: 90.0
 
 # Cross-server player data sync (inventory, enderchest, xp, food, effects)
 sync:
@@ -117,8 +121,8 @@ sync:
   # Only active on non-lobby servers. Stored in the shared SQLite (inv_snapshots).
   history:
     enabled: true
-    interval-minutes: 1       # auto-snapshot cadence for every online player
-    keep-per-player: 50       # retention cap; older snapshots are pruned
+    interval-minutes: 5       # auto-snapshot cadence for every online player
+    keep-per-player: 2016     # retention cap — 2016 × 5min = 7 jours de couverture
 
 # Durable DB state for money, saphirs, playtime and last survival location.
 player-data:
@@ -163,7 +167,7 @@ worldborder:
     size: 5000
     center: { x: 0.0, z: 0.0 }
   world_the_end:
-    size: 10000
+    size: 5000
     center: { x: 0.0, z: 0.0 }
 
 # ------ Combat tag ------
@@ -236,9 +240,23 @@ economy:
 
 # ------ Auction House ------
 auction:
-  ttl-hours: 172
-  max-per-player: 50
+  ttl-hours: 720
+  max-per-player: 500
   fee-percent: 5.0
+
+# ------ Œuf du Dragon ------
+# Artefact unique : tracé partout, particules + faisceau, effets balise au porteur
+# et à sa team, 2.5 ❤ d'absorption, refus du stockage en coffre, drop forcé au sol
+# si le porteur quitte le serveur, et respawn auto à l'autel après destruction.
+dragonegg:
+  respawn-seconds: 90
+  reclaim-seconds: 3600
+  place-cooldown-seconds: 60
+  respawn:
+    world: "world_the_end"
+    x: 0.5
+    y: 67.0
+    z: 0.5
 
 # ------ Bounty ------
 bounty:
