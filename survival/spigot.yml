@@ -86,20 +86,21 @@ world-settings:
     verbose: false
     # --- Mob Spawning ---
     # How many chunks from the player mobs can spawn (vanilla = 8)
-    mob-spawn-range: 6
+    mob-spawn-range: 4
     
     # --- Entity Activation Ranges ---
     # Entities outside these ranges (in blocks) tick less aggressively
+    # Tightened 2026-04-28 to fight 40% entity-tick cost at peak hours.
     entity-activation-range:
       villagers-active-for-panic: true
-      tick-inactive-villagers: true
-      animals: 24
-      monsters: 32
-      raiders: 48
-      misc: 12
-      water: 16
-      villagers: 24
-      flying-monsters: 48
+      tick-inactive-villagers: false
+      animals: 16
+      monsters: 24
+      raiders: 32
+      misc: 8
+      water: 12
+      villagers: 16
+      flying-monsters: 32
       villagers-work-immunity-after: 100
       villagers-work-immunity-for: 20
       ignore-spectators: false
@@ -120,18 +121,18 @@ world-settings:
     # --- Entity Tracking Ranges ---
     # How far (in blocks) clients receive entity updates; lower = less network & CPU
     entity-tracking-range:
-      players: 96
-      animals: 48
-      monsters: 48
-      misc: 32
-      display: 128
-      other: 64
+      players: 64
+      animals: 32
+      monsters: 32
+      misc: 16
+      display: 96
+      other: 48
     
     # --- Item & XP Merging ---
     # Merge dropped items/XP within this radius to reduce entity count
     merge-radius:
-      item: 3.5
-      exp: 6.0
+      item: 4.5
+      exp: 8.0
     
     # --- Hopper Optimizations ---
     hopper-amount: 64
