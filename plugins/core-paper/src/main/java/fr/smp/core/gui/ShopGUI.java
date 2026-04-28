@@ -281,10 +281,13 @@ public class ShopGUI extends GUIHolder {
             if (data.shards() < cost) { p.sendMessage(Msg.err("Saphirs insuffisants.")); return; }
             data.addShards(-cost);
             giveItems(p, item, totalItems);
+            plugin.players().save(data);
+            plugin.getSyncManager().markDirty(p);
             p.sendMessage(Msg.ok("<green>Acheté ×" + totalItems + " " + displayName(item)
                     + " pour <aqua>" + formatAmount(cost) + " saphirs</aqua>.</green>"));
             plugin.logs().log(fr.smp.core.logging.LogCategory.SHOP, p,
                     "buy " + item.id() + " x" + qty + " " + formatAmount(cost) + " shards");
+            plugin.getLogger().info("[SHOP] " + p.getName() + " a acheté " + item.id() + " x" + totalItems + " pour " + formatAmount(cost) + " saphirs");
             return;
         }
 
@@ -292,10 +295,12 @@ public class ShopGUI extends GUIHolder {
         if (!plugin.economy().has(p.getUniqueId(), cost)) { p.sendMessage(Msg.err("Fonds insuffisants.")); return; }
         plugin.economy().withdraw(p.getUniqueId(), cost, "shop.buy " + item.material());
         giveItems(p, item, totalItems);
+        plugin.getSyncManager().markDirty(p);
         p.sendMessage(Msg.ok("<green>Acheté ×" + totalItems + " " + displayName(item)
                 + " pour $" + Msg.money(cost) + ".</green>"));
         plugin.logs().log(fr.smp.core.logging.LogCategory.SHOP, p,
                 "buy " + item.id() + " x" + qty + " $" + cost);
+        plugin.getLogger().info("[SHOP] " + p.getName() + " a acheté " + item.id() + " x" + totalItems + " pour $" + Msg.money(cost));
     }
 
     private void doSell(Player p, ShopManager.ShopItem item, int qty) {
@@ -309,10 +314,12 @@ public class ShopGUI extends GUIHolder {
         }
         double earn = item.sellPrice() * qty;
         plugin.economy().deposit(p.getUniqueId(), earn, "shop.sell " + item.material());
+        plugin.getSyncManager().markDirty(p);
         p.sendMessage(Msg.ok("<green>Vendu ×" + need + " " + displayName(item)
                 + " pour $" + Msg.money(earn) + ".</green>"));
         plugin.logs().log(fr.smp.core.logging.LogCategory.SHOP, p,
                 "sell " + item.material() + " x" + need + " $" + earn);
+        plugin.getLogger().info("[SHOP] " + p.getName() + " a vendu " + item.material() + " x" + need + " pour $" + Msg.money(earn));
     }
 
     private void giveItems(Player p, ShopManager.ShopItem item, int totalItems) {
