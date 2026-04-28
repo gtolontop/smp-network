@@ -21,6 +21,11 @@ public class BroadcastCommand implements CommandExecutor, TabCompleter {
     private static final MiniMessage MM = MiniMessage.miniMessage();
     private static final int[] ANNOUNCE_AT = {300, 120, 60, 30, 20, 10, 5, 4, 3, 2, 1};
 
+    private static final String BC_TITLE = "<gold><bold>📢 ANNONCE</bold></gold>";
+    private static final int BC_FADE_IN = 10;
+    private static final int BC_STAY = 80;
+    private static final int BC_FADE_OUT = 20;
+
     private final SMPCore plugin;
     private BukkitTask countdownTask;
     private int countdownSeconds;
@@ -67,8 +72,8 @@ public class BroadcastCommand implements CommandExecutor, TabCompleter {
             }
             default -> {
                 String msg = String.join(" ", args);
-                broadcastChat(MM.deserialize(Msg.PREFIX + msg));
-                sender.sendMessage(Msg.ok("Diffusé."));
+                broadcastNetwork(Msg.PREFIX + msg, BC_TITLE, msg, BC_FADE_IN, BC_STAY, BC_FADE_OUT);
+                sender.sendMessage(Msg.ok("Diffusé sur tout le réseau."));
             }
         }
         return true;
@@ -114,6 +119,17 @@ public class BroadcastCommand implements CommandExecutor, TabCompleter {
     private void broadcastChat(Component msg) {
         Bukkit.getOnlinePlayers().forEach(p -> p.sendMessage(msg));
         Bukkit.getConsoleSender().sendMessage(msg);
+    }
+
+    /** Diffuse chat + title localement ET sur tous les autres backends via Velocity. */
+    private void broadcastNetwork(String chatRendered, String titleRendered, String subtitleRendered,
+                                  int fadeIn, int stay, int fadeOut) {
+        Component chat = MM.deserialize(chatRendered);
+        broadcastChat(chat);
+        broadcastTitle(titleRendered, subtitleRendered, fadeIn, stay, fadeOut);
+        if (plugin.getMessageChannel() != null) {
+            plugin.getMessageChannel().sendBroadcast(chatRendered, titleRendered, subtitleRendered, fadeIn, stay, fadeOut);
+        }
     }
 
     private void broadcastTitle(String title, String subtitle, int fadeIn, int stay, int fadeOut) {
