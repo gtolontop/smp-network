@@ -2,6 +2,7 @@ package fr.smp.core.commands;
 
 import fr.smp.core.SMPCore;
 import fr.smp.core.data.PlayerData;
+import fr.smp.core.gui.AdminStatGUI;
 import fr.smp.core.managers.ModerationManager;
 import fr.smp.core.storage.Database;
 import fr.smp.core.utils.Msg;
@@ -50,6 +51,11 @@ public class InfoAdminCommand implements CommandExecutor, TabCompleter {
         UUID targetUuid = plugin.players().resolveUuid(args[0]);
         if (targetUuid == null) {
             sender.sendMessage(Msg.err("Joueur inconnu."));
+            return true;
+        }
+
+        if (sender instanceof Player viewer) {
+            new AdminStatGUI(plugin).open(viewer, targetUuid);
             return true;
         }
 
