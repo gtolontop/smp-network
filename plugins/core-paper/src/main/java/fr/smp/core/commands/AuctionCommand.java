@@ -21,7 +21,9 @@ public class AuctionCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player p)) { sender.sendMessage("Joueurs uniquement."); return true; }
-        if (args.length == 0) { new AuctionGUI(plugin).open(p, 0); return true; }
+        if (args.length == 0) {
+            plugin.getLogger().info("[AH] " + p.getName() + " a ouvert l'AH page 0");
+            new AuctionGUI(plugin).open(p, 0); return true; }
         String sub = args[0].toLowerCase();
         switch (sub) {
             case "sell" -> {
@@ -42,7 +44,8 @@ public class AuctionCommand implements CommandExecutor {
                 if (id < 0) { p.sendMessage(Msg.err("Échec.")); return true; }
                 p.getInventory().setItemInMainHand(null);
                 p.sendMessage(Msg.ok("<green>Annonce #" + id + " créée pour <yellow>$" + Msg.money(price) + "</yellow>.</green>"));
-                plugin.logs().log(LogCategory.AUCTION, p, "sell id=" + id + " price=" + price);
+                plugin.logs().log(LogCategory.AUCTION, p, "sell id=" + id + " price=" + price + " item=" + hand.getType() + " x" + hand.getAmount());
+                plugin.getLogger().info("[AH] " + p.getName() + " a listé " + hand.getType() + " x" + hand.getAmount() + " pour $" + Msg.money(price) + " (id=" + id + ")");
             }
             case "cancel" -> {
                 if (args.length < 2) { p.sendMessage(Msg.err("/ah cancel <id>")); return true; }
@@ -58,6 +61,7 @@ public class AuctionCommand implements CommandExecutor {
                 var overflow = p.getInventory().addItem(l.item().clone());
                 overflow.values().forEach(i -> p.getWorld().dropItemNaturally(p.getLocation(), i));
                 p.sendMessage(Msg.ok("<red>Annonce retirée.</red>"));
+                plugin.getLogger().info("[AH] " + p.getName() + " a annulé l'annonce #" + id);
             }
             default -> new AuctionGUI(plugin).open(p, 0);
         }
