@@ -50,7 +50,8 @@ public class PlaytimeManager {
         if (last < 0) {
             d.setShardsLastMcMin(totalMin);
         } else if (totalMin > last) {
-            d.addShards((totalMin - last) * shardsPerMin);
+            long multiplier = (plugin.dragonEgg() != null && plugin.dragonEgg().inventoryContainsEgg(p)) ? 2L : 1L;
+            d.addShards((totalMin - last) * shardsPerMin * multiplier);
             d.setShardsLastMcMin(totalMin);
         }
     }
