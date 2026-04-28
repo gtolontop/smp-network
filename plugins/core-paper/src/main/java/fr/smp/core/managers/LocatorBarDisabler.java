@@ -46,7 +46,9 @@ public final class LocatorBarDisabler {
         }
 
         if (boolRule != null) {
-            for (World w : Bukkit.getWorlds()) w.setGameRule(boolRule, false);
+            @SuppressWarnings("removal")
+            GameRule<Boolean> _br = boolRule;
+            for (World w : Bukkit.getWorlds()) w.setGameRule(_br, false);
             plugin.getLogger().info("Locator bar gamerule disabled: " + boolRule.getKey().getKey());
             return;
         }
