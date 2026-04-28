@@ -71,6 +71,7 @@ public enum CustomEnchant {
             boolean shov  = n.endsWith("_SHOVEL");
             boolean hoe   = n.endsWith("_HOE");
             boolean sword = n.endsWith("_SWORD");
+            boolean mace  = m == Material.MACE;
             boolean tool  = pick || axe || shov || hoe;
             boolean helm  = n.endsWith("_HELMET") || m == Material.TURTLE_HELMET;
             boolean chest = n.endsWith("_CHESTPLATE");
@@ -84,10 +85,10 @@ public enum CustomEnchant {
                 case SHOVEL -> shov;
                 case HOE -> hoe;
                 case DIG_TOOLS -> tool;
-                case MELEE -> sword || axe;
+                case MELEE -> sword || axe || mace;
                 case ARMOR -> armor || elytra;
                 case CHEST_SLOT -> chest || elytra;
-                case BREAKABLE -> tool || sword || armor || elytra || m == Material.BOW || m == Material.CROSSBOW || m == Material.TRIDENT || m == Material.SHIELD;
+                case BREAKABLE -> tool || sword || mace || armor || elytra || m == Material.BOW || m == Material.CROSSBOW || m == Material.TRIDENT || m == Material.SHIELD;
             };
         }
     }
