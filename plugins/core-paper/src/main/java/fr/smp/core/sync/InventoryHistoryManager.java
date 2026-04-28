@@ -13,6 +13,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -21,6 +25,8 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * Keeps a rolling history of per-player state snapshots so an admin can
@@ -132,6 +138,7 @@ public class InventoryHistoryManager implements Listener {
 
     private boolean insert(UUID uuid, String name, String source, String server, String yaml) {
         long now = System.currentTimeMillis();
+        byte[] compressed = compress(yaml);
         try (Connection c = db.get();
              PreparedStatement ps = c.prepareStatement(
                      "INSERT INTO inv_snapshots(uuid, name, source, server, created_at, yaml) VALUES(?,?,?,?,?,?)",
@@ -141,7 +148,8 @@ public class InventoryHistoryManager implements Listener {
             ps.setString(3, source);
             ps.setString(4, server);
             ps.setLong(5, now);
-            ps.setString(6, yaml);
+            if (compressed != null) ps.setBytes(6, compressed);
+            else                    ps.setString(6, yaml);
             ps.executeUpdate();
         } catch (SQLException e) {
             plugin.getLogger().warning("invhistory.insert " + name + ": " + e.getMessage());
@@ -149,6 +157,25 @@ public class InventoryHistoryManager implements Listener {
         }
         prune(uuid);
         return true;
+    }
+
+    private static byte[] compress(String text) {
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
+             GZIPOutputStream gz = new GZIPOutputStream(bos)) {
+            gz.write(text.getBytes(StandardCharsets.UTF_8));
+            gz.finish();
+            return bos.toByteArray();
+        } catch (IOException e) {
+            return null; // fallback: store plain text
+        }
+    }
+
+    private static String decompress(byte[] data) {
+        try (GZIPInputStream gz = new GZIPInputStream(new ByteArrayInputStream(data))) {
+            return new String(gz.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     private void prune(UUID uuid) {
@@ -201,7 +228,15 @@ public class InventoryHistoryManager implements Listener {
             ps.setLong(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return null;
-                text = rs.getString(1);
+                // Nouveaux snapshots : BLOB GZIP. Anciens : TEXT plain.
+                byte[] blob = rs.getBytes(1);
+                if (blob == null) return null;
+                // Détection GZIP : magic bytes 0x1F 0x8B
+                if (blob.length >= 2 && blob[0] == (byte) 0x1F && blob[1] == (byte) 0x8B) {
+                    text = decompress(blob);
+                } else {
+                    text = new String(blob, StandardCharsets.UTF_8);
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().warning("invhistory.load " + id + ": " + e.getMessage());
