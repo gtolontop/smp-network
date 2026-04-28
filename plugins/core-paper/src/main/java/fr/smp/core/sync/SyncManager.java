@@ -84,6 +84,11 @@ public class SyncManager {
 
     public void markDirty(Player player) {
         if (!enabled || !autosaveEnabled || player.hasPermission("smp.sync.bypass")) return;
+        // Quand un staff a son hotbar swappé (vanish), on n'écrit JAMAIS la
+        // hotbar de service dans le sync cross-serveur — sinon le vrai stuff
+        // serait écrasé. Le vrai hotbar est restauré au prochain join via le
+        // snapshot YAML local de VanishManager.
+        if (plugin.vanish() != null && plugin.vanish().shouldSkipSync(player)) return;
         UUID uuid = player.getUniqueId();
         if (pendingDirtySaves.containsKey(uuid)) return;
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -157,6 +162,7 @@ public class SyncManager {
     public void save(Player player) {
         if (!enabled) return;
         if (player.hasPermission("smp.sync.bypass")) return;
+        if (plugin.vanish() != null && plugin.vanish().shouldSkipSync(player)) return;
 
         YamlConfiguration yaml = captureYaml(player);
 
