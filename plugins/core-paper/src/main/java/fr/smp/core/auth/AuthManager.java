@@ -15,6 +15,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,6 +50,8 @@ public final class AuthManager {
     private final SMPCore plugin;
     private final Database db;
     private final Map<UUID, AuthSession> sessions = new ConcurrentHashMap<>();
+    /** UUIDs that the proxy reported as auth-validated before our PlayerJoinEvent ran. */
+    private final Set<UUID> pendingProxyAuth = ConcurrentHashMap.newKeySet();
     private BukkitTask reminderTask;
     private BukkitTask timeoutTask;
 
@@ -77,6 +80,16 @@ public final class AuthManager {
     public AuthSession beginSession(Player player, boolean premium) {
         AuthSession s = new AuthSession(premium, System.currentTimeMillis(), player.getLocation().clone());
         sessions.put(player.getUniqueId(), s);
+        // If the proxy already told us this player is auth'd (transfer between
+        // backends) but the message arrived before PlayerJoinEvent fired, run
+        // the auto-auth now that the session exists.
+        if (pendingProxyAuth.remove(player.getUniqueId())) {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (player.isOnline() && !isAuthenticated(player)) {
+                    markAuthenticatedFromProxy(player);
+                }
+            });
+        }
         return s;
     }
 
@@ -95,6 +108,7 @@ public final class AuthManager {
 
     public void endSession(UUID id) {
         sessions.remove(id);
+        pendingProxyAuth.remove(id);
     }
 
     public void markAuthenticated(Player player, AuthAccount account) {
@@ -134,6 +148,12 @@ public final class AuthManager {
      * Loads the account from DB and runs the full auth + join flow.
      */
     public void markAuthenticatedFromProxy(Player player) {
+        // Session may not exist yet if the plugin message arrived before our
+        // PlayerJoinEvent fired. Buffer the UUID so beginSession() can replay it.
+        if (sessions.get(player.getUniqueId()) == null) {
+            pendingProxyAuth.add(player.getUniqueId());
+            return;
+        }
         String nameLower = player.getName().toLowerCase();
         loadAsync(nameLower, account -> {
             if (!player.isOnline()) return;
@@ -176,6 +196,11 @@ public final class AuthManager {
     public void markAwaiting(Player player) {
         AuthSession s = sessions.get(player.getUniqueId());
         if (s == null) return;
+        // Don't override AUTHENTICATED — the proxy may have already auth'd this
+        // player via cross-backend session relay (auth-validated). Without this
+        // guard, the join-side loadAsync callback re-freezes a player that was
+        // already validated by markAuthenticatedFromProxy.
+        if (s.isAuthenticated()) return;
         s.setStage(AuthSession.Stage.AWAITING);
         AuthEffects.apply(player);
     }
