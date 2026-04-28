@@ -8,6 +8,13 @@ const log = child({ mod: 'interaction' });
 
 client.on(Events.InteractionCreate, async (ix: Interaction) => {
   try {
+    if (ix.isAutocomplete()) {
+      const cmd = commands.get(ix.commandName);
+      if (cmd?.autocomplete) {
+        await cmd.autocomplete(ix);
+      }
+      return;
+    }
     if (ix.isChatInputCommand()) {
       const cmd = commands.get(ix.commandName);
       if (!cmd) {
