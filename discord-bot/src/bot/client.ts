@@ -6,7 +6,7 @@ import {
   Events,
   Collection,
 } from 'discord.js';
-import type { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import type { AutocompleteInteraction, ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 
 import { config } from '../config.js';
 import { child } from '../utils/logger.js';
@@ -17,6 +17,7 @@ export interface SlashCommand {
   data: SlashCommandBuilder | ReturnType<SlashCommandBuilder['toJSON']> | unknown;
   name: string;
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+  autocomplete?: (interaction: AutocompleteInteraction) => Promise<void>;
 }
 
 export const commands = new Collection<string, SlashCommand>();
