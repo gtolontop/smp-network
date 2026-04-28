@@ -1,0 +1,168 @@
+# ============================================================
+#  SMPLogger — ultra-compact event log + backup engine
+# ============================================================
+
+storage:
+  # Relative to the server's working dir; defaults to shared-data so it
+  # is colocated with the SMPCore SQLite (different db file though).
+  directory: "../shared-data/smplogger"
+  filename: "smplogger.db"
+
+retention:
+  # Daily partitioned tables get DROPped past this window. 7 days = "/lookup time:7d" max.
+  days: 7
+  # When the db file grows past this, run incremental_vacuum.
+  vacuum-mb: 256
+
+queue:
+  # MPSC ring buffer + single writer thread.
+  capacity: 65536
+  flush-events: 8192
+  flush-millis: 2000
+
+modules:
+  block: true            # place / break / explosion / piston / fire / liquid / decay / structure
+  container: true        # chest/barrel/shulker/hopper/dropper/dispenser/furnace/brewing/anvil/etc.
+  entity: true           # mob/player kills, deaths, spawns (reason), tame/breed/leash
+  chat: true             # global chat (deduped + interned)
+  command: true          # commands (with password redaction)
+  session: true          # join/quit/IP/brand/locale/version/world-change/teleport
+  movement: true         # chunk-transition only (NOT every step)
+  worldchange: true      # signs, item frames, lectern, anvil rename, banner pattern, jukebox, armor stand
+  trade: true            # drop↔pickup pairing + chest handoff + villager + item-frame transfer
+  rare: true             # diamond/netherite/elytra/ancient_debris/head/spawner/custom-enchant items
+
+precious:
+  # Items that are *always* hash-stored with full NBT (deduped). Configurable.
+  always:
+    - WRITTEN_BOOK
+    - WRITABLE_BOOK
+    - ENCHANTED_BOOK
+    - TOTEM_OF_UNDYING
+    - PLAYER_HEAD
+    - SHULKER_BOX
+    - WHITE_SHULKER_BOX
+    - ORANGE_SHULKER_BOX
+    - MAGENTA_SHULKER_BOX
+    - LIGHT_BLUE_SHULKER_BOX
+    - YELLOW_SHULKER_BOX
+    - LIME_SHULKER_BOX
+    - PINK_SHULKER_BOX
+    - GRAY_SHULKER_BOX
+    - LIGHT_GRAY_SHULKER_BOX
+    - CYAN_SHULKER_BOX
+    - PURPLE_SHULKER_BOX
+    - BLUE_SHULKER_BOX
+    - BROWN_SHULKER_BOX
+    - GREEN_SHULKER_BOX
+    - RED_SHULKER_BOX
+    - BLACK_SHULKER_BOX
+    - ELYTRA
+    - NETHERITE_INGOT
+    - NETHERITE_SCRAP
+    - NETHERITE_HELMET
+    - NETHERITE_CHESTPLATE
+    - NETHERITE_LEGGINGS
+    - NETHERITE_BOOTS
+    - NETHERITE_SWORD
+    - NETHERITE_AXE
+    - NETHERITE_PICKAXE
+    - NETHERITE_SHOVEL
+    - NETHERITE_HOE
+    - DRAGON_HEAD
+    - DRAGON_EGG
+    - NETHER_STAR
+    - HEART_OF_THE_SEA
+    - CONDUIT
+    - BEACON
+    - TRIDENT
+    - SPAWNER
+    - TRIAL_SPAWNER
+    - VAULT
+    - ENCHANTED_GOLDEN_APPLE
+    - MUSIC_DISC_5
+    - MUSIC_DISC_PIGSTEP
+    - MUSIC_DISC_OTHERSIDE
+    - MUSIC_DISC_RELIC
+    - MUSIC_DISC_CREATOR
+    - MUSIC_DISC_CREATOR_MUSIC_BOX
+    - MUSIC_DISC_PRECIPICE
+    - MUSIC_DISC_TEARS
+    - FILLED_MAP
+  # Auto-precious if item has display name, lore, custom enchant, or non-vanilla NBT.
+  auto-detect:
+    named: true
+    lored: true
+    enchanted-non-vanilla: true
+    has-block-entity-tag: true
+
+rare:
+  # Tracked with enriched context (Y, biome, fortune, silktouch, tool).
+  blocks:
+    - DIAMOND_ORE
+    - DEEPSLATE_DIAMOND_ORE
+    - ANCIENT_DEBRIS
+    - SPAWNER
+    - TRIAL_SPAWNER
+    - VAULT
+    - REINFORCED_DEEPSLATE
+    - BUDDING_AMETHYST
+    - END_PORTAL_FRAME
+    - DRAGON_EGG
+  items:
+    - DIAMOND
+    - ELYTRA
+    - NETHERITE_INGOT
+    - NETHERITE_SCRAP
+    - NETHERITE_TEMPLATE_SMITHING_TEMPLATE
+    - NETHERITE_UPGRADE_SMITHING_TEMPLATE
+    - DRAGON_EGG
+    - DRAGON_HEAD
+    - NETHER_STAR
+    - TOTEM_OF_UNDYING
+    - HEART_OF_THE_SEA
+    - SHULKER_SHELL
+
+trade:
+  drop-pickup-window-seconds: 8
+  drop-pickup-radius-blocks: 8
+  chest-handoff-window-seconds: 30
+  villager: true
+
+movement:
+  # Lightweight: only log when chunkX|chunkZ changes.
+  log-chunk-transitions: true
+  # Optionally also log hard teleports (cmd-based) regardless.
+  log-teleports: true
+
+chat:
+  redact-commands:
+    - login
+    - l
+    - log
+    - register
+    - reg
+    - registrer
+    - changepassword
+    - changepwd
+    - changepass
+
+inspect:
+  wand-material: STICK
+  wand-name: "<gold>SMPLogger Inspect</gold>"
+
+backup:
+  player-data:
+    enabled: true
+    interval-seconds: 120
+    keep-per-player: 48
+    directory: "../shared-data/player-file-backups"
+  inv-snapshots:
+    enabled: true
+    interval-minutes: 5
+    keep-per-player: 50
+  database:
+    enabled: true
+    interval-minutes: 60
+    keep-snapshots: 24
+    directory: "../shared-data/smplogger/db-backups"

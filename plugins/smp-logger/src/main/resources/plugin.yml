@@ -1,0 +1,77 @@
+name: SMPLogger
+version: 1.0.0
+main: fr.smp.logger.SMPLogger
+api-version: "26.1.2"
+description: "Ultra-compact, ultra-complete activity logger + backup engine. CoreProtect-class data, fraction of the disk."
+authors: ["SMP Team"]
+load: STARTUP
+
+commands:
+  lookup:
+    description: "Universal log lookup (filters: player:, action:, item:, time:, radius:, world:, near:)"
+    aliases: [lk, l-lookup]
+    permission: smplogger.lookup
+  inspect:
+    description: "Wand mode — left-click block = block history, right-click container = container history"
+    aliases: [insp, i, look]
+    permission: smplogger.inspect
+  seen:
+    description: "Last seen + IP + brand + playtime"
+    aliases: [whoseen, lastseen]
+    permission: smplogger.seen
+  trades:
+    description: "Show trades involving a player (drop/pickup/chest-handoff/villager)"
+    aliases: [tradehist, traders]
+    permission: smplogger.trades
+  coalt:
+    description: "Show alts that share an IP with a player"
+    aliases: [alts, alt]
+    permission: smplogger.coalt
+  rare:
+    description: "Rare resource lookup (spawner, diamond, netherite, elytra, ancient_debris, head, custom-enchant items)"
+    aliases: [rares, raretrack]
+    permission: smplogger.rare
+  scan:
+    description: "Scan all player inventories (offline+online) for a material or rare-item summary"
+    aliases: [circulation, circ]
+    permission: smplogger.scan
+  loggerstats:
+    description: "DB size, write rate, retention status"
+    aliases: [lstats, lgrstats]
+    permission: smplogger.admin
+  loggerpurge:
+    description: "Force purge of partitions outside retention window"
+    permission: smplogger.admin
+  loggerbackup:
+    description: "Trigger an immediate backup (data | inv | db)"
+    aliases: [lbackup]
+    permission: smplogger.admin
+
+permissions:
+  smplogger.lookup:
+    description: "Run /lookup queries"
+    default: op
+  smplogger.inspect:
+    description: "Use /inspect wand"
+    default: op
+  smplogger.seen:
+    description: "Run /seen"
+    default: op
+  smplogger.trades:
+    description: "Run /trades"
+    default: op
+  smplogger.coalt:
+    description: "Run /coalt"
+    default: op
+  smplogger.rare:
+    description: "Run /rare lookup"
+    default: op
+  smplogger.scan:
+    description: "Run /scan"
+    default: op
+  smplogger.admin:
+    description: "Admin (stats / purge / backup / config)"
+    default: op
+  smplogger.bypass:
+    description: "Skip logging entirely (e.g. ops, NPCs)"
+    default: false
