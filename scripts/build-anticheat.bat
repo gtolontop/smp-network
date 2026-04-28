@@ -21,7 +21,8 @@ copy /Y "%BASE_DIR%\plugins\anticheat-paper\build\libs\%JAR%" "%BASE_DIR%\ptr\pl
 if errorlevel 1 goto :error
 
 echo Done.
-pause error
+pause
+exit /b 0
 
 :error
 echo Build/deploy failed.
