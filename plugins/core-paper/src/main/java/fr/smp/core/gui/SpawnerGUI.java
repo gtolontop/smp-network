@@ -2,6 +2,7 @@ package fr.smp.core.gui;
 
 import fr.smp.core.SMPCore;
 import fr.smp.core.managers.SpawnerManager;
+import fr.smp.core.managers.SpawnerManager.SpawnerMode;
 import fr.smp.core.managers.SpawnerType;
 import fr.smp.core.utils.Msg;
 import net.kyori.adventure.text.Component;
@@ -46,6 +47,7 @@ public class SpawnerGUI extends GUIHolder {
     private static final int SLOT_PREV = 45;
     private static final int SLOT_INFO = 46;
     private static final int SLOT_DROP_PAGE = 47;
+    private static final int SLOT_MODE = 48;
     private static final int SLOT_PAGE_LABEL = 49;
     private static final int SLOT_DROP_ALL = 51;
     private static final int SLOT_NEXT = 53;
@@ -147,6 +149,23 @@ public class SpawnerGUI extends GUIHolder {
                 "<gray>Types d'items: <yellow>" + snapshot.size() + "</yellow></gray>",
                 "<gray>Stacks affichés: <yellow>" + expanded.size() + "</yellow></gray>"));
 
+        if (spawner.mode == SpawnerMode.XP) {
+            inv.setItem(SLOT_MODE, GUIUtil.item(Material.EXPERIENCE_BOTTLE,
+                    "<aqua><bold>Mode: XP</bold></aqua>",
+                    "",
+                    "<gray>Les mobs spawnent sur le spawner</gray>",
+                    "<gray>avec 1 HP et sans IA.</gray>",
+                    "",
+                    "<yellow>▶ Clic pour passer en mode Loot</yellow>"));
+        } else {
+            inv.setItem(SLOT_MODE, GUIUtil.item(Material.CHEST,
+                    "<gold><bold>Mode: Loot</bold></gold>",
+                    "",
+                    "<gray>Les items sont stockés dans le spawner.</gray>",
+                    "",
+                    "<yellow>▶ Clic pour passer en mode XP</yellow>"));
+        }
+
         inv.setItem(SLOT_DROP_PAGE, GUIUtil.item(Material.HOPPER,
                 "<gold><bold>Drop la page</bold></gold>",
                 "",
@@ -175,6 +194,7 @@ public class SpawnerGUI extends GUIHolder {
         if (slot == SLOT_NEXT) { page++; render(); return; }
         if (slot == SLOT_DROP_PAGE) { dropPage(p); return; }
         if (slot == SLOT_DROP_ALL) { dropAll(p); return; }
+        if (slot == SLOT_MODE) { toggleMode(p); return; }
         if (slot == SLOT_INFO || slot == SLOT_PAGE_LABEL) return;
         if (slot >= 45) return;
 
@@ -259,6 +279,19 @@ public class SpawnerGUI extends GUIHolder {
             }
         }
         return out;
+    }
+
+    private void toggleMode(Player p) {
+        if (spawner.mode == SpawnerMode.LOOT) {
+            plugin.spawners().setMode(spawner, SpawnerMode.XP);
+            p.sendMessage(Msg.ok("<aqua>Mode XP activé. Les mobs spawnent sur le spawner.</aqua>"));
+        } else {
+            int converted = plugin.spawners().setMode(spawner, SpawnerMode.LOOT);
+            p.sendMessage(Msg.ok("<gold>Mode Loot activé. Les items sont stockés dans le spawner."
+                    + (converted > 0 ? " <yellow>" + converted + "</yellow> mob(s) converti(s) en loot." : "")
+                    + "</gold>"));
+        }
+        render();
     }
 
     private void dropPage(Player p) {
