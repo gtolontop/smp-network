@@ -144,11 +144,22 @@ public class ScanModule {
 
     // --- NBT helpers (async-safe, player .dat files) ---
 
+    private static final String[] INVENTORY_KEYS = {"inventory", "Inventory"};
+    private static final String[] ENDER_KEYS = {"ender_items", "EnderItems", "EnderChestItems"};
+
+    private static net.minecraft.nbt.ListTag firstList(CompoundTag root, String[] keys) {
+        for (String k : keys) {
+            net.minecraft.nbt.ListTag l = ItemNbtWalker.nbtList(root, k);
+            if (l != null && !l.isEmpty()) return l;
+        }
+        return null;
+    }
+
     private int[] countInFile(Path path, String targetId) {
         try {
             CompoundTag root = NbtIo.readCompressed(path, NbtAccounter.unlimitedHeap());
-            int inv = ItemNbtWalker.countMatch(ItemNbtWalker.nbtList(root, "Inventory"), targetId);
-            int ender = ItemNbtWalker.countMatch(ItemNbtWalker.nbtList(root, "EnderChestItems"), targetId);
+            int inv = ItemNbtWalker.countMatch(firstList(root, INVENTORY_KEYS), targetId);
+            int ender = ItemNbtWalker.countMatch(firstList(root, ENDER_KEYS), targetId);
             return new int[]{inv, ender};
         } catch (Exception e) {
             return new int[]{0, 0};
@@ -158,8 +169,8 @@ public class ScanModule {
     private void tallyFile(Path path, Set<String> targetIds, Map<String, Material> idToMat, Map<Material, Integer> totals) {
         try {
             CompoundTag root = NbtIo.readCompressed(path, NbtAccounter.unlimitedHeap());
-            ItemNbtWalker.tallyMatch(ItemNbtWalker.nbtList(root, "Inventory"), targetIds, idToMat, totals);
-            ItemNbtWalker.tallyMatch(ItemNbtWalker.nbtList(root, "EnderChestItems"), targetIds, idToMat, totals);
+            ItemNbtWalker.tallyMatch(firstList(root, INVENTORY_KEYS), targetIds, idToMat, totals);
+            ItemNbtWalker.tallyMatch(firstList(root, ENDER_KEYS), targetIds, idToMat, totals);
         } catch (Exception ignored) {}
     }
 
