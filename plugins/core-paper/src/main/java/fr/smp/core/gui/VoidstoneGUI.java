@@ -1,6 +1,7 @@
 package fr.smp.core.gui;
 
 import fr.smp.core.SMPCore;
+import fr.smp.core.logging.LogCategory;
 import fr.smp.core.utils.Msg;
 import fr.smp.core.voidstone.VoidstoneManager;
 import net.kyori.adventure.text.Component;
@@ -32,6 +33,7 @@ public final class VoidstoneGUI extends GUIHolder {
     private static final int SLOT_INFO = 46;
     private static final int SLOT_DROP_PAGE = 47;
     private static final int SLOT_PAGE_LABEL = 49;
+    private static final int SLOT_SELL_ALL = 50;
     private static final int SLOT_DROP_ALL = 51;
     private static final int SLOT_NEXT = 53;
 
@@ -71,6 +73,10 @@ public final class VoidstoneGUI extends GUIHolder {
         }
         if (slot == SLOT_DROP_ALL) {
             dropAll(player);
+            return;
+        }
+        if (slot == SLOT_SELL_ALL) {
+            sellAll(player);
             return;
         }
         if (slot == SLOT_INFO || slot == SLOT_PAGE_LABEL || slot >= 45) return;
@@ -196,6 +202,19 @@ public final class VoidstoneGUI extends GUIHolder {
                 "",
                 "<red>▶ Click to drop all</red>"));
 
+        double sellTotal = computeSellTotal(manager, ref.item());
+        inventory.setItem(SLOT_SELL_ALL, GUIUtil.item(Material.EMERALD,
+                "<green><bold>Tout vendre</bold></green>",
+                "",
+                "<gray>Vend tout le contenu vendable</gray>",
+                "<gray>de la voidstone au prix normal.</gray>",
+                "",
+                "<gray>Valeur estimee: <yellow>$" + Msg.money(sellTotal) + "</yellow></gray>",
+                "",
+                sellTotal > 0
+                        ? "<green>▶ Clic pour tout vendre</green>"
+                        : "<dark_gray>▶ Rien de vendable</dark_gray>"));
+
         return true;
     }
 
@@ -313,6 +332,51 @@ public final class VoidstoneGUI extends GUIHolder {
 
         player.getInventory().setItem(ref.slot(), ref.item());
         player.sendMessage(Msg.ok("<green>Everything dropped: <yellow>" + format(total) + "</yellow> item(s).</green>"));
+        render(player, true);
+    }
+
+    private double computeSellTotal(VoidstoneManager manager, ItemStack voidstone) {
+        double total = 0;
+        for (Map.Entry<Material, Integer> entry : manager.snapshot(voidstone)) {
+            double perItem = plugin.worth().worth(entry.getKey());
+            if (perItem <= 0) continue;
+            total += perItem * entry.getValue();
+        }
+        return total;
+    }
+
+    private void sellAll(Player player) {
+        VoidstoneManager manager = plugin.voidstones();
+        if (manager == null) return;
+
+        VoidstoneManager.InventoryItemRef ref = requireItem(player);
+        if (ref == null) return;
+
+        List<Map.Entry<Material, Integer>> snapshot = new ArrayList<>(manager.snapshot(ref.item()));
+        double total = 0;
+        int items = 0;
+
+        for (Map.Entry<Material, Integer> entry : snapshot) {
+            double perItem = plugin.worth().worth(entry.getKey());
+            if (perItem <= 0) continue;
+            int removed = manager.removeStored(ref.item(), entry.getKey(), entry.getValue());
+            if (removed <= 0) continue;
+            total += perItem * removed;
+            items += removed;
+        }
+
+        if (total <= 0 || items <= 0) {
+            player.sendMessage(Msg.info("<gray>Rien de vendable dans la voidstone.</gray>"));
+            return;
+        }
+
+        player.getInventory().setItem(ref.slot(), ref.item());
+        plugin.economy().deposit(player.getUniqueId(), total, "sell.voidstone");
+        plugin.getSyncManager().markDirty(player);
+        player.sendMessage(Msg.ok("<green>Vendu <yellow>x" + format(items) + "</yellow> pour <yellow>$"
+                + Msg.money(total) + "</yellow>.</green>"));
+        plugin.logs().log(LogCategory.SELL, player, "voidstone items=" + items + " $" + total);
+        plugin.getLogger().info("[SELL] " + player.getName() + " voidstone x" + items + " pour $" + Msg.money(total));
         render(player, true);
     }
 
