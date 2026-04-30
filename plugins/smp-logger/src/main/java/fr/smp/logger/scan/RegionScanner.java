@@ -47,12 +47,21 @@ public final class RegionScanner {
     public List<File> listAllRegionFiles() {
         List<File> all = new ArrayList<>();
         for (World w : Bukkit.getWorlds()) {
-            collect(w.getWorldFolder(), all);
+            collectRegions(w.getWorldFolder(), all);
         }
         return all;
     }
 
-    private static void collect(File dir, List<File> out) {
+    /** Walks all worlds and gathers every entities/*.mca file. */
+    public List<File> listAllEntityFiles() {
+        List<File> all = new ArrayList<>();
+        for (World w : Bukkit.getWorlds()) {
+            collectEntities(w.getWorldFolder(), all);
+        }
+        return all;
+    }
+
+    private static void collectRegions(File dir, List<File> out) {
         if (dir == null) return;
         File[] children = dir.listFiles();
         if (children == null) return;
@@ -63,7 +72,23 @@ public final class RegionScanner {
                 File[] mcas = c.listFiles((d, n) -> n.endsWith(".mca"));
                 if (mcas != null) Collections.addAll(out, mcas);
             } else if (!SKIP_DIRS.contains(name)) {
-                collect(c, out);
+                collectRegions(c, out);
+            }
+        }
+    }
+
+    private static void collectEntities(File dir, List<File> out) {
+        if (dir == null) return;
+        File[] children = dir.listFiles();
+        if (children == null) return;
+        for (File c : children) {
+            if (!c.isDirectory()) continue;
+            String name = c.getName();
+            if (name.equals("entities")) {
+                File[] mcas = c.listFiles((d, n) -> n.endsWith(".mca"));
+                if (mcas != null) Collections.addAll(out, mcas);
+            } else if (!SKIP_DIRS.contains(name)) {
+                collectEntities(c, out);
             }
         }
     }
@@ -86,12 +111,25 @@ public final class RegionScanner {
         Map<Material, Integer> totals = new LinkedHashMap<>();
         for (Material m : materials) totals.put(m, 0);
 
-        List<File> regions = listAllRegionFiles();
-        int total = regions.size();
+        List<File> blockFiles = listAllRegionFiles();
+        List<File> entityFiles = listAllEntityFiles();
+        List<File> allFiles = new ArrayList<>(blockFiles);
+        allFiles.addAll(entityFiles);
+        int total = allFiles.size();
         AtomicInteger containers = new AtomicInteger();
         int done = 0;
-        for (File mca : regions) {
+        for (File mca : blockFiles) {
             int c = walkRegion(mca, targetIds, idToMat, totals, null, 0L, null);
+            containers.addAndGet(c);
+            done++;
+            if (progress != null && (done % 16 == 0)) {
+                long sum = 0;
+                for (int v : totals.values()) sum += v;
+                progress.update(done, total, containers.get(), sum);
+            }
+        }
+        for (File mca : entityFiles) {
+            int c = walkEntities(mca, targetIds, idToMat, totals);
             containers.addAndGet(c);
             done++;
             if (progress != null && (done % 16 == 0 || done == total)) {
@@ -107,13 +145,24 @@ public final class RegionScanner {
         long t0 = System.currentTimeMillis();
         String targetId = material.getKey().toString();
 
-        List<File> regions = listAllRegionFiles();
-        int total = regions.size();
+        List<File> blockFiles = listAllRegionFiles();
+        List<File> entityFiles = listAllEntityFiles();
+        List<File> allFiles = new ArrayList<>(blockFiles);
+        allFiles.addAll(entityFiles);
+        int total = allFiles.size();
         long[] sum = {0L};
         int[] containers = {0};
         int done = 0;
-        for (File mca : regions) {
+        for (File mca : blockFiles) {
             int c = walkRegion(mca, null, null, null, targetId, 0L, sum);
+            containers[0] += c;
+            done++;
+            if (progress != null && (done % 16 == 0)) {
+                progress.update(done, total, containers[0], sum[0]);
+            }
+        }
+        for (File mca : entityFiles) {
+            int c = walkEntitiesSingle(mca, targetId, sum);
             containers[0] += c;
             done++;
             if (progress != null && (done % 16 == 0 || done == total)) {
@@ -233,5 +282,207 @@ public final class RegionScanner {
         } catch (IOException e) {
             return null;
         }
+    }
+
+    private int walkEntities(File mca, Set<String> targetIds, Map<String, Material> idToMat,
+                             Map<Material, Integer> totals) {
+        int entities = 0;
+        try (RandomAccessFile raf = new RandomAccessFile(mca, "r")) {
+            long fileLen = raf.length();
+            if (fileLen < 8192) return 0;
+            byte[] header = new byte[4096];
+            raf.readFully(header);
+
+            for (int i = 0; i < 1024; i++) {
+                int b0 = header[i * 4] & 0xFF;
+                int b1 = header[i * 4 + 1] & 0xFF;
+                int b2 = header[i * 4 + 2] & 0xFF;
+                int sCount = header[i * 4 + 3] & 0xFF;
+                int sOff = (b0 << 16) | (b1 << 8) | b2;
+                if (sOff == 0 || sCount == 0) continue;
+                long pos = (long) sOff * 4096L;
+                if (pos + 5 > fileLen) continue;
+                raf.seek(pos);
+                int chunkLen;
+                int compType;
+                try {
+                    chunkLen = raf.readInt();
+                    compType = raf.readByte() & 0xFF;
+                } catch (IOException e) {
+                    continue;
+                }
+                if (chunkLen <= 0) continue;
+                int dataLen = chunkLen - 1;
+                boolean external = (compType & 0x80) != 0;
+                int realComp = compType & 0x7F;
+                CompoundTag chunk;
+                if (external) {
+                    int chunkX = (i % 32);
+                    int chunkZ = (i / 32);
+                    chunk = readExternal(mca.getParentFile(), chunkX, chunkZ, realComp);
+                } else {
+                    if (pos + 5 + dataLen > fileLen) continue;
+                    byte[] data;
+                    try {
+                        data = new byte[dataLen];
+                        raf.readFully(data);
+                    } catch (Exception e) {
+                        continue;
+                    }
+                    chunk = decodeChunk(data, realComp);
+                }
+                if (chunk == null) continue;
+                ListTag entList = chunk.getList("Entities").orElse(null);
+                if (entList == null || entList.isEmpty()) continue;
+                for (int j = 0; j < entList.size(); j++) {
+                    CompoundTag ent = entList.getCompound(j).orElse(null);
+                    if (ent == null) continue;
+                    String id = ItemNbtWalker.nbtStr(ent, "id");
+                    if (id.contains("item_frame") || id.contains("glow_item_frame")) {
+                        entities++;
+                        CompoundTag item = ItemNbtWalker.nbtCompound(ent, "Item");
+                        if (item != null) countEntityItem(item, targetIds, idToMat, totals);
+                    } else if (id.equals("minecraft:armor_stand")) {
+                        entities++;
+                        ListTag armor = ItemNbtWalker.nbtList(ent, "ArmorItems");
+                        if (armor != null) {
+                            for (int k = 0; k < armor.size(); k++) {
+                                CompoundTag slot = ItemNbtWalker.nbtCompound(armor, k);
+                                if (slot != null) countEntityItem(slot, targetIds, idToMat, totals);
+                            }
+                        }
+                        ListTag hand = ItemNbtWalker.nbtList(ent, "HandItems");
+                        if (hand != null) {
+                            for (int k = 0; k < hand.size(); k++) {
+                                CompoundTag slot = ItemNbtWalker.nbtCompound(hand, k);
+                                if (slot != null) countEntityItem(slot, targetIds, idToMat, totals);
+                            }
+                        }
+                    } else if (id.contains("minecart") && (id.contains("chest") || id.contains("hopper"))) {
+                        entities++;
+                        ListTag items = ItemNbtWalker.nbtList(ent, "Items");
+                        if (items != null) {
+                            for (int k = 0; k < items.size(); k++) {
+                                CompoundTag slot = ItemNbtWalker.nbtCompound(items, k);
+                                if (slot != null) countEntityItem(slot, targetIds, idToMat, totals);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            // skip corrupt or locked region
+        }
+        return entities;
+    }
+
+    private void countEntityItem(CompoundTag item, Set<String> targetIds,
+                                 Map<String, Material> idToMat,
+                                 Map<Material, Integer> totals) {
+        if (item == null || item.isEmpty()) return;
+        String id = ItemNbtWalker.nbtStr(item, "id");
+        if (targetIds.contains(id)) {
+            Material m = idToMat.get(id);
+            if (m != null) totals.merge(m, ItemNbtWalker.nbtCount(item), Integer::sum);
+        }
+    }
+
+    private int walkEntitiesSingle(File mca, String targetId, long[] sum) {
+        int entities = 0;
+        try (RandomAccessFile raf = new RandomAccessFile(mca, "r")) {
+            long fileLen = raf.length();
+            if (fileLen < 8192) return 0;
+            byte[] header = new byte[4096];
+            raf.readFully(header);
+
+            for (int i = 0; i < 1024; i++) {
+                int b0 = header[i * 4] & 0xFF;
+                int b1 = header[i * 4 + 1] & 0xFF;
+                int b2 = header[i * 4 + 2] & 0xFF;
+                int sCount = header[i * 4 + 3] & 0xFF;
+                int sOff = (b0 << 16) | (b1 << 8) | b2;
+                if (sOff == 0 || sCount == 0) continue;
+                long pos = (long) sOff * 4096L;
+                if (pos + 5 > fileLen) continue;
+                raf.seek(pos);
+                int chunkLen;
+                int compType;
+                try {
+                    chunkLen = raf.readInt();
+                    compType = raf.readByte() & 0xFF;
+                } catch (IOException e) {
+                    continue;
+                }
+                if (chunkLen <= 0) continue;
+                int dataLen = chunkLen - 1;
+                boolean external = (compType & 0x80) != 0;
+                int realComp = compType & 0x7F;
+                CompoundTag chunk;
+                if (external) {
+                    int chunkX = (i % 32);
+                    int chunkZ = (i / 32);
+                    chunk = readExternal(mca.getParentFile(), chunkX, chunkZ, realComp);
+                } else {
+                    if (pos + 5 + dataLen > fileLen) continue;
+                    byte[] data;
+                    try {
+                        data = new byte[dataLen];
+                        raf.readFully(data);
+                    } catch (Exception e) {
+                        continue;
+                    }
+                    chunk = decodeChunk(data, realComp);
+                }
+                if (chunk == null) continue;
+                ListTag entList = chunk.getList("Entities").orElse(null);
+                if (entList == null || entList.isEmpty()) continue;
+                for (int j = 0; j < entList.size(); j++) {
+                    CompoundTag ent = entList.getCompound(j).orElse(null);
+                    if (ent == null) continue;
+                    String id = ItemNbtWalker.nbtStr(ent, "id");
+                    if (id.contains("item_frame") || id.contains("glow_item_frame")) {
+                        entities++;
+                        CompoundTag item = ItemNbtWalker.nbtCompound(ent, "Item");
+                        if (item != null && targetId.equals(ItemNbtWalker.nbtStr(item, "id"))) {
+                            sum[0] += ItemNbtWalker.nbtCount(item);
+                        }
+                    } else if (id.equals("minecraft:armor_stand")) {
+                        entities++;
+                        ListTag armor = ItemNbtWalker.nbtList(ent, "ArmorItems");
+                        if (armor != null) {
+                            for (int k = 0; k < armor.size(); k++) {
+                                CompoundTag slot = ItemNbtWalker.nbtCompound(armor, k);
+                                if (slot != null && targetId.equals(ItemNbtWalker.nbtStr(slot, "id"))) {
+                                    sum[0] += ItemNbtWalker.nbtCount(slot);
+                                }
+                            }
+                        }
+                        ListTag hand = ItemNbtWalker.nbtList(ent, "HandItems");
+                        if (hand != null) {
+                            for (int k = 0; k < hand.size(); k++) {
+                                CompoundTag slot = ItemNbtWalker.nbtCompound(hand, k);
+                                if (slot != null && targetId.equals(ItemNbtWalker.nbtStr(slot, "id"))) {
+                                    sum[0] += ItemNbtWalker.nbtCount(slot);
+                                }
+                            }
+                        }
+                    } else if (id.contains("minecart") && (id.contains("chest") || id.contains("hopper"))) {
+                        entities++;
+                        ListTag items = ItemNbtWalker.nbtList(ent, "Items");
+                        if (items != null) {
+                            for (int k = 0; k < items.size(); k++) {
+                                CompoundTag slot = ItemNbtWalker.nbtCompound(items, k);
+                                if (slot != null && targetId.equals(ItemNbtWalker.nbtStr(slot, "id"))) {
+                                    sum[0] += ItemNbtWalker.nbtCount(slot);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            // skip corrupt or locked region
+        }
+        return entities;
     }
 }
