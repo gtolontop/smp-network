@@ -6,6 +6,8 @@ import fr.smp.core.auth.AuthCommand;
 import fr.smp.core.auth.AuthListener;
 import fr.smp.core.auth.AuthManager;
 import fr.smp.core.commands.*;
+import fr.smp.core.order.OrderManager;
+import fr.smp.core.sign.SignInput;
 import fr.smp.core.data.PlayerDataManager;
 import fr.smp.core.discord.DiscordBridge;
 import fr.smp.core.dragonegg.DragonEggCommand;
@@ -31,6 +33,9 @@ import fr.smp.core.npc.NpcCommand;
 import fr.smp.core.npc.NpcManager;
 import fr.smp.core.npc.PodiumCommand;
 import fr.smp.core.npc.PodiumManager;
+import fr.smp.core.sell.SellTierManager;
+import fr.smp.core.sellstick.SellAutoListener;
+import fr.smp.core.sellstick.SellAutoManager;
 import fr.smp.core.sellstick.SellStickListener;
 import fr.smp.core.sellstick.SellStickManager;
 import fr.smp.core.voidstone.VoidstoneManager;
@@ -139,6 +144,8 @@ public class SMPCore extends JavaPlugin {
     private SpawnerManager spawners;
     private VoidstoneManager voidstones;
     private SellStickManager sellSticks;
+    private SellAutoManager sellAuto;
+    private SellTierManager sellTiers;
     private DragonEggManager dragonEgg;
     private EnchantArmorTask enchantArmor;
     private ResourcePackManager resourcePacks;
@@ -165,6 +172,8 @@ public class SMPCore extends JavaPlugin {
     private DuelQueueManager duelQueue;
     private DuelRewardManager duelRewards;
     private DuelNpcClickInjector duelNpcClick;
+    private OrderManager orders;
+    private SignInput signInput;
     private volatile boolean chatLocked = false;
 
     @Override
@@ -217,6 +226,9 @@ public class SMPCore extends JavaPlugin {
         shop = new ShopManager(this);
         shop.load();
         auction = new AuctionManager(this, database);
+        orders = new OrderManager(this, database);
+        signInput = new SignInput(this);
+        sellTiers = new SellTierManager(this);
 
         // Apply configured world-borders (no-op on lobby if the worlds aren't loaded)
         worldborders.applyAll();
@@ -274,6 +286,7 @@ public class SMPCore extends JavaPlugin {
         if (isMainSurvival()) {
             sellSticks = new SellStickManager(this);
             sellSticks.start();
+            sellAuto = new SellAutoManager(this);
         }
 
         // Œuf du Dragon : artefact unique à high pulvalue. Survival uniquement.
@@ -335,6 +348,7 @@ public class SMPCore extends JavaPlugin {
         joinListener = new JoinListener(this);
         pm.registerEvents(joinListener, this);
         pm.registerEvents(new GUIListener(this), this);
+        pm.registerEvents(signInput, this);
         pm.registerEvents(chatPrompt, this);
         worthHover = new WorthHoverListener(this);
         pm.registerEvents(worthHover, this);
@@ -400,6 +414,12 @@ public class SMPCore extends JavaPlugin {
         }
         if (voidstones != null) {
             pm.registerEvents(new VoidstoneListener(this), this);
+        }
+        if (sellSticks != null) {
+            pm.registerEvents(new SellStickListener(this, sellSticks), this);
+        }
+        if (sellAuto != null) {
+            pm.registerEvents(new SellAutoListener(this, sellAuto), this);
         }
         if (dragonEgg != null) {
             pm.registerEvents(new DragonEggListener(this, dragonEgg), this);
@@ -498,9 +518,23 @@ public class SMPCore extends JavaPlugin {
             getCommand("leaderboard").setExecutor(leaderboardCommand);
             getCommand("leaderboard").setTabCompleter(leaderboardCommand);
         }
+        if (getCommand("order") != null) {
+            OrderCommand orderCmd = new OrderCommand(this);
+            getCommand("order").setExecutor(orderCmd);
+            getCommand("order").setTabCompleter(orderCmd);
+        }
+        if (getCommand("orders") != null) {
+            OrderCommand ordersCmd = new OrderCommand(this);
+            getCommand("orders").setExecutor(ordersCmd);
+            getCommand("orders").setTabCompleter(ordersCmd);
+        }
+
         SellCommand sellCmd = new SellCommand(this);
         getCommand("sell").setExecutor(sellCmd);
         getCommand("sellall").setExecutor(sellCmd);
+        if (getCommand("sellauto") != null) {
+            getCommand("sellauto").setExecutor(new SellAutoCommand(this));
+        }
         getCommand("worth").setExecutor(new WorthCommand(this));
         getCommand("shop").setExecutor(new ShopCommand(this));
 
@@ -956,7 +990,9 @@ public class SMPCore extends JavaPlugin {
     public EconomyManager economy() { return economy; }
     public WorthManager worth() { return worth; }
     public ShopManager shop() { return shop; }
-    public AuctionManager auction() { return auction; }
+    public AuctionManager auction()  { return auction; }
+    public OrderManager orders()     { return orders; }
+    public SignInput signInput()      { return signInput; }
     public ScoreboardManager scoreboard() { return scoreboard; }
     public PlaytimeManager playtime() { return playtime; }
     public TeamInviteManager teamInvites() { return teamInvites; }
@@ -983,6 +1019,8 @@ public class SMPCore extends JavaPlugin {
     public SpawnerManager spawners() { return spawners; }
     public VoidstoneManager voidstones() { return voidstones; }
     public DragonEggManager dragonEgg() { return dragonEgg; }
+    public SellAutoManager sellAuto() { return sellAuto; }
+    public SellTierManager sellTiers() { return sellTiers; }
     public ResourcePackManager resourcePacks() { return resourcePacks; }
     public GateManager gates() { return gates; }
     public CooldownManager cooldowns() { return cooldowns; }
