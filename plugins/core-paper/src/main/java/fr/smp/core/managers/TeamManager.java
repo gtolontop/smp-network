@@ -227,6 +227,18 @@ public class TeamManager {
         }
     }
 
+    public void setName(String teamId, String name) {
+        try (Connection c = db.get();
+             PreparedStatement ps = c.prepareStatement("UPDATE teams SET name=? WHERE id=?")) {
+            ps.setString(1, name);
+            ps.setString(2, teamId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().warning("team.setName: " + e.getMessage());
+        }
+        plugin.logs().log(LogCategory.TEAM, "rename id=" + teamId + " name=" + name);
+    }
+
     private Team readTeam(ResultSet rs) throws SQLException {
         Location home = null;
         String hw = rs.getString(7);
