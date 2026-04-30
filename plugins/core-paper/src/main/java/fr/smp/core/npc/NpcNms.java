@@ -32,6 +32,8 @@ public final class NpcNms {
     private static final Class<?> C_GAMEPROFILE;
     private static final Class<?> C_PROPERTY;
     private static final Class<?> C_PROPERTYMAP;
+    private static final Class<?> C_MULTIMAP;
+    private static final Class<?> C_ARRAYLIST_MULTIMAP;
     private static final Class<?> C_GAMETYPE;
     private static final Class<?> C_CLIENT_INFO;
     private static final Class<?> C_ENTITY;
@@ -72,12 +74,18 @@ public final class NpcNms {
     private static final Method M_SYNCHED_SET;
     private static final Method M_GAMEPROFILE_GET_PROPS;
     private static final Method M_PROPERTYMAP_PUT;
+    private static final Method M_ARRAYLIST_MULTIMAP_CREATE;
+    private static final Method M_MULTIMAP_PUT;
     private static final Method M_SERVERPLAYER_SET_POS;
     private static final Method M_ENTITY_SET_ROT;
+    private static final Method M_ENTITY_SET_Y_BODY_ROT;
+    private static final Method M_ENTITY_SET_Y_HEAD_ROT;
     private static final Method M_PACKET_SEND;
 
     private static final Constructor<?> CT_PROPERTY;
     private static final Constructor<?> CT_GAMEPROFILE;
+    private static final Constructor<?> CT_GAMEPROFILE_WITH_PROPS;
+    private static final Constructor<?> CT_PROPERTYMAP;
     private static final Constructor<?> CT_SERVERPLAYER;
     private static final Constructor<?> CT_INFO_UPDATE;
     private static final Constructor<?> CT_INFO_REMOVE;
@@ -86,6 +94,11 @@ public final class NpcNms {
     private static final Constructor<?> CT_ROTATE_HEAD;
     private static final Constructor<?> CT_REMOVE_ENTITIES;
     private static final Constructor<?> CT_TELEPORT_ENTITY;
+    // MC 26.x : constructeur interne (EnumSet, List<Entry>) + Entry canonique
+    private static final Constructor<?> CT_INFO_UPDATE_FROM_LIST;
+    private static final Constructor<?> CT_INFO_ENTRY;
+    private static final Method M_SERVERPLAYER_GET_PROFILE;
+    private static final Object GAMETYPE_DEFAULT;
 
     private static final Field F_DATA_PLAYER_CUSTOMISATION;
     private static final Field F_CONNECTION_OF_LISTENER;
@@ -98,6 +111,7 @@ public final class NpcNms {
         Class<?> craftServer = null, craftWorld = null, craftPlayer = null;
         Class<?> serverPlayer = null, serverLevel = null, minecraftServer = null;
         Class<?> gameProfile = null, property = null, propertyMap = null, gameType = null;
+        Class<?> multimap = null, arrayListMultimap = null;
         Class<?> clientInfo = null, entity = null, playerNms = null;
         Class<?> entityType = null, vec3 = null;
         Class<?> synched = null, dataAccessor = null;
@@ -116,12 +130,18 @@ public final class NpcNms {
         Method m_posSyncOf = null;
         Method m_synGetNonDefault = null, m_synSet = null;
         Method m_gpGetProps = null, m_pmPut = null;
+        Method m_almCreate = null, m_mmPut = null;
         Method m_spSetPos = null, m_entSetRot = null, m_packetSend = null;
+        Method m_entSetYBodyRot = null, m_entSetYHeadRot = null;
 
         Constructor<?> ctProperty = null, ctGameProfile = null, ctServerPlayer = null;
+        Constructor<?> ctGameProfileWithProps = null, ctPropertyMap = null;
         Constructor<?> ctInfoUpdate = null, ctInfoRemove = null, ctAddEntity = null;
         Constructor<?> ctSetData = null, ctRotateHead = null, ctRemoveEntities = null;
         Constructor<?> ctTeleport = null;
+        Constructor<?> ctInfoUpdateFromList = null, ctInfoEntry = null;
+        Method m_getProfile = null;
+        Object gameTypeDefault = null;
 
         Field fDataCust = null, fConnOfListener = null;
         Object vec3Zero = null;
@@ -152,6 +172,10 @@ public final class NpcNms {
             gameProfile = Class.forName("com.mojang.authlib.GameProfile");
             property = Class.forName("com.mojang.authlib.properties.Property");
             propertyMap = Class.forName("com.mojang.authlib.properties.PropertyMap");
+            try {
+                multimap = Class.forName("com.google.common.collect.Multimap");
+                arrayListMultimap = Class.forName("com.google.common.collect.ArrayListMultimap");
+            } catch (ClassNotFoundException ignored) {}
 
             pInfoUpdate = Class.forName("net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket");
             pInfoUpdateAction = Class.forName("net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket$Action");
@@ -196,8 +220,10 @@ public final class NpcNms {
             }
             m_synGetNonDefault = synched.getMethod("getNonDefaultValues");
             m_synSet = synched.getMethod("set", dataAccessor, Object.class);
-            // Non-fatal: authlib 26.x+ removed mutable getProperties() from GameProfile.
-            // NPCs spawnent sans skin custom si l'API n'est pas dispo.
+            // authlib < 7.x : GameProfile a getProperties() retournant une PropertyMap mutable.
+            // authlib 7.x+ (MC 26.x+) : GameProfile devient un record, getProperties() est
+            // supprimé. On utilise alors le constructeur 3-args (UUID, String, PropertyMap)
+            // avec une PropertyMap construite à la volée à partir d'un Multimap Guava.
             try {
                 m_gpGetProps = gameProfile.getMethod("getProperties");
                 try {
@@ -207,6 +233,15 @@ public final class NpcNms {
                         m_pmPut = propertyMap.getMethod("put", String.class, property);
                 }
             } catch (NoSuchMethodException ignored) {}
+            if (multimap != null && arrayListMultimap != null) {
+                try {
+                    m_almCreate = arrayListMultimap.getMethod("create");
+                    m_mmPut = multimap.getMethod("put", Object.class, Object.class);
+                    ctPropertyMap = propertyMap.getConstructor(multimap);
+                    ctGameProfileWithProps = gameProfile.getConstructor(
+                            UUID.class, String.class, propertyMap);
+                } catch (NoSuchMethodException ignored) {}
+            }
 
             // Vec3.ZERO pour la composante "movement" du AddEntity packet.
             try {
@@ -235,6 +270,19 @@ public final class NpcNms {
                     }
                 }
             }
+
+            // LivingEntity.setYBodyRot(float) / setYHeadRot(float) — absMoveTo ne touche
+            // que yRot. Sans ça, un fake-player jamais ticked garde yBodyRot=yHeadRot=0
+            // et son corps est rendu désorienté par rapport à la direction visée.
+            try {
+                Class<?> living = Class.forName("net.minecraft.world.entity.LivingEntity");
+                try {
+                    m_entSetYBodyRot = living.getMethod("setYBodyRot", float.class);
+                } catch (NoSuchMethodException ignored) {}
+                try {
+                    m_entSetYHeadRot = living.getMethod("setYHeadRot", float.class);
+                } catch (NoSuchMethodException ignored) {}
+            } catch (ClassNotFoundException ignored) {}
 
             // ServerGamePacketListenerImpl#send(Packet<?>)
             for (Method m : serverGameListener.getMethods()) {
@@ -317,6 +365,46 @@ public final class NpcNms {
             }
             if (fConnOfListener != null) fConnOfListener.setAccessible(true);
 
+            // MC 26.x — ClientboundPlayerInfoUpdatePacket(EnumSet, List<Entry>)
+            // constructeur interne qui évite de lire player.connection.latency().
+            try {
+                for (java.lang.reflect.Constructor<?> c : pInfoUpdate.getDeclaredConstructors()) {
+                    Class<?>[] pt = c.getParameterTypes();
+                    if (pt.length == 2 && pt[0] == EnumSet.class && List.class.isAssignableFrom(pt[1])) {
+                        c.setAccessible(true);
+                        ctInfoUpdateFromList = c;
+                        break;
+                    }
+                }
+                // ClientboundPlayerInfoUpdatePacket$Entry — constructeur canonique record
+                Class<?> entryClass = Class.forName(
+                        "net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket$Entry");
+                for (java.lang.reflect.Constructor<?> c : entryClass.getDeclaredConstructors()) {
+                    Class<?>[] pt = c.getParameterTypes();
+                    if (pt.length >= 4 && pt[0] == UUID.class) {
+                        c.setAccessible(true);
+                        ctInfoEntry = c;
+                        break;
+                    }
+                }
+                // ServerPlayer#getGameProfile()
+                for (Method m : serverPlayer.getMethods()) {
+                    if (m.getName().equals("getGameProfile") && m.getParameterCount() == 0
+                            && m.getReturnType() == gameProfile) {
+                        m_getProfile = m;
+                        break;
+                    }
+                }
+                // GameType — valeur SURVIVAL ou DEFAULT_MODE
+                for (Object val : gameType.getEnumConstants()) {
+                    String n = ((Enum<?>) val).name();
+                    if (n.equals("SURVIVAL") || n.equals("DEFAULT_MODE")) {
+                        gameTypeDefault = val;
+                        if (n.equals("SURVIVAL")) break; // priorité à SURVIVAL
+                    }
+                }
+            } catch (Throwable ignored) {}
+
             ok = true;
         } catch (Throwable t) {
             err = t;
@@ -325,6 +413,7 @@ public final class NpcNms {
         C_CRAFTSERVER = craftServer; C_CRAFTWORLD = craftWorld; C_CRAFTPLAYER = craftPlayer;
         C_SERVERPLAYER = serverPlayer; C_SERVERLEVEL = serverLevel; C_MINECRAFT_SERVER = minecraftServer;
         C_GAMEPROFILE = gameProfile; C_PROPERTY = property; C_PROPERTYMAP = propertyMap;
+        C_MULTIMAP = multimap; C_ARRAYLIST_MULTIMAP = arrayListMultimap;
         C_GAMETYPE = gameType; C_CLIENT_INFO = clientInfo; C_ENTITY = entity;
         C_ENTITY_TYPE = entityType; C_VEC3 = vec3;
         C_PLAYER_NMS = playerNms; C_SYNCHED_DATA = synched; C_DATA_ACCESSOR = dataAccessor;
@@ -344,14 +433,21 @@ public final class NpcNms {
         M_POSITION_SYNC_OF = m_posSyncOf;
         M_SYNCHED_GET_NON_DEFAULT = m_synGetNonDefault; M_SYNCHED_SET = m_synSet;
         M_GAMEPROFILE_GET_PROPS = m_gpGetProps; M_PROPERTYMAP_PUT = m_pmPut;
+        M_ARRAYLIST_MULTIMAP_CREATE = m_almCreate; M_MULTIMAP_PUT = m_mmPut;
         M_SERVERPLAYER_SET_POS = m_spSetPos; M_ENTITY_SET_ROT = m_entSetRot;
+        M_ENTITY_SET_Y_BODY_ROT = m_entSetYBodyRot; M_ENTITY_SET_Y_HEAD_ROT = m_entSetYHeadRot;
         M_PACKET_SEND = m_packetSend;
 
         CT_PROPERTY = ctProperty; CT_GAMEPROFILE = ctGameProfile;
+        CT_GAMEPROFILE_WITH_PROPS = ctGameProfileWithProps; CT_PROPERTYMAP = ctPropertyMap;
         CT_SERVERPLAYER = ctServerPlayer; CT_INFO_UPDATE = ctInfoUpdate;
         CT_INFO_REMOVE = ctInfoRemove; CT_ADD_ENTITY = ctAddEntity;
         CT_SET_DATA = ctSetData; CT_ROTATE_HEAD = ctRotateHead;
         CT_REMOVE_ENTITIES = ctRemoveEntities; CT_TELEPORT_ENTITY = ctTeleport;
+        CT_INFO_UPDATE_FROM_LIST = ctInfoUpdateFromList;
+        CT_INFO_ENTRY = ctInfoEntry;
+        M_SERVERPLAYER_GET_PROFILE = m_getProfile;
+        GAMETYPE_DEFAULT = gameTypeDefault;
 
         F_DATA_PLAYER_CUSTOMISATION = fDataCust;
         F_CONNECTION_OF_LISTENER = fConnOfListener;
@@ -373,15 +469,30 @@ public final class NpcNms {
     }
 
     public static Object buildGameProfile(UUID id, String name, String value, String signature) throws Exception {
+        boolean hasSkin = value != null && !value.isBlank();
+        if (!hasSkin) {
+            return CT_GAMEPROFILE.newInstance(id, name);
+        }
+        Object prop;
+        if (CT_PROPERTY.getParameterCount() == 3) {
+            prop = CT_PROPERTY.newInstance("textures", value, signature);
+        } else {
+            prop = CT_PROPERTY.newInstance("textures", value);
+        }
+
+        // authlib 7.x+ : GameProfile est immuable, getProperties() supprimé.
+        // On construit la PropertyMap à part puis on utilise GameProfile(UUID,String,PropertyMap).
+        if (CT_GAMEPROFILE_WITH_PROPS != null && CT_PROPERTYMAP != null
+                && M_ARRAYLIST_MULTIMAP_CREATE != null && M_MULTIMAP_PUT != null) {
+            Object multimap = M_ARRAYLIST_MULTIMAP_CREATE.invoke(null);
+            M_MULTIMAP_PUT.invoke(multimap, "textures", prop);
+            Object pmap = CT_PROPERTYMAP.newInstance(multimap);
+            return CT_GAMEPROFILE_WITH_PROPS.newInstance(id, name, pmap);
+        }
+
+        // authlib < 7.x : ancien chemin via getProperties().put().
         Object profile = CT_GAMEPROFILE.newInstance(id, name);
-        if (value != null && !value.isBlank()
-                && M_GAMEPROFILE_GET_PROPS != null && M_PROPERTYMAP_PUT != null) {
-            Object prop;
-            if (CT_PROPERTY.getParameterCount() == 3) {
-                prop = CT_PROPERTY.newInstance("textures", value, signature);
-            } else {
-                prop = CT_PROPERTY.newInstance("textures", value);
-            }
+        if (M_GAMEPROFILE_GET_PROPS != null && M_PROPERTYMAP_PUT != null) {
             Object map = M_GAMEPROFILE_GET_PROPS.invoke(profile);
             M_PROPERTYMAP_PUT.invoke(map, "textures", prop);
         }
@@ -399,6 +510,14 @@ public final class NpcNms {
                     loc.getX(), loc.getY(), loc.getZ(),
                     loc.getYaw(), loc.getPitch());
         }
+        // absMoveTo ne touche que yRot. Sans appel explicite, yBodyRot et yHeadRot
+        // restent à 0 → le client rend le corps droit devant et seule la tête bouge.
+        if (M_ENTITY_SET_Y_BODY_ROT != null) {
+            M_ENTITY_SET_Y_BODY_ROT.invoke(nmsPlayer, loc.getYaw());
+        }
+        if (M_ENTITY_SET_Y_HEAD_ROT != null) {
+            M_ENTITY_SET_Y_HEAD_ROT.invoke(nmsPlayer, loc.getYaw());
+        }
         if (F_DATA_PLAYER_CUSTOMISATION != null) {
             Object accessor = F_DATA_PLAYER_CUSTOMISATION.get(null);
             Object entityData = M_ENTITY_GET_DATA.invoke(nmsPlayer);
@@ -411,15 +530,80 @@ public final class NpcNms {
         return (int) M_ENTITY_GET_ID.invoke(nmsPlayer);
     }
 
+    /**
+     * Aligne body, head et yRot du fake-player sur le yaw passé. À appeler
+     * avant un teleport packet en wander : sinon le client garde l'ancien
+     * yBodyRot et le corps reste figé pendant que la tête tourne.
+     */
+    public static void setEntityYaw(Object nmsPlayer, float yaw) {
+        try {
+            for (Method m : nmsPlayer.getClass().getMethods()) {
+                if (m.getParameterCount() == 1
+                        && m.getParameterTypes()[0] == float.class
+                        && m.getName().equals("setYRot")) {
+                    m.invoke(nmsPlayer, yaw);
+                    break;
+                }
+            }
+        } catch (Throwable ignored) {}
+        if (M_ENTITY_SET_Y_BODY_ROT != null) {
+            try { M_ENTITY_SET_Y_BODY_ROT.invoke(nmsPlayer, yaw); } catch (Throwable ignored) {}
+        }
+        if (M_ENTITY_SET_Y_HEAD_ROT != null) {
+            try { M_ENTITY_SET_Y_HEAD_ROT.invoke(nmsPlayer, yaw); } catch (Throwable ignored) {}
+        }
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static Object buildAddPlayerInfoPacket(Object nmsPlayer) throws Exception {
         EnumSet actions = EnumSet.noneOf((Class) P_INFO_UPDATE_ACTION);
         for (Object c : P_INFO_UPDATE_ACTION.getEnumConstants()) {
             String n = ((Enum<?>) c).name();
-            // On veut publier le profil + skin sans apparaître dans la tab-list
             if (n.equals("ADD_PLAYER") || n.equals("UPDATE_LISTED")) actions.add(c);
         }
+
+        // MC 26.x : le constructeur (EnumSet, Collection<ServerPlayer>) lit
+        // player.connection.latency() ce qui NPE sur les fake-players sans connexion.
+        // On passe par le constructeur interne (EnumSet, List<Entry>) en construisant
+        // les entries manuellement avec latency=0.
+        if (CT_INFO_UPDATE_FROM_LIST != null && CT_INFO_ENTRY != null) {
+            try {
+                Object entry = buildInfoEntry(nmsPlayer, actions);
+                if (entry != null) {
+                    return CT_INFO_UPDATE_FROM_LIST.newInstance(actions, List.of(entry));
+                }
+            } catch (Throwable ignored) {}
+        }
+
         return CT_INFO_UPDATE.newInstance(actions, List.of(nmsPlayer));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Object buildInfoEntry(Object nmsPlayer, EnumSet actions) throws Exception {
+        UUID uuid = (UUID) M_ENTITY_GET_UUID.invoke(nmsPlayer);
+        Object profile = M_SERVERPLAYER_GET_PROFILE != null
+                ? M_SERVERPLAYER_GET_PROFILE.invoke(nmsPlayer)
+                : null;
+
+        // Record Entry MC 26.x :
+        // (UUID, GameProfile, boolean listed, int latency, GameType, Component, boolean showHat, int listOrder, RemoteChatSession$Data)
+        // listed DOIT être true au spawn — sinon le client n'applique pas le skin
+        // sur le fake-player et l'entité reste invisible. On le retire de la tab
+        // list après-coup via PlayerInfoRemove (cf. Npc#spawnTo).
+        Class<?>[] pt = CT_INFO_ENTRY.getParameterTypes();
+        Object[] args = new Object[pt.length];
+        java.lang.reflect.RecordComponent[] comps = CT_INFO_ENTRY.getDeclaringClass().getRecordComponents();
+        for (int i = 0; i < pt.length; i++) {
+            Class<?> t = pt[i];
+            String name = (comps != null && i < comps.length) ? comps[i].getName() : "";
+            if (t == UUID.class)              args[i] = uuid;
+            else if (t == C_GAMEPROFILE)      args[i] = profile;
+            else if (t == boolean.class)      args[i] = name.equals("listed") || name.equals("showHat");
+            else if (t == int.class)          args[i] = 0; // latency ou listOrder
+            else if (t == C_GAMETYPE)         args[i] = GAMETYPE_DEFAULT;
+            else                              args[i] = null; // Component, chatSession, etc.
+        }
+        return CT_INFO_ENTRY.newInstance(args);
     }
 
     public static Object buildRemovePlayerInfoPacket(UUID uuid) throws Exception {
