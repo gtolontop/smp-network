@@ -14,8 +14,8 @@ config-version: 13
 settings:
   debug: false
   save-user-cache-on-stop-only: false
-  log-villager-deaths: true
-  log-named-deaths: true
+  log-villager-deaths: false
+  log-named-deaths: false
   bungeecord: false # Not needed — using Velocity modern forwarding via Paper config
   sample-count: 12
   player-shuffle: 0
@@ -139,10 +139,10 @@ world-settings:
     hopper-can-load-chunks: false
     
     # --- Tick Rates ---
-    nerf-spawner-mobs: false
+    nerf-spawner-mobs: true
     arrow-despawn-rate: 1200
     trident-despawn-rate: 1200
-    zombie-aggressive-towards-villager: true
+    zombie-aggressive-towards-villager: false
     
     # --- View Distance (overrides server.properties per-world if needed) ---
     # Left at default here; global values set in server.properties
