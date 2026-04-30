@@ -2,6 +2,8 @@ package fr.smp.core.dragonegg;
 
 import fr.smp.core.SMPCore;
 import fr.smp.core.utils.Msg;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
@@ -77,7 +79,9 @@ public final class DragonEggListener implements Listener {
         if (!manager.confirmPlacement(event.getPlayer(), event.getBlockPlaced())) {
             return;
         }
-        manager.onBlockPlace(event.getPlayer(), event.getBlockPlaced());
+        Location placeLocation = event.getBlockPlaced().getLocation();
+        Player player = event.getPlayer();
+        Bukkit.getScheduler().runTask(plugin, () -> manager.onBlockPlace(player, placeLocation.getBlock()));
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
