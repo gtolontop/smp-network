@@ -27,6 +27,13 @@ public class PlayerData {
     private Float lastYaw;
     private Float lastPitch;
     private String nickname;
+    /**
+     * Cumulative items sold per {@link fr.smp.core.sell.SellCategory} (indexed
+     * by ordinal, length 9). Drives the snowball multiplier in /sell.
+     */
+    private final long[] tierSellCount = new long[9];
+    /** Cumulative money earned per category (informational, GUI display). */
+    private final double[] tierMoneyEarned = new double[9];
 
     public PlayerData(UUID uuid, String name) {
         this.uuid = uuid;
@@ -114,4 +121,47 @@ public class PlayerData {
 
     public String nickname() { return nickname; }
     public void setNickname(String nickname) { this.nickname = nickname; }
+
+    public long tierSellCount(int idx) {
+        return (idx < 0 || idx >= tierSellCount.length) ? 0 : tierSellCount[idx];
+    }
+
+    public void setTierSellCount(int idx, long value) {
+        if (idx < 0 || idx >= tierSellCount.length) return;
+        tierSellCount[idx] = Math.max(0L, value);
+    }
+
+    public double tierMoneyEarned(int idx) {
+        return (idx < 0 || idx >= tierMoneyEarned.length) ? 0 : tierMoneyEarned[idx];
+    }
+
+    public void setTierMoneyEarned(int idx, double value) {
+        if (idx < 0 || idx >= tierMoneyEarned.length) return;
+        tierMoneyEarned[idx] = Math.max(0.0, value);
+    }
+
+    public void addTierMoneyEarned(int idx, double delta) {
+        if (idx < 0 || idx >= tierMoneyEarned.length) return;
+        tierMoneyEarned[idx] += delta;
+    }
+
+    /** Defensive copy, mostly for the PTR isolation snapshot. */
+    public long[] tierSellCountSnapshot() { return tierSellCount.clone(); }
+    public double[] tierMoneyEarnedSnapshot() { return tierMoneyEarned.clone(); }
+
+    public void restoreTierSnapshot(long[] counts, double[] moneys) {
+        if (counts != null && counts.length == tierSellCount.length) {
+            System.arraycopy(counts, 0, tierSellCount, 0, counts.length);
+        }
+        if (moneys != null && moneys.length == tierMoneyEarned.length) {
+            System.arraycopy(moneys, 0, tierMoneyEarned, 0, moneys.length);
+        }
+    }
+
+    public void zeroTiers() {
+        for (int i = 0; i < tierSellCount.length; i++) {
+            tierSellCount[i] = 0L;
+            tierMoneyEarned[i] = 0.0;
+        }
+    }
 }
