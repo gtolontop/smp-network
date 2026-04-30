@@ -117,6 +117,11 @@ public class TeamsGUI extends GUIHolder {
             inv.setItem(14, GUIUtil.item(Material.BLUE_DYE,
                     "<aqua><bold>Changer la couleur</bold></aqua>",
                     "<gray>Actuelle: " + t.color() + "exemple<reset></gray>"));
+            inv.setItem(15, GUIUtil.item(Material.NAME_TAG,
+                    "<yellow><bold>Renommer la team</bold></yellow>",
+                    "<gray>Actuel: " + t.color() + t.name() + "<reset></gray>",
+                    "",
+                    "<yellow>▶ Clic pour changer le nom</yellow>"));
             boolean confirmingDisband = pendingDisband > System.currentTimeMillis();
             inv.setItem(16, GUIUtil.item(confirmingDisband ? Material.TNT : Material.BARRIER,
                     confirmingDisband ? "<red><bold>⚠ Confirmer dissolution</bold></red>"
@@ -315,6 +320,7 @@ public class TeamsGUI extends GUIHolder {
         if (raw == 12) openInvite(p);
         else if (raw == 13) openKick(p);
         else if (raw == 14) openColors(p);
+        else if (raw == 15) startRenameFlow(p, t.id());
         else if (raw == 16) {
             long now = System.currentTimeMillis();
             if (pendingDisband > now) {
@@ -376,6 +382,30 @@ public class TeamsGUI extends GUIHolder {
         p.sendMessage(Msg.ok("<red>Membre kické.</red>"));
         if (plugin.nametags() != null) plugin.nametags().refreshAll();
         openKick(p);
+    }
+
+    private void startRenameFlow(Player p, String teamId) {
+        p.closeInventory();
+        plugin.chatPrompt().ask(p,
+                "<aqua>Tape le nouveau nom de la team (ou \"annuler\") :</aqua>",
+                30, name -> {
+            if (name.equalsIgnoreCase("annuler")) {
+                p.sendMessage(Msg.info("<gray>Renommage annulé.</gray>"));
+                return;
+            }
+            if (name.isBlank() || name.length() > 32) {
+                p.sendMessage(Msg.err("Nom invalide (1-32 caractères)."));
+                return;
+            }
+            TeamManager.Team t = plugin.teams().get(teamId);
+            if (t == null || !t.owner().equals(p.getUniqueId().toString())) {
+                p.sendMessage(Msg.err("Tu n'es plus owner de cette team."));
+                return;
+            }
+            plugin.teams().setName(teamId, name);
+            p.sendMessage(Msg.ok("<green>Team renommée en <aqua>" + name + "</aqua>.</green>"));
+            if (plugin.nametags() != null) plugin.nametags().refreshAll();
+        });
     }
 
     private void startCreateFlow(Player p) {
