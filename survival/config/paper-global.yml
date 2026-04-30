@@ -46,8 +46,8 @@ chunk-system:
   io-threads: -1
   worker-threads: -1
 collisions:
-  enable-player-collisions: true
-  send-full-pos-for-hard-colliding-entities: true
+  enable-player-collisions: false
+  send-full-pos-for-hard-colliding-entities: false
 commands:
   ride-command-allow-player-as-vehicle: false
   suggest-player-names-when-null-tab-completions: true
