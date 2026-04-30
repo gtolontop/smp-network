@@ -1,8 +1,8 @@
 package fr.smp.core.gui;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
@@ -21,6 +21,14 @@ public abstract class GUIHolder implements InventoryHolder {
 
     /** Called when a viewer clicks inside this GUI. Event is cancelled before this call. */
     public abstract void onClick(InventoryClickEvent event);
+
+    /**
+     * Called when a viewer drags items inside this GUI. Event is cancelled
+     * before this call. Default keeps it cancelled — only GUIs that allow
+     * free item placement (e.g. SellGUI) should override and re-enable it
+     * when the dragged slots are safe.
+     */
+    public void onDrag(InventoryDragEvent event) {}
 
     /** Called when a viewer closes the GUI. Default no-op. */
     public void onClose(HumanEntity who) {}
