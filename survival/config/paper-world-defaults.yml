@@ -70,7 +70,7 @@ chunks:
 collisions:
   allow-player-cramming-damage: false
   allow-vehicle-collisions: true
-  enable-player-collisions: true
+  enable-player-collisions: false
   fix-climbing-bypassing-cramming-rule: false
   max-entity-collisions: 8
   only-players-collide: false
@@ -328,8 +328,8 @@ spawn:
 tick-rates:
   behavior:
     villager:
-      acquirepoi: -1
-      validatenearbypoi: -1
+      acquirepoi: 120
+      validatenearbypoi: 60
   container-update: 1
   dry-farmland: 1
   grass-spread: 4
