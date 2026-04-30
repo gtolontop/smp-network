@@ -430,7 +430,10 @@ public class EnchantBreakListener implements Listener {
             Material.DIRT, Material.GRASS_BLOCK, Material.PODZOL, Material.MYCELIUM,
             Material.COARSE_DIRT, Material.ROOTED_DIRT, Material.MUD, Material.CLAY,
             Material.SAND, Material.RED_SAND, Material.GRAVEL, Material.DIRT_PATH,
-            Material.SOUL_SAND, Material.SOUL_SOIL, Material.SNOW_BLOCK);
+            Material.SOUL_SAND, Material.SOUL_SOIL, Material.SNOW_BLOCK,
+            Material.MOSS_BLOCK, Material.POWDER_SNOW,
+            Material.SUSPICIOUS_SAND, Material.SUSPICIOUS_GRAVEL,
+            Material.MANGROVE_ROOTS);
 
     private static boolean isSoftGround(Material m) {
         return SOFT_GROUND.contains(m);
