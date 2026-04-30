@@ -367,6 +367,7 @@ public class NpcManager implements Listener {
                     setPosMethod = setPos;
                 }
                 setPos.invoke(data, nx, cur.getY(), nz);
+                NpcNms.setEntityYaw(data, yaw);
                 // Envoie téléport + rotation de tête
                 Object tp = NpcNms.buildTeleportPacket(data);
                 Object rot = NpcNms.buildRotateHeadPacket(data, yaw);
