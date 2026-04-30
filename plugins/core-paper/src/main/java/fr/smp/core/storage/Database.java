@@ -237,6 +237,18 @@ public class Database {
             )
             """,
             """
+            CREATE TABLE IF NOT EXISTS orders (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              buyer_uuid TEXT NOT NULL,
+              buyer_name TEXT NOT NULL,
+              item_type TEXT NOT NULL,
+              quantity INTEGER NOT NULL,
+              price_per_unit REAL NOT NULL,
+              created_at INTEGER NOT NULL,
+              fulfilled_quantity INTEGER NOT NULL DEFAULT 0
+            )
+            """,
+            """
             CREATE TABLE IF NOT EXISTS mailbox (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               uuid TEXT NOT NULL,
@@ -553,6 +565,15 @@ public class Database {
             catch (SQLException ignored) {}
             try { s.execute("ALTER TABLE spawners ADD COLUMN xp_pool INTEGER NOT NULL DEFAULT 0"); }
             catch (SQLException ignored) {}
+            // Tier-sell snowball: 9 categories × (count + money earned). Indexed
+            // by SellCategory.ordinal() (0..8). Adding a new category is just
+            // bumping the loop bound and adding two ALTER lines below.
+            for (int i = 0; i < 9; i++) {
+                try { s.execute("ALTER TABLE players ADD COLUMN tier_count_" + i + " INTEGER NOT NULL DEFAULT 0"); }
+                catch (SQLException ignored) {}
+                try { s.execute("ALTER TABLE players ADD COLUMN tier_money_" + i + " REAL NOT NULL DEFAULT 0"); }
+                catch (SQLException ignored) {}
+            }
         } catch (SQLException ignored) {}
     }
 }
