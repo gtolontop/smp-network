@@ -1,16 +1,18 @@
 package fr.smp.core.commands;
 
 import fr.smp.core.SMPCore;
+import fr.smp.core.data.PlayerData;
 import fr.smp.core.gui.HomesGUI;
 import fr.smp.core.managers.HomeManager;
 import fr.smp.core.managers.PendingTeleportManager;
 import fr.smp.core.utils.Msg;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+
+import java.util.UUID;
 
 public class HomeCommand implements CommandExecutor {
 
@@ -25,6 +27,9 @@ public class HomeCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player p)) { sender.sendMessage("Joueurs uniquement."); return true; }
+        if (isHomesMode() && args.length == 1 && args[0].endsWith(":")) {
+            return openAdminHomes(p, args[0]);
+        }
         if (plugin.combat() != null && plugin.combat().isTagged(p) && !mode.equals("homes") && !mode.equals("sethome")) {
             p.sendMessage(Msg.err("Tu es en combat. Attends <white>" + plugin.combat().remainingSec(p) + "s</white>."));
             return true;
@@ -79,6 +84,32 @@ public class HomeCommand implements CommandExecutor {
                 p.sendMessage(Msg.ok("<red>Home " + slot + " supprimé.</red>"));
             }
         }
+        return true;
+    }
+
+    private boolean isHomesMode() {
+        return mode.equals("home") || mode.equals("homes");
+    }
+
+    private boolean openAdminHomes(Player admin, String rawTarget) {
+        if (!admin.hasPermission("smp.admin")) {
+            admin.sendMessage(Msg.err("Permission refusée."));
+            return true;
+        }
+        String targetName = rawTarget.substring(0, rawTarget.length() - 1).trim();
+        if (targetName.isEmpty()) {
+            admin.sendMessage(Msg.err("/home <joueur>:"));
+            return true;
+        }
+        UUID targetUuid = plugin.players().resolveUuid(targetName);
+        if (targetUuid == null) {
+            admin.sendMessage(Msg.err("Joueur introuvable."));
+            return true;
+        }
+        PlayerData targetData = plugin.players().loadOffline(targetUuid);
+        String displayName = targetData != null && targetData.name() != null ? targetData.name() : targetName;
+        new HomesGUI(plugin, admin, targetUuid, displayName).open();
+        plugin.getLogger().info("[HOME] " + admin.getName() + " opened admin homes for " + displayName);
         return true;
     }
 
