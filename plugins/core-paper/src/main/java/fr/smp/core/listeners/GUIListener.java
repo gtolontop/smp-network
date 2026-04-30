@@ -7,6 +7,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.InventoryHolder;
 
 public class GUIListener implements Listener {
@@ -35,6 +36,15 @@ public class GUIListener implements Listener {
         if (server == null) return;
         player.closeInventory();
         plugin.getMessageChannel().sendTransfer(player, server);
+    }
+
+    @EventHandler
+    public void onDrag(InventoryDragEvent event) {
+        InventoryHolder top = event.getView().getTopInventory().getHolder();
+        if (top instanceof GUIHolder holder) {
+            event.setCancelled(true);
+            holder.onDrag(event);
+        }
     }
 
     @EventHandler
