@@ -73,6 +73,8 @@ commands:
   sellall:
     description: "Vend tout l'inventaire vendable en une commande"
     aliases: [sa]
+  sellauto:
+    description: "Toggle la vente automatique des items ramassés"
   worth:
     description: "Affiche la valeur de l'item en main"
     aliases: [valeur, prix]
@@ -92,6 +94,11 @@ commands:
   ah:
     description: "Auction House"
     aliases: [auction]
+  order:
+    description: "Browse or create buy orders (commandes d'achat)"
+    aliases: [commande, commandes]
+  orders:
+    description: "Browse buy orders filtered by player"
   # keyall:
   #   description: "Keyall countdown"
   end:
