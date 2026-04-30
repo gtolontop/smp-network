@@ -42,16 +42,16 @@ sleep 5
 echo "[3/4] Starting Survival server (Paper)..."
 cd "$BASE_DIR/survival"
 "$JAVA" --enable-native-access=ALL-UNNAMED \
-  -Xms4G -Xmx12G \
+  -Xms4G -Xmx16G \
   -XX:+UseG1GC \
   -XX:+ParallelRefProcEnabled \
-  -XX:MaxGCPauseMillis=50 \
+  -XX:MaxGCPauseMillis=200 \
   -XX:+UnlockExperimentalVMOptions \
   -XX:+DisableExplicitGC \
-  -XX:G1NewSizePercent=40 \
-  -XX:G1MaxNewSizePercent=50 \
-  -XX:G1HeapRegionSize=32M \
-  -XX:G1ReservePercent=15 \
+  -XX:G1NewSizePercent=30 \
+  -XX:G1MaxNewSizePercent=40 \
+  -XX:G1HeapRegionSize=16M \
+  -XX:G1ReservePercent=20 \
   -XX:G1HeapWastePercent=5 \
   -XX:G1MixedGCCountTarget=4 \
   -XX:InitiatingHeapOccupancyPercent=20 \
@@ -61,6 +61,8 @@ cd "$BASE_DIR/survival"
   -XX:+PerfDisableSharedMem \
   -XX:MaxTenuringThreshold=1 \
   -XX:+UseStringDeduplication \
+  -Daikars.new.flags=true \
+  -Dusing.aikars.flags=https://mcflags.emc.gs \
   -jar paper.jar --nogui &
 SURVIVAL_PID=$!
 echo "  -> Survival PID: $SURVIVAL_PID"
