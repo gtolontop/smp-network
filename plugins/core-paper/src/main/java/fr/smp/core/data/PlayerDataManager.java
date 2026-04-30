@@ -27,7 +27,8 @@ public class PlayerDataManager {
      * ensuring PTR activity never pollutes production stats.
      * Playtime is explicitly NOT isolated — it syncs normally.
      */
-    private record PtrSnapshot(double money, long shards, int kills, int deaths, int dailyKills, String dailyKillsDate) {}
+    private record PtrSnapshot(double money, long shards, int kills, int deaths, int dailyKills, String dailyKillsDate,
+                               long[] tierCounts, double[] tierMoney) {}
     private final Map<UUID, PtrSnapshot> ptrSnapshots = new ConcurrentHashMap<>();
 
     private final SMPCore plugin;
@@ -86,13 +87,18 @@ public class PlayerDataManager {
         if (plugin.isPtr()) {
             ptrSnapshots.put(uuid, new PtrSnapshot(
                     data.money(), data.shards(), data.kills(), data.deaths(),
-                    data.dailyKills(), data.dailyKillsDate()));
+                    data.dailyKills(), data.dailyKillsDate(),
+                    data.tierSellCountSnapshot(), data.tierMoneyEarnedSnapshot()));
             data.setMoney(0);
             data.setShards(0);
             data.setKills(0);
             data.setDeaths(0);
             data.setDailyKills(0);
             data.setDailyKillsDate(null);
+            // Tier counters are isolated too: otherwise a player could /give
+            // himself a million amethysts on PTR, sell, and walk back into
+            // production with a x3 multiplier they never farmed for.
+            data.zeroTiers();
         }
         cache.put(uuid, data);
         return data;
@@ -137,7 +143,10 @@ public class PlayerDataManager {
     private PlayerData loadFromDb(UUID uuid) {
         try (Connection c = db.get();
              PreparedStatement ps = c.prepareStatement(
-                      "SELECT name, money, shards, kills, deaths, playtime_sec, first_join, last_seen, team_id, scoreboard, fullbright, shards_last_mc_min, daily_kills, daily_kills_date, survival_joined, last_world, last_x, last_y, last_z, last_yaw, last_pitch, nickname FROM players WHERE uuid=?")) {
+                      "SELECT name, money, shards, kills, deaths, playtime_sec, first_join, last_seen, team_id, scoreboard, fullbright, shards_last_mc_min, daily_kills, daily_kills_date, survival_joined, last_world, last_x, last_y, last_z, last_yaw, last_pitch, nickname,"
+                              + " tier_count_0, tier_count_1, tier_count_2, tier_count_3, tier_count_4, tier_count_5, tier_count_6, tier_count_7, tier_count_8,"
+                              + " tier_money_0, tier_money_1, tier_money_2, tier_money_3, tier_money_4, tier_money_5, tier_money_6, tier_money_7, tier_money_8"
+                              + " FROM players WHERE uuid=?")) {
             ps.setString(1, uuid.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return null;
@@ -166,6 +175,10 @@ public class PlayerDataManager {
                     d.setLastLocation(lw, lx, ly, lz, lyaw, lpitch);
                 }
                 d.setNickname(rs.getString(22));
+                for (int i = 0; i < 9; i++) {
+                    d.setTierSellCount(i, rs.getLong(23 + i));
+                    d.setTierMoneyEarned(i, rs.getDouble(32 + i));
+                }
                 return d;
             }
         } catch (SQLException e) {
@@ -215,6 +228,8 @@ public class PlayerDataManager {
         int writeDailyKills = d.dailyKills();
         String writeDailyKillsDate = d.dailyKillsDate();
         long writeShardsLastMcMin = d.shardsLastMcMin();
+        long[] writeTierCounts = d.tierSellCountSnapshot();
+        double[] writeTierMoney = d.tierMoneyEarnedSnapshot();
 
         if (plugin.isPtr()) {
             PtrSnapshot snap = ptrSnapshots.get(d.uuid());
@@ -226,12 +241,17 @@ public class PlayerDataManager {
                 writeDailyKills = snap.dailyKills();
                 writeDailyKillsDate = snap.dailyKillsDate();
                 writeShardsLastMcMin = d.shardsLastMcMin(); // keep real shard timing
+                if (snap.tierCounts() != null) writeTierCounts = snap.tierCounts();
+                if (snap.tierMoney() != null) writeTierMoney = snap.tierMoney();
             }
         }
 
         try (Connection c = db.get();
              PreparedStatement ps = c.prepareStatement(
-                      "UPDATE players SET name=?, money=?, shards=?, kills=?, deaths=?, playtime_sec=?, last_seen=?, team_id=?, scoreboard=?, fullbright=?, shards_last_mc_min=?, daily_kills=?, daily_kills_date=?, survival_joined=?, last_world=?, last_x=?, last_y=?, last_z=?, last_yaw=?, last_pitch=?, nickname=? WHERE uuid=?")) {
+                      "UPDATE players SET name=?, money=?, shards=?, kills=?, deaths=?, playtime_sec=?, last_seen=?, team_id=?, scoreboard=?, fullbright=?, shards_last_mc_min=?, daily_kills=?, daily_kills_date=?, survival_joined=?, last_world=?, last_x=?, last_y=?, last_z=?, last_yaw=?, last_pitch=?, nickname=?,"
+                              + " tier_count_0=?, tier_count_1=?, tier_count_2=?, tier_count_3=?, tier_count_4=?, tier_count_5=?, tier_count_6=?, tier_count_7=?, tier_count_8=?,"
+                              + " tier_money_0=?, tier_money_1=?, tier_money_2=?, tier_money_3=?, tier_money_4=?, tier_money_5=?, tier_money_6=?, tier_money_7=?, tier_money_8=?"
+                              + " WHERE uuid=?")) {
             ps.setString(1, d.name());
             ps.setDouble(2, writeMoney);
             ps.setLong(3, writeShards);
@@ -262,7 +282,11 @@ public class PlayerDataManager {
                 ps.setNull(20, java.sql.Types.REAL);
             }
             ps.setString(21, d.nickname());
-            ps.setString(22, d.uuid().toString());
+            for (int i = 0; i < 9; i++) {
+                ps.setLong(22 + i, writeTierCounts[i]);
+                ps.setDouble(31 + i, writeTierMoney[i]);
+            }
+            ps.setString(40, d.uuid().toString());
             ps.executeUpdate();
         } catch (SQLException e) {
             plugin.getLogger().warning("Failed to save player: " + e.getMessage());
