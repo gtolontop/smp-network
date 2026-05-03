@@ -12,9 +12,9 @@ discord:
 # Discord bridge — WebSocket client to the companion Discord bot.
 # Must match the bot's BRIDGE_TOKEN; url points at BRIDGE_HOST:BRIDGE_PORT.
 discord-bridge:
-  enabled: true
+  enabled: false
   url: "ws://127.0.0.1:8787"
-  token: "adbdaece1b667418b897c23755027d9b37080f57ac6a17bde9989c7b5775f48d"
+  token: ""
   # origin defaults to server-type if omitted. Override for multi-instance setups.
   # origin: "survival"
   telemetry-interval-ticks: 40
@@ -241,7 +241,7 @@ economy:
 # ------ Auction House ------
 auction:
   ttl-hours: 720
-  max-per-player: 500
+  max-per-player: 25
   fee-percent: 5.0
 
 # ------ Œuf du Dragon ------
