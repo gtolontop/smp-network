@@ -1,7 +1,0 @@
-{
-  "id": "smp-core",
-  "name": "SMP Core",
-  "version": "1.0.0",
-  "description": "Core network plugin for SMP",
-  "authors": ["SMP Team"]
-}
