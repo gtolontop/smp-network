@@ -57,7 +57,6 @@ public class PermissionsManager {
             "smp.chat.color",
             "smp.chat.format",
             "smp.rtp.bypass",
-            "smp.homes.20",
             "smp.perm.manage",
             "smp.op",
             "bukkit.command.op.give",
