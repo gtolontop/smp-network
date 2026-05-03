@@ -120,8 +120,8 @@ public class TutoCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(Msg.mm(""));
         cmdLine(sender, "/rtp", "Téléportez-vous aléatoirement dans le monde pour trouver un endroit vierge.");
         cmdLine(sender, "/spawn", "Retournez au spawn à tout moment.");
-        cmdLine(sender, "/home [name]", "Téléportez-vous vers un home que vous avez défini.");
-        cmdLine(sender, "/sethome [name]", "Définissez un point de téléportation personnel.");
+        cmdLine(sender, "/home [slot]", "Téléportez-vous vers un home que vous avez défini.");
+        cmdLine(sender, "/sethome [slot]", "Définissez un point de téléportation personnel.");
         cmdLine(sender, "/warp [name]", "Allez vers un warp public (boutiques, arènes…).");
         sender.sendMessage(Msg.mm(""));
         sender.sendMessage(Msg.mm("<gray>Conseil : utilisez <aqua>/tuto</aqua> pour explorer toutes les fonctionnalités du serveur !</gray>"));
@@ -152,15 +152,13 @@ public class TutoCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(Msg.mm(""));
         sender.sendMessage(Msg.mm("<gray>Les homes vous permettent de sauvegarder des points de téléportation :</gray>"));
         sender.sendMessage(Msg.mm(""));
-        cmdLine(sender, "/home [name]", "Vous téléporter vers un home existant.");
-        cmdLine(sender, "/sethome [name]", "Créer un home à votre position actuelle.");
-        cmdLine(sender, "/delhome [name]", "Supprimer un home.");
+        cmdLine(sender, "/home <slot>", "Vous téléporter vers un home existant.");
+        cmdLine(sender, "/sethome [slot]", "Créer un home à votre position actuelle.");
+        cmdLine(sender, "/delhome <slot>", "Supprimer un home.");
         cmdLine(sender, "/homes", "Lister tous vos homes.");
         sender.sendMessage(Msg.mm(""));
-        sender.sendMessage(Msg.mm("<gray>Le nombre de homes dépend de votre <aqua>grade</aqua> :</gray>"));
-        sender.sendMessage(Msg.mm("<gray> • <white>Default</white> — 2 homes</gray>"));
-        sender.sendMessage(Msg.mm("<gray> • <white>VIP</white> — 5 homes</gray>"));
-        sender.sendMessage(Msg.mm("<gray> • <white>VIP+</white> — 10 homes</gray>"));
+        sender.sendMessage(Msg.mm("<gray>Vous commencez avec <aqua>3 homes</aqua>.</gray>"));
+        sender.sendMessage(Msg.mm("<gray>Les slots 4 et 5 se débloquent via <white>/wealth</white>.</gray>"));
         sender.sendMessage(Msg.mm(SEP));
         sender.sendMessage(Msg.mm(""));
     }
