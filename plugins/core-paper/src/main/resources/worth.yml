@@ -259,7 +259,7 @@ base-worths:
   TRIDENT: 150.0
   ELYTRA: 50000.0
   NETHER_STAR: 10000.0
-  DRAGON_EGG: 500.0 # he respawn if died, so not that expensive
+  DRAGON_EGG: 500.0 # Respawns if lost, so it stays symbolic rather than expensive.
   DRAGON_HEAD: 25000.0
   DRAGON_BREATH: 500.0
 
