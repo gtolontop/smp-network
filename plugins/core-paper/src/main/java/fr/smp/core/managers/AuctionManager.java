@@ -138,7 +138,7 @@ public class AuctionManager {
     public Listing get(long id) {
         try (Connection c = db.get();
              PreparedStatement ps = c.prepareStatement(
-                     "SELECT id, seller, seller_name, item_data, price, listed_at, expires_at FROM auctions WHERE id=?")) {
+                     "SELECT id, seller, seller_name, item_data, price, listed_at, expires_at FROM auctions WHERE id=? AND sold=0")) {
             ps.setLong(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
