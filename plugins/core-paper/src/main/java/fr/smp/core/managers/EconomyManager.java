@@ -33,10 +33,12 @@ public class EconomyManager {
     }
 
     public boolean has(UUID uuid, double amount) {
+        if (!isValidAmount(amount)) return false;
         return balance(uuid) >= amount;
     }
 
     public boolean withdraw(UUID uuid, double amount, String reason) {
+        if (!isValidAmount(amount)) return false;
         PlayerData d = fetch(uuid);
         if (d == null || d.money() < amount) return false;
         d.addMoney(-amount);
@@ -46,6 +48,7 @@ public class EconomyManager {
     }
 
     public void deposit(UUID uuid, double amount, String reason) {
+        if (!isValidAmount(amount)) return;
         PlayerData d = fetch(uuid);
         if (d == null) return;
         d.addMoney(amount);
@@ -54,17 +57,27 @@ public class EconomyManager {
     }
 
     public boolean transfer(UUID from, UUID to, double amount) {
-        if (!has(from, amount)) return false;
-        withdraw(from, amount, "transfer");
-        deposit(to, amount, "transfer");
+        if (!isValidAmount(amount) || from == null || to == null || from.equals(to)) return false;
+        PlayerData source = fetch(from);
+        PlayerData target = fetch(to);
+        if (source == null || target == null || source.money() < amount) return false;
+        source.addMoney(-amount);
+        target.addMoney(amount);
+        persist(source);
+        persist(target);
+        plugin.logs().log(LogCategory.ECONOMY, "transfer " + source.name() + " -> " + target.name() + " " + amount);
         return true;
     }
 
     public void setBalance(UUID uuid, double amount) {
+        if (Double.isNaN(amount) || Double.isInfinite(amount) || amount < 0) return;
         PlayerData d = fetch(uuid);
         if (d == null) return;
         d.setMoney(amount);
         persist(d);
     }
 
+    private boolean isValidAmount(double amount) {
+        return amount > 0 && !Double.isNaN(amount) && !Double.isInfinite(amount);
+    }
 }
