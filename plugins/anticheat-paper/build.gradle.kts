@@ -28,10 +28,6 @@ tasks {
         archiveVersion.set("1.0.0")
     }
 
-    assemble {
-        dependsOn(reobfJar)
-    }
-
     build {
         dependsOn(shadowJar)
     }
