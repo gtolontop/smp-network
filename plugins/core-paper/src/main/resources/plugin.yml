@@ -344,14 +344,6 @@ permissions:
   smp.sync.bypass:
     description: "Bypass cross-server inventory sync"
     default: false
-  smp.homes.5:
-    default: true
-  smp.homes.10:
-    default: false
-  smp.homes.15:
-    default: false
-  smp.homes.20:
-    default: op
   smp.chat.color:
     description: "Use color codes in chat (&a, &#rrggbb)"
     default: true
