@@ -106,6 +106,7 @@ public class EconomyCommand implements CommandExecutor {
                 if (u == null) { sender.sendMessage(Msg.err("Joueur inconnu.")); return true; }
                 double v = Msg.parseAmount(args[2]);
                 if (v < 0) { sender.sendMessage(Msg.err("Montant invalide. Ex: 67, 67k, 67m, 1.5b.")); return true; }
+                if (!sub.equals("set") && v <= 0) { sender.sendMessage(Msg.err("Montant invalide. Ex: 67, 67k, 67m, 1.5b.")); return true; }
                 PlayerData d = plugin.players().loadOffline(u);
                 if (d == null) return true;
                 switch (sub) {
