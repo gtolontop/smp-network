@@ -88,6 +88,8 @@ plugins/*/*.iml
 .DS_Store
 Thumbs.db
 desktop.ini
+nul
+*/nul
 
 # IDE
 .idea/
