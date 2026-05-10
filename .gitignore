@@ -98,6 +98,7 @@ plugins/*/build/
 plugins/*/.gradle/
 plugins/*/.idea/
 plugins/*/*.iml
+plugins/*/logs/
 plugins-fabric-legacy/*/build/
 plugins-fabric-legacy/*/.gradle/
 plugins-fabric-legacy/*/.idea/

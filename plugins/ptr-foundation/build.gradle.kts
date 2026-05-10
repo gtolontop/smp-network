@@ -3,7 +3,13 @@ plugins {
     checkstyle
     alias(libs.plugins.paperweight.userdev)
     alias(libs.plugins.shadow)
-    alias(libs.plugins.spotless)
+    // Spotless is intentionally NOT applied yet. Both google-java-format
+    // 1.25.x and palantir-java-format 2.50 throw NoSuchMethodError on JDK
+    // 25's javac internals; the foundation runs on Java 25 by mandate. The
+    // checkstyle profile below catches the architectural mistakes the
+    // formatter would have. Re-enable once gjf/palantir publish JDK 25
+    // builds — see docs/V3_ROADMAP.md.
+    // alias(libs.plugins.spotless)
 }
 
 group = "fr.smp"
@@ -22,10 +28,12 @@ repositories {
 dependencies {
     paperweight.paperDevBundle(libs.versions.paper.get())
 
-    // Folia API for RegionScheduler / GlobalRegionScheduler / isOwnedByCurrentRegion.
-    // Paper ships shims so the plugin still builds against Paper alone, but we
-    // pin folia-api to lock the contract.
-    compileOnly(libs.folia.api)
+    // Folia API is intentionally NOT declared as a separate dependency.
+    // paper-api and folia-api both publish the `paper-mojangapi` capability
+    // and Gradle refuses to resolve both. Paper exposes Folia's
+    // RegionScheduler / GlobalRegionScheduler / AsyncScheduler / Entity
+    // scheduler shims natively since 1.20.6, so the foundation compiles
+    // against paper-api alone and runs unchanged on Folia.
 
     implementation(libs.configurate.yaml)
     implementation(libs.hikari)
@@ -60,12 +68,14 @@ tasks {
 
     compileJava {
         options.encoding = "UTF-8"
-        options.release.set(21)
+        // Paper 26.1.2 + Folia 26.1.2 both publish their API with --release 25,
+        // so the consumer release must match. Runtime Java is also 25.
+        options.release.set(25)
     }
 
     compileTestJava {
         options.encoding = "UTF-8"
-        options.release.set(21)
+        options.release.set(25)
     }
 
     processResources {
@@ -89,17 +99,9 @@ checkstyle {
     maxWarnings = 0
 }
 
-spotless {
-    java {
-        target("src/**/*.java")
-        googleJavaFormat("1.25.2")
-        removeUnusedImports()
-        endWithNewline()
-        trimTrailingWhitespace()
-    }
-}
-
-// Spotless on `build` to fail fast in CI.
-tasks.named("check") {
-    dependsOn("spotlessCheck")
-}
+// spotless block intentionally removed — see plugin block above for why.
+// Once google-java-format ships a JDK 25 build, re-introduce:
+//   spotless {
+//     java { target("src/**/*.java"); googleJavaFormat("<jdk25-compatible>"); ... }
+//   }
+//   tasks.named("check") { dependsOn("spotlessCheck") }

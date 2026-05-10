@@ -1,7 +1,7 @@
 [versions]
 # Paper / Folia stack — both MC 26.1.2.
 # paperweight-userdev gives us Mojang-mapped NMS via the Paper dev bundle.
-# Compile target Java 21 (Folia 26.1.2 minimum); runtime is Java 25.
+# Compile + runtime target Java 25 (the only JDK Paper 26.1.2 publishes for).
 paper = "26.1.2.build.7-alpha"
 # Folia API is sourced explicitly so RegionScheduler / GlobalRegionScheduler
 # and friends survive the JavaCompile phase. Paper ships shims of these so the

@@ -1,15 +1,15 @@
 -- PtrFoundation V001 — initial schema.
 --
--- Sets the database to WAL mode so future reads can run concurrently with the
--- single writer. Foundation only emits one schema:
+-- Foundation only emits one schema:
 --   ptr_audit         — admin-action audit trail (filled by PtrAuditLog).
+--
+-- PRAGMAs (journal_mode = WAL, synchronous = NORMAL, foreign_keys = ON) are
+-- applied per connection in PtrDatabase#open via Hikari's connectionInitSql.
+-- They cannot live in the migration: Flyway refuses to mix non-transactional
+-- PRAGMA statements with the transactional CREATE TABLEs below.
 --
 -- Future content layers (block placements, item ownership, boss kills) will
 -- add their own tables in V002+ migrations.
-
-PRAGMA journal_mode = WAL;
-PRAGMA synchronous = NORMAL;
-PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS ptr_audit (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,

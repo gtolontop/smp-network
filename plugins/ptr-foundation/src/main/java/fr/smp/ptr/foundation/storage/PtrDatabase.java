@@ -50,6 +50,14 @@ public final class PtrDatabase {
         cfg.setPoolName("ptr-foundation-sqlite");
         cfg.setConnectionTestQuery("SELECT 1");
         cfg.setAutoCommit(true);
+        // SQLite PRAGMAs are per-connection; setting them via connectionInitSql
+        // makes every borrowed connection start consistent. journal_mode=WAL
+        // is a file-wide flag that the first connection latches; the others
+        // re-set it harmlessly.
+        cfg.setConnectionInitSql(
+                "PRAGMA journal_mode=WAL; "
+                        + "PRAGMA synchronous=NORMAL; "
+                        + "PRAGMA foreign_keys=ON;");
         // SQLite needs serialised access — leave maxLifetime generous and
         // connection-timeout short so a deadlock surfaces as a fail-fast.
         cfg.setConnectionTimeout(5_000);
