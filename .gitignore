@@ -13,6 +13,9 @@ survival/world_the_end/
 ptr/world/
 ptr/world_nether/
 ptr/world_the_end/
+ptr-paper-legacy/world/
+ptr-paper-legacy/world_nether/
+ptr-paper-legacy/world_the_end/
 
 # Server runtime files
 *.log
@@ -40,14 +43,20 @@ scripts/.*.pid
 lobby/plugins/
 survival/plugins/
 ptr/plugins/
+ptr-paper-legacy/plugins/
+
+# Fabric server runtime
+ptr/libraries/
+ptr/versions/
+ptr/.fabric/
+ptr/world/
+ptr/server.jar
+ptr/fabric-server-launcher.jar
+ptr/fabric-server-launcher.properties
 
 # Runtime misc
-lobby/wepif.yml
-survival/wepif.yml
-ptr/wepif.yml
-lobby/.console_history
-survival/.console_history
-ptr/.console_history
+*/wepif.yml
+*/.console_history
 survival/debug/
 shared-data/
 shared-data-ptr/
