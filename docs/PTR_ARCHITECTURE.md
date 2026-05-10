@@ -199,6 +199,11 @@ These entries are the cheapest "real custom content" wins available. Every datap
 | 2026-05-10 | First compileable Fabric mod with 5 PolymerBlocks + 8 PolymerItems + 5 BlockItems. Mojang shipped MC 26.1+ unobfuscated; switched to plugin id `net.fabricmc.fabric-loom` and replaced `modImplementation`→`compileOnly` per the porting guide. `ResourceLocation` → `Identifier` rename absorbed. | `9852887` |
 | 2026-05-10 | Datapack registries: 5 damage_types + 3 tags, 5 enchantments, 6 paintings, 3 jukebox_songs, 2 instruments, 4 banner_patterns, 2 trim_patterns, 4 biomes. All ship inside the mod jar at `data/ptr/*`. | `e087774` |
 | 2026-05-10 | Furniture polymer blocks (5) + wearable cosmetic helmets (4) + `/ptr` brigadier command + Polymer resource-pack auto-host wired with `addModAssets("ptr_showcase")`. 10 blocks, 22 items. | `47b3fce` |
+| 2026-05-10 | Real PolymerEntity bosses (Gardien/Roi/Anomalie), 22 items dispatch JSONs in pack, full state-of-night doc | `81966c8` |
+| 2026-05-10 | Boss framework stubs (BossPhase/BossPhaseController/Telegraph) + ATTRIBUTIONS sourcing matrix | `110604e` |
+| 2026-05-10 | `BossPhaseController` wired into the 3 boss entities — phases tick in `customServerAiStep`, chat barks broadcast on transition | `9e4cd2c` |
+| 2026-05-10 | Helmets become **actually wearable** via 26.1 `Item.Properties#equippable(EquipmentSlot.HEAD)` | `ebf6497` |
+| 2026-05-10 | `/ptr setup` plaza generator: 32×32 polished blackstone with all 10 polymer blocks placed, 3 boss spawn pads at corners | `a1e4174` |
 
 ## 10. State at end of overnight overhaul
 
@@ -206,32 +211,33 @@ These entries are the cheapest "real custom content" wins available. Every datap
 
 | Layer | Item | Status |
 |---|---|---|
-| Server stack | Fabric 0.19.2 + Polymer 0.16.4 + Lithium + FabricProxy-Lite on MC 26.1.2 | ✅ smoke-boot Done(0.6s) |
+| Server stack | Fabric 0.19.2 + Polymer 0.16.4 + Lithium + FabricProxy-Lite on MC 26.1.2 | ✅ smoke-boot Done(0.5–0.6s) |
 | Velocity proxy | Routes `ptr=127.0.0.1:25568` (unchanged), forwarding secret matches | ✅ |
-| Fabric mod scaffold | `plugins-fabric/ptr-showcase-fabric/` with Loom 1.15-SNAPSHOT, JDK 25, fabric.mod.json, version 2.0.0 | ✅ |
+| Fabric mod scaffold | `plugins-fabric/ptr-showcase-fabric/` with Loom 1.15-SNAPSHOT (no-remap mode), JDK 25, fabric.mod.json, version 2.0.0 | ✅ |
 | Polymer blocks (5 real custom) | runesteel, plasma_block, darkstone, glow_moss, blue_grass — each a `SimplePolymerBlock` with vanilla carrier disguise | ✅ |
-| Polymer blocks (5 furniture) | forge_runique, station_recharge, console_marche_noir, pylone_telegraph, tableau_events | ✅ (basic carriers, display rigs deferred) |
+| Polymer blocks (5 furniture) | forge_runique, station_recharge, console_marche_noir, pylone_telegraph, tableau_events | ✅ (basic carriers; display rigs deferred) |
 | Polymer items (8 tools) | foreuse, tronconneuse, grappin, scanner, voidstone, boussole_boss, marteau_build, totem_alarme | ✅ |
-| Polymer items (4 wearables) | miner_hat, pillager_crown, void_circlet, archmage_hood | ✅ (item-level only, equippable component to add) |
+| Polymer items (4 wearables) | miner_hat, pillager_crown, void_circlet, archmage_hood — **equippable on the head slot** via `Item.Properties#equippable(EquipmentSlot.HEAD)` | ✅ |
 | Block items (10) | one PolymerBlockItem per block | ✅ |
+| Polymer entities (3 bosses) | `GardienMineEntity`/`RoiPillardsEntity`/`AnomalieEntity` — real `ptr:` registry ids, custom attributes, polymer-disguised over the wire | ✅ |
+| Boss framework | `BossPhase` record, `BossPhaseController` (HP-threshold-driven phase transitions + chat barks), `Telegraph` (groundSlam ring, laserBeam pre-trace, ringSeism pulses) | ✅ stubs wired into the 3 boss entities via `customServerAiStep` |
 | Datapack registries | damage_type×5, enchantment×5, painting_variant×6, jukebox_song×3, instrument×2, banner_pattern×4, trim_pattern×2, biome×4 + 3 damage_type tags | ✅ all load clean |
-| Resource pack | `assets/ptr/{models,textures}/*` bundled, autohost enabled, marked required, served by Polymer on join | ✅ |
-| `/ptr` command | `list`, `give <item> [count]`, `block <block> [count]`, `info` with tab completion | ✅ |
+| Resource pack | `assets/ptr/{models,textures,items}/*` bundled, **22 item-dispatch JSONs** routing carrier rendering to ptr-namespaced models, autohost on join | ✅ |
+| `/ptr` command | `list`, `give <item> [count]`, `block <block> [count]`, `spawn <boss>`, `setup`, `info` with tab completion | ✅ |
+| Showcase plaza | `/ptr setup` builds a 32×32 polished blackstone plaza with all 10 polymer blocks placed in display rows + 3 boss-spawn pads at the corners | ✅ |
 | Architecture doc | `docs/PTR_ARCHITECTURE.md`, this file | ✅ |
-| Attributions ledger | `docs/ATTRIBUTIONS.md` | ✅ scaffold (placeholders flagged) |
+| Attributions ledger | `docs/ATTRIBUTIONS.md` with vetted upstream sources (Faithful, FreeMinecraftModels, FrenchKrab, awesome-cc0, OpenGameArt, Pixabay, Mixkit, Kenney, Sketchfab) and a sourcing priority queue | ✅ |
 
 ### Deferred to a follow-up branch
 
 | Item | Why deferred | Estimated effort |
 |---|---|---|
-| Real CC0/permissive textures + Blockbench models | Asset hunt across multiple sources is research-heavy and best done with curation in mind; the current procedural placeholders are visually serviceable | 4–8 h |
-| Real CC0 boss music for the 3 jukebox_songs | Same reason — needs sourcing + OGG conversion. Currently the `sound_event`s point at `ptr:music.*` ids whose audio files are not yet shipped | 2 h |
-| `PolymerEntity` boss types (Gardien/Roi/Anomalie) | Fabric entity registration + attribute defaults + tracker setup has more API surface than fits in one session, especially given Polymer's virtual-entity API needs careful packet wiring | 8–12 h |
-| BossFramework (PhaseController, TelegraphRegistry, MusicOrchestrator, LootDispatcher) | Depends on entity types being registered first | 6–8 h |
-| Full Equippable component for the 4 helmets (so they actually wear as helmets) | Component schema for 26.1 needs verification against Polymer's render pipeline | 2 h |
-| Polymer item model dispatch (so polymer items render with their custom 3D Blockbench model on vanilla clients) | Polymer's `addModAssets` ships textures + models, but the items/dispatch JSONs that route from carrier item to custom model still need to be either generated by the polymer-resource-pack-extras `ItemAsset` API or written by hand | 2–3 h |
-| ShowcaseBuilder plaza generator | Pure Fabric/Java code, mostly independent of Polymer; can be ported from the legacy Paper plugin | 3–4 h |
-| `wolf_variant` / `cat_variant` registries | The 26.1 spawn_condition_type schema rejects `minecraft:tag` and additionally requires `baby_assets`. Need to inspect a vanilla wolf_variant JSON for the exact format | 1 h |
+| Replace placeholder textures with real CC0/permissive Blockbench-exported models | Sources are now vetted in `ATTRIBUTIONS.md` (FrenchKrab `drill_breaker.bbmodel`, FreeMinecraftModels, etc.), but `.bbmodel` → `.json` + `.png` export needs the Blockbench GUI; can't do that headlessly | 3–5 h |
+| Real CC0 boss music for the 3 `ptr:music.*` jukebox_song ids | Sourcing CC0 audio + OGG conversion (mono, 22050 Hz, 96 kbps); registries already declared, just need the sound files in `assets/ptr/sounds/music/` | 1–2 h |
+| Telegraph damage application + scheduled tick wiring | `Telegraph` currently renders the visual tells; the damage-on-warmup-end hook needs a `ScheduledTickAccess` integration in `customServerAiStep` | 2 h |
+| Music orchestrator | Start/crossfade `ptr:music.*` per active phase from `BossPhaseController`; trivial once the OGGs ship | 1 h |
+| Loot dispatcher | On boss death, drop tier-appropriate gear: enchanted books with `ptr:` enchants, `ptr:music.*` discs, painting unlocks. Vanilla `LootTable` JSON suffices | 1 h |
+| `wolf_variant` / `cat_variant` registries | The 26.1 spawn_condition_type schema rejects `minecraft:tag` and additionally requires `baby_assets`. Need to inspect a vanilla wolf_variant JSON | 1 h |
 
 ### Known leaks / quirks (honest list)
 
