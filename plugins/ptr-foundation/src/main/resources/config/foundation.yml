@@ -1,0 +1,24 @@
+# PtrFoundation runtime configuration.
+#
+# Hot-reload supported via /ptrf reload. The reload swap is atomic — listeners
+# see the new config or the old one, never a half-built mix.
+
+telemetry:
+  # If true, write metrics dumps as one JSON line every 60 s.
+  # If false, fall back to plain Bukkit logger output (still every 60 s).
+  json-logs: false
+  # Metrics dump interval (seconds). 0 disables the periodic dump.
+  metric-dump-interval-seconds: 60
+
+storage:
+  # Path is relative to <ptr server>/plugins/PtrFoundation/.
+  sqlite-file: 'data/ptr.db'
+  # SQLite single-writer pool. Bump if a future migration enables WAL + readers.
+  pool-size: 1
+  # Run Flyway migrations on enable. Disable only for debugging.
+  run-migrations: true
+
+audit:
+  # PtrAuditLog flushes to ptr_audit every N events or every M seconds, whichever first.
+  flush-batch-size: 64
+  flush-interval-seconds: 30
