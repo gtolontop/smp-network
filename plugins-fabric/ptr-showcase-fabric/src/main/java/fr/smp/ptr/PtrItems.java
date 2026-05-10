@@ -59,6 +59,34 @@ public final class PtrItems {
     public static final BlockItem BLUE_GRASS_ITEM = registerBlockItem("blue_grass",
             PtrBlocks.BLUE_GRASS, Items.GRASS_BLOCK);
 
+    public static final BlockItem FORGE_RUNIQUE_ITEM = registerBlockItem("forge_runique",
+            PtrBlocks.FORGE_RUNIQUE, Items.SMITHING_TABLE);
+
+    public static final BlockItem STATION_RECHARGE_ITEM = registerBlockItem("station_recharge",
+            PtrBlocks.STATION_RECHARGE, Items.RESPAWN_ANCHOR);
+
+    public static final BlockItem CONSOLE_MARCHE_NOIR_ITEM = registerBlockItem("console_marche_noir",
+            PtrBlocks.CONSOLE_MARCHE_NOIR, Items.LECTERN);
+
+    public static final BlockItem PYLONE_TELEGRAPH_ITEM = registerBlockItem("pylone_telegraph",
+            PtrBlocks.PYLONE_TELEGRAPH, Items.END_ROD);
+
+    public static final BlockItem TABLEAU_EVENTS_ITEM = registerBlockItem("tableau_events",
+            PtrBlocks.TABLEAU_EVENTS, Items.OAK_PLANKS);
+
+    // Wearables — vanilla leather_helmet carrier with custom equippable presentation.
+    public static final Item MINER_HAT = registerItem("miner_hat",
+            props -> new SimplePolymerItem(props.stacksTo(1), Items.LEATHER_HELMET));
+
+    public static final Item PILLAGER_CROWN = registerItem("pillager_crown",
+            props -> new SimplePolymerItem(props.stacksTo(1), Items.GOLDEN_HELMET));
+
+    public static final Item VOID_CIRCLET = registerItem("void_circlet",
+            props -> new SimplePolymerItem(props.stacksTo(1), Items.CHAINMAIL_HELMET));
+
+    public static final Item ARCHMAGE_HOOD = registerItem("archmage_hood",
+            props -> new SimplePolymerItem(props.stacksTo(1), Items.NETHERITE_HELMET));
+
     @SuppressWarnings("unchecked")
     private static <T extends Item> T registerItem(String name, Function<Item.Properties, T> factory) {
         Identifier id = PtrShowcase.id(name);

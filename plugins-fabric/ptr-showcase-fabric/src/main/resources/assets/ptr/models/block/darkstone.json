@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "ptr:block/darkstone",
+    "particle": "ptr:block/darkstone"
+  }
+}

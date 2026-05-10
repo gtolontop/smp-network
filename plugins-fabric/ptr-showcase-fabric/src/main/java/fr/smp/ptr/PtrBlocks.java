@@ -58,6 +58,46 @@ public final class PtrBlocks {
                     .strength(0.6f, 0.6f),
                     Blocks.GRASS_BLOCK));
 
+    // Furniture blocks — disguised over real polymer ids, custom rendering deferred to display rigs.
+    public static final Block FORGE_RUNIQUE = register("forge_runique", props ->
+            new SimplePolymerBlock(props
+                    .mapColor(MapColor.METAL)
+                    .sound(SoundType.METAL)
+                    .strength(3.5f, 6.0f)
+                    .lightLevel(state -> 7),
+                    Blocks.SMITHING_TABLE));
+
+    public static final Block STATION_RECHARGE = register("station_recharge", props ->
+            new SimplePolymerBlock(props
+                    .mapColor(MapColor.COLOR_RED)
+                    .sound(SoundType.METAL)
+                    .strength(2.0f, 4.0f)
+                    .lightLevel(state -> 10),
+                    Blocks.RESPAWN_ANCHOR));
+
+    public static final Block CONSOLE_MARCHE_NOIR = register("console_marche_noir", props ->
+            new SimplePolymerBlock(props
+                    .mapColor(MapColor.COLOR_BLACK)
+                    .sound(SoundType.WOOD)
+                    .strength(2.5f, 4.0f)
+                    .lightLevel(state -> 5),
+                    Blocks.LECTERN));
+
+    public static final Block PYLONE_TELEGRAPH = register("pylone_telegraph", props ->
+            new SimplePolymerBlock(props
+                    .mapColor(MapColor.COLOR_LIGHT_BLUE)
+                    .sound(SoundType.METAL)
+                    .strength(3.0f, 6.0f)
+                    .lightLevel(state -> 14),
+                    Blocks.END_ROD));
+
+    public static final Block TABLEAU_EVENTS = register("tableau_events", props ->
+            new SimplePolymerBlock(props
+                    .mapColor(MapColor.WOOD)
+                    .sound(SoundType.WOOD)
+                    .strength(1.0f, 2.0f),
+                    Blocks.OAK_PLANKS));
+
     private static <T extends Block> T register(String name, Function<BlockBehaviour.Properties, T> factory) {
         Identifier id = PtrShowcase.id(name);
         ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, id);
