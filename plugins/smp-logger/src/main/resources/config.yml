@@ -32,6 +32,58 @@ modules:
   trade: true            # drop↔pickup pairing + chest handoff + villager + item-frame transfer
   rare: true             # diamond/netherite/elytra/ancient_debris/head/spawner/custom-enchant items
 
+relationships:
+  enabled: true
+  # If the server folder or relationships.server-id matches one of these names,
+  # relationship evidence recording is fully disabled.
+  disable-on-lobby: true
+  server-id: ""
+  lobby-server-names:
+    - "lobby"
+    - "hub"
+  # SMPCore database used to ignore real teammates and scan homes.
+  core-db-file: "../shared-data/smp.db"
+  levels:
+    watch: 18
+    suspect: 35
+    probable: 55
+    confirmed: 80
+  points:
+    proximity: 1
+    shared_container: 3
+    shared_furnace: 5
+    chest_handoff: 7
+    trade: 6
+    combat_assist: 8
+    home_near: 12
+    pvp_contact: -4
+  # Avoid normal public places. Spawn radius is per-world spawn.
+  spawn-safe-radius: 96
+  ignored-world-names:
+    - "lobby"
+    - "hub"
+  ignored-world-suffixes:
+    - "_the_end"
+  pvp-grace-seconds: 120
+  proximity:
+    radius-blocks: 18
+    sample-seconds: 15
+  shared-container:
+    window-minutes: 360
+    cooldown-seconds: 600
+  trade:
+    cooldown-seconds: 15
+  combat-assist:
+    window-seconds: 20
+  home-scan:
+    distance-blocks: 100
+    ignored-world-names:
+      - "lobby"
+      - "hub"
+    ignored-world-suffixes:
+      - "_nether"
+      - "_the_end"
+
 precious:
   # Items that are *always* hash-stored with full NBT (deduped). Configurable.
   always:

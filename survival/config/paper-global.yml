@@ -124,8 +124,8 @@ proxies:
   proxy-protocol: false
   velocity:
     enabled: true
-    online-mode: true
-    secret: CHANGE_ME_FORWARDING_SECRET
+    online-mode: false
+    secret: smp-vF7kXq2mN9pRwL4tJhBcYeAsDuZi3G8n
 scoreboards:
   save-empty-scoreboard-teams: false
   track-plugin-scoreboards: false
@@ -164,7 +164,7 @@ unsupported-settings:
   perform-username-validation: true
   skip-tripwire-hook-placement-validation: false
   skip-vanilla-damage-tick-when-shield-blocked: false
-  update-equipment-on-player-actions: true
+  update-equipment-on-player-actions: false
 update-checker:
   enabled: true
 watchdog:
