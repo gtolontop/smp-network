@@ -7,6 +7,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -74,18 +75,18 @@ public final class PtrItems {
     public static final BlockItem TABLEAU_EVENTS_ITEM = registerBlockItem("tableau_events",
             PtrBlocks.TABLEAU_EVENTS, Items.OAK_PLANKS);
 
-    // Wearables — vanilla leather_helmet carrier with custom equippable presentation.
+    // Wearables — equippable on the head slot so they actually wear, custom model on top of the carrier helmet.
     public static final Item MINER_HAT = registerItem("miner_hat",
-            props -> new SimplePolymerItem(props.stacksTo(1), Items.LEATHER_HELMET));
+            props -> new SimplePolymerItem(props.stacksTo(1).equippable(EquipmentSlot.HEAD), Items.LEATHER_HELMET));
 
     public static final Item PILLAGER_CROWN = registerItem("pillager_crown",
-            props -> new SimplePolymerItem(props.stacksTo(1), Items.GOLDEN_HELMET));
+            props -> new SimplePolymerItem(props.stacksTo(1).equippable(EquipmentSlot.HEAD), Items.GOLDEN_HELMET));
 
     public static final Item VOID_CIRCLET = registerItem("void_circlet",
-            props -> new SimplePolymerItem(props.stacksTo(1), Items.CHAINMAIL_HELMET));
+            props -> new SimplePolymerItem(props.stacksTo(1).equippable(EquipmentSlot.HEAD), Items.CHAINMAIL_HELMET));
 
     public static final Item ARCHMAGE_HOOD = registerItem("archmage_hood",
-            props -> new SimplePolymerItem(props.stacksTo(1), Items.NETHERITE_HELMET));
+            props -> new SimplePolymerItem(props.stacksTo(1).equippable(EquipmentSlot.HEAD), Items.NETHERITE_HELMET));
 
     @SuppressWarnings("unchecked")
     private static <T extends Item> T registerItem(String name, Function<Item.Properties, T> factory) {
