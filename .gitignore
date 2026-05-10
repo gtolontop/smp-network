@@ -78,6 +78,16 @@ plugins/*/.gradle/
 plugins/*/.idea/
 plugins/*/*.iml
 
+# Resource pack zip artifacts (rebuilt from sources)
+ptr_resourcepack.zip
+ptr_resourcepack-*.zip
+ptr-fabric-resourcepack.zip
+ptr-fabric-resourcepack-*.zip
+
+# World backup snapshots
+*/world_backup_*.zip
+world_backup_*.zip
+
 # Bundled Java runtime
 /java/
 
