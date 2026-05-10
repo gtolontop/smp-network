@@ -1,0 +1,8 @@
+{
+  "description": {"translate": "instrument.ptr.rune_horn", "fallback": "Rune Horn"},
+  "range": 256,
+  "sound_event": {
+    "sound_id": "ptr:item.rune_horn.use"
+  },
+  "use_duration": 7.0
+}

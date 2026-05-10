@@ -1,0 +1,14 @@
+{
+  "description": {
+    "translate": "enchantment.ptr.runic_shield",
+    "fallback": "Runic Shield"
+  },
+  "weight": 5,
+  "max_level": 4,
+  "min_cost": {"base": 12, "per_level_above_first": 20},
+  "max_cost": {"base": 60, "per_level_above_first": 20},
+  "anvil_cost": 4,
+  "slots": ["armor"],
+  "supported_items": "#minecraft:enchantable/armor",
+  "effects": {}
+}

@@ -1,0 +1,8 @@
+{
+  "comparator_output": 8,
+  "description": {"translate": "jukebox_song.ptr.roi_theme", "fallback": "PTR Archives - Pillager's Crown"},
+  "length_in_seconds": 124,
+  "sound_event": {
+    "sound_id": "ptr:music.roi_theme"
+  }
+}
