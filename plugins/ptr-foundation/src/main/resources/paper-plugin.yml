@@ -1,0 +1,23 @@
+name: PtrFoundation
+version: '${version}'
+main: fr.smp.ptr.foundation.PtrFoundationPlugin
+api-version: '1.21'
+description: 'PTR V3 foundation — Folia base, registries, disguise carriers, boss framework.'
+website: 'https://github.com/gtolontop/smp-network'
+authors: ['SMP Team']
+folia-supported: true
+load: STARTUP
+
+permissions:
+  ptr.cmd.use:
+    description: 'Use /ptrf at all.'
+    default: op
+  ptr.cmd.reload:
+    description: 'Reload PtrFoundation config.'
+    default: op
+  ptr.cmd.registry:
+    description: 'Inspect PtrFoundation registries.'
+    default: op
+  ptr.cmd.debug:
+    description: 'Inspect runtime state (PDC, region).'
+    default: op

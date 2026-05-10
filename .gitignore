@@ -1,6 +1,7 @@
 # Server JARs (downloaded, not committed)
 *.jar
 !plugins/*/build/libs/*.jar
+!plugins/*/gradle/wrapper/gradle-wrapper.jar
 
 # World data
 velocity/world/
