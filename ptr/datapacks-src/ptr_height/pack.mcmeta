@@ -1,0 +1,8 @@
+{
+  "pack": {
+    "id": "ptr_height",
+    "min_format": 64,
+    "max_format": 101,
+    "description": "PTR custom world height: -112 to 511 (extended build limit)"
+  }
+}
