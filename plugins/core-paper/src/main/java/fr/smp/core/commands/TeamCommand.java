@@ -61,7 +61,7 @@ public class TeamCommand implements CommandExecutor {
                 if (args.length < 2) { p.sendMessage(Msg.err("/team invite <joueur>")); return true; }
                 TeamManager.Team t = plugin.teams().get(d.teamId());
                 if (plugin.teams().isFull(t.id())) {
-                    p.sendMessage(Msg.err("Team pleine (" + plugin.teams().maxMembers() + " max).")); return true;
+                    p.sendMessage(Msg.err("Team pleine (" + plugin.teams().maxMembers(t.id()) + " max).")); return true;
                 }
                 Player target = Bukkit.getPlayerExact(args[1]);
                 if (target != null) {
@@ -100,7 +100,7 @@ public class TeamCommand implements CommandExecutor {
                     p.sendMessage(Msg.err("Aucune invitation pour cette team.")); return true;
                 }
                 if (plugin.teams().isFull(t.id())) {
-                    p.sendMessage(Msg.err("Team pleine (" + plugin.teams().maxMembers() + " max).")); return true;
+                    p.sendMessage(Msg.err("Team pleine (" + plugin.teams().maxMembers(t.id()) + " max).")); return true;
                 }
                 plugin.teamInvites().consume(p.getUniqueId());
                 plugin.teams().addMember(t.id(), p.getUniqueId());
@@ -186,7 +186,66 @@ public class TeamCommand implements CommandExecutor {
                 p.sendMessage(Msg.ok("<green>Couleur mise à jour.</green>"));
             }
 
-            default -> p.sendMessage(Msg.err("Sous-commandes: create, list, invite, join, leave, kick, disband, sethome, home, info, color"));
+            case "prefix", "tag" -> {
+                if (d.teamId() == null || args.length < 2) { p.sendMessage(Msg.err("/team prefix <tag>")); return true; }
+                TeamManager.Team t = plugin.teams().get(d.teamId());
+                if (!t.owner().equals(p.getUniqueId().toString())) {
+                    p.sendMessage(Msg.err("Owner uniquement.")); return true;
+                }
+                String tag = args[1];
+                if (!tag.matches("[A-Za-z0-9]{2,5}")) {
+                    p.sendMessage(Msg.err("Préfixe 2-5 alphanumérique.")); return true;
+                }
+                TeamManager.Team existing = plugin.teams().byTag(tag);
+                if (existing != null && !existing.id().equals(t.id())) {
+                    p.sendMessage(Msg.err("Préfixe déjà pris.")); return true;
+                }
+                if (!plugin.teams().setTag(t.id(), tag)) {
+                    p.sendMessage(Msg.err("Changement de préfixe échoué.")); return true;
+                }
+                p.sendMessage(Msg.ok("<green>Préfixe mis à jour en <aqua>[" + tag + "]</aqua>.</green>"));
+                if (plugin.nametags() != null) plugin.nametags().refreshAll();
+                for (Player online : Bukkit.getOnlinePlayers()) plugin.tabList().update(online);
+            }
+
+            case "bank" -> {
+                if (d.teamId() == null) { p.sendMessage(Msg.err("Tu n'es pas dans une team.")); return true; }
+                TeamManager.Team t = plugin.teams().get(d.teamId());
+                if (t == null) { p.sendMessage(Msg.err("Team introuvable.")); return true; }
+                if (args.length < 2) {
+                    p.sendMessage(Msg.info("<aqua>Banque de team:</aqua> <green>$" + Msg.money(t.balance()) + "</green>"));
+                    p.sendMessage(Msg.mm("<gray>/team bank deposit <montant> <dark_gray>•</dark_gray> /team bank withdraw <montant></gray>"));
+                    return true;
+                }
+                String action = args[1].toLowerCase(Locale.ROOT);
+                if (action.equals("deposit") || action.equals("depot") || action.equals("dépot") || action.equals("déposer")) {
+                    if (args.length < 3) { p.sendMessage(Msg.err("/team bank deposit <montant>")); return true; }
+                    double amount = Msg.parseAmount(args[2]);
+                    if (amount <= 0) { p.sendMessage(Msg.err("Montant invalide.")); return true; }
+                    if (!plugin.economy().withdraw(p.getUniqueId(), amount, "team.bank.deposit")) {
+                        p.sendMessage(Msg.err("Fonds insuffisants.")); return true;
+                    }
+                    plugin.teams().addBalance(t.id(), amount);
+                    p.sendMessage(Msg.ok("<green>Déposé $" + Msg.money(amount) + " dans la banque de team.</green>"));
+                    return true;
+                }
+                if (action.equals("withdraw") || action.equals("retirer")) {
+                    if (!t.owner().equals(p.getUniqueId().toString())) {
+                        p.sendMessage(Msg.err("Owner uniquement.")); return true;
+                    }
+                    if (args.length < 3) { p.sendMessage(Msg.err("/team bank withdraw <montant>")); return true; }
+                    double amount = Msg.parseAmount(args[2]);
+                    if (amount <= 0) { p.sendMessage(Msg.err("Montant invalide.")); return true; }
+                    if (t.balance() < amount) { p.sendMessage(Msg.err("Banque insuffisante.")); return true; }
+                    plugin.teams().addBalance(t.id(), -amount);
+                    plugin.economy().deposit(p.getUniqueId(), amount, "team.bank.withdraw");
+                    p.sendMessage(Msg.ok("<green>Retiré $" + Msg.money(amount) + " de la banque de team.</green>"));
+                    return true;
+                }
+                p.sendMessage(Msg.err("/team bank deposit|withdraw <montant>"));
+            }
+
+            default -> p.sendMessage(Msg.err("Sous-commandes: create, list, invite, join, leave, kick, disband, sethome, home, info, color, prefix, bank"));
         }
         return true;
     }

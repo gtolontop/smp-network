@@ -38,7 +38,8 @@ public class LeaderboardManager {
         KILLS("kills", "Kills", Material.DIAMOND_SWORD, Material.RED_STAINED_GLASS_PANE, "#f85032", "#e73827"),
         DEATHS("deaths", "Deaths", Material.SKELETON_SKULL, Material.GRAY_STAINED_GLASS_PANE, "#cfd9df", "#e2ebf0"),
         DISTANCE("distance", "Distance", Material.ELYTRA, Material.CYAN_STAINED_GLASS_PANE, "#43cea2", "#185a9d"),
-        DUEL_ELO("elo", "Duel ELO", Material.GOLDEN_SWORD, Material.ORANGE_STAINED_GLASS_PANE, "#f7971e", "#ffd200");
+        DUEL_ELO("elo", "Duel ELO", Material.GOLDEN_SWORD, Material.ORANGE_STAINED_GLASS_PANE, "#f7971e", "#ffd200"),
+        WEALTH_SPENT("spent", "Argent utile", Material.NETHER_STAR, Material.YELLOW_STAINED_GLASS_PANE, "#f6d365", "#fda085");
 
         private final String key;
         private final String display;
@@ -74,6 +75,7 @@ public class LeaderboardManager {
                 case "deaths", "death", "morts", "mort" -> DEATHS;
                 case "distance", "dist", "travel", "parcouru", "parcourue" -> DISTANCE;
                 case "elo", "duel", "duelelo", "pvp" -> DUEL_ELO;
+                case "spent", "spend", "richesse", "utile", "depense", "dépense" -> WEALTH_SPENT;
                 default -> null;
             };
         }
@@ -308,6 +310,8 @@ public class LeaderboardManager {
 
             if (category == Category.MONEY) {
                 total = memberTotal + team.balance();
+            } else if (category == Category.WEALTH_SPENT) {
+                total = plugin.wealth() == null ? 0D : plugin.wealth().teamSpent(team.id());
             }
 
             entries.add(new Entry(
@@ -664,6 +668,7 @@ public class LeaderboardManager {
             case KILLS -> player.kills();
             case DEATHS -> player.deaths();
             case DISTANCE -> distances.getOrDefault(player.uuid(), 0L);
+            case WEALTH_SPENT -> plugin.wealth() == null ? 0D : plugin.wealth().personalSpent(player.uuid());
             case DUEL_ELO -> 0;
         };
     }
@@ -697,6 +702,12 @@ public class LeaderboardManager {
                         ? "<gray>Team: <white>Aucune</white>"
                         : "<gray>Team: " + formatTeamDisplay(team));
                 lines.add("<gray>Total lu: <white>" + formatDistance(distances.getOrDefault(player.uuid(), 0L)) + "</white>");
+            }
+            case WEALTH_SPENT -> {
+                lines.add("<gray>Solde actuel: <green>$" + Msg.money(player.money()) + "</green>");
+                lines.add(team == null
+                        ? "<gray>Team: <white>Aucune</white>"
+                        : "<gray>Team: " + formatTeamDisplay(team));
             }
             case DUEL_ELO -> {}
         }
@@ -741,6 +752,10 @@ public class LeaderboardManager {
                     lines.add("<gray>Distance: " + spotlight.valueDisplay());
                 }
             }
+            case WEALTH_SPENT -> {
+                lines.add("<gray>Dépenses de banque de team.</gray>");
+                lines.add("<gray>Membres: <white>" + members + "</white>");
+            }
             case DUEL_ELO -> {}
         }
         return lines;
@@ -771,6 +786,7 @@ public class LeaderboardManager {
             case DEATHS -> "<gray>" + Math.round(value) + " deaths</gray>";
             case DISTANCE -> "<blue>" + formatDistance(Math.round(value)) + "</blue>";
             case DUEL_ELO -> "<gold>" + Math.round(value) + " ELO</gold>";
+            case WEALTH_SPENT -> "<gold>$" + Msg.money(value) + "</gold>";
         };
     }
 

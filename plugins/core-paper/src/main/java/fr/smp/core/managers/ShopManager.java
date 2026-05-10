@@ -53,7 +53,7 @@ public class ShopManager {
 
     public void load() {
         File file = new File(plugin.getDataFolder(), "shop.yml");
-        plugin.saveResource("shop.yml", true);
+        plugin.saveResource("shop.yml", false);
         FileConfiguration c = YamlConfiguration.loadConfiguration(file);
         categories.clear();
         this.enabled = plugin.getConfig().getBoolean("shop.enabled", true);

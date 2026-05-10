@@ -42,6 +42,12 @@ public class AuctionManager {
         return plugin.getConfig().getInt("auction.max-per-player", 50);
     }
 
+    public int maxPerPlayer(UUID uuid) {
+        int base = maxPerPlayer();
+        if (uuid == null || plugin.wealth() == null) return base;
+        return base + plugin.wealth().auctionExtraSlots(uuid);
+    }
+
     public double feePercent() {
         return plugin.getConfig().getDouble("auction.fee-percent", 5.0);
     }

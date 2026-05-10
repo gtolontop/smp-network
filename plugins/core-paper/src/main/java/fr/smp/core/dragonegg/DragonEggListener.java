@@ -352,7 +352,14 @@ public final class DragonEggListener implements Listener {
             denyChestStorage(event.getWhoClicked());
             return;
         }
-        // Cas 3 : double-click qui collecte / hotbar swap qui pousserait l'œuf vers le top.
+        // Cas 3 : F/offhand swap depuis une fenêtre de conteneur.
+        if (clickInTop && isOffhandSwap(event) && event.getWhoClicked() instanceof Player p
+                && manager.isTracked(p.getInventory().getItemInOffHand())) {
+            event.setCancelled(true);
+            denyChestStorage(p);
+            return;
+        }
+        // Cas 4 : double-click qui collecte / hotbar swap qui pousserait l'œuf vers le top.
         if (event.getClick() == ClickType.NUMBER_KEY) {
             int btn = event.getHotbarButton();
             if (btn >= 0 && event.getWhoClicked() instanceof Player p) {
@@ -364,6 +371,11 @@ public final class DragonEggListener implements Listener {
                 }
             }
         }
+    }
+
+    private boolean isOffhandSwap(InventoryClickEvent event) {
+        return event.getClick() == ClickType.SWAP_OFFHAND
+                || (event.getClick() == ClickType.NUMBER_KEY && event.getHotbarButton() == -1);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

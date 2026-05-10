@@ -44,9 +44,26 @@ public class RtpCommand implements CommandExecutor {
             }
         }
         String target = args[0].toLowerCase();
+        if (target.equals("nether")) {
+            if (plugin.netherToggle() != null && !plugin.netherToggle().enabled() && !p.hasPermission("smp.admin")) {
+                plugin.getLogger().info("[RTP] " + p.getName() + " bloqué: Nether désactivé");
+                p.sendMessage(Msg.err("<red>Le Nether est désactivé.</red>"));
+                return true;
+            }
+            if (plugin.wealth() != null && !plugin.wealth().canRtpNether(p)) {
+                plugin.getLogger().info("[RTP] " + p.getName() + " bloqué: RTP Nether verrouillé");
+                p.sendMessage(Msg.err("<red>RTP Nether verrouillé.</red> <gray>Débloque-le dans /wealth.</gray>"));
+                return true;
+            }
+        }
         if (target.equals("end") && !plugin.endToggle().enabled() && !p.hasPermission("smp.admin")) {
             plugin.getLogger().info("[RTP] " + p.getName() + " bloqué: End désactivé");
             p.sendMessage(Msg.err("<red>L'End est désactivé.</red>"));
+            return true;
+        }
+        if (target.equals("end") && plugin.wealth() != null && !plugin.wealth().canRtpEnd(p)) {
+            plugin.getLogger().info("[RTP] " + p.getName() + " bloqué: RTP End verrouillé");
+            p.sendMessage(Msg.err("<red>RTP End verrouillé.</red> <gray>Débloque-le dans /wealth.</gray>"));
             return true;
         }
         String worldName = switch (target) {

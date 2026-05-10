@@ -168,8 +168,9 @@ public class TutoCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(Msg.mm(""));
         sender.sendMessage(Msg.mm("<gray>Créez ou rejoignez une équipe pour jouer ensemble :</gray>"));
         sender.sendMessage(Msg.mm(""));
-        cmdLine(sender, "/team create <nom>", "Créer une nouvelle équipe.");
+        cmdLine(sender, "/team create <tag> <nom>", "Créer une nouvelle équipe.");
         cmdLine(sender, "/team invite <joueur>", "Inviter un joueur dans votre équipe.");
+        cmdLine(sender, "/team prefix <tag>", "Changer le préfixe affiché de votre équipe.");
         cmdLine(sender, "/team leave", "Quitter votre équipe actuelle.");
         cmdLine(sender, "/team info", "Voir les informations de votre équipe.");
         sender.sendMessage(Msg.mm(""));

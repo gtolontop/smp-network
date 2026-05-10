@@ -501,6 +501,27 @@ public class Database {
               pitch    REAL NOT NULL DEFAULT 0
             )
             """,
+            """
+            CREATE TABLE IF NOT EXISTS wealth_unlocks (
+              owner_type TEXT NOT NULL,
+              owner_id TEXT NOT NULL,
+              item_id TEXT NOT NULL,
+              purchased_at INTEGER NOT NULL,
+              PRIMARY KEY(owner_type, owner_id, item_id)
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS wealth_spending (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              buyer_uuid TEXT NOT NULL,
+              buyer_name TEXT NOT NULL,
+              owner_type TEXT NOT NULL,
+              owner_id TEXT NOT NULL,
+              item_id TEXT NOT NULL,
+              amount REAL NOT NULL,
+              created_at INTEGER NOT NULL
+            )
+            """,
             "CREATE INDEX IF NOT EXISTS idx_duel_kill_killer ON duel_kill_history(killer, kill_time DESC)",
             "CREATE INDEX IF NOT EXISTS idx_duel_kill_pair ON duel_kill_history(killer, victim, kill_time DESC)",
             "CREATE INDEX IF NOT EXISTS idx_auctions_seller ON auctions(seller, sold)",
@@ -512,7 +533,9 @@ public class Database {
             "CREATE INDEX IF NOT EXISTS idx_mod_history_uuid ON mod_history(uuid, created_at DESC)",
             "CREATE INDEX IF NOT EXISTS idx_mod_ip_bans_uuid ON mod_ip_bans(uuid)",
             "CREATE INDEX IF NOT EXISTS idx_spawner_loot_id ON spawner_loot(spawner_id)",
-            "CREATE INDEX IF NOT EXISTS idx_inv_snapshots_uuid ON inv_snapshots(uuid, created_at DESC)"
+            "CREATE INDEX IF NOT EXISTS idx_inv_snapshots_uuid ON inv_snapshots(uuid, created_at DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_wealth_spending_buyer ON wealth_spending(buyer_uuid, amount DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_wealth_spending_owner ON wealth_spending(owner_type, owner_id, amount DESC)"
         };
 
         try (Connection c = DriverManager.getConnection(url);

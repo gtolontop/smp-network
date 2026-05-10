@@ -36,7 +36,7 @@ public class AuctionCommand implements CommandExecutor {
                 ItemStack hand = p.getInventory().getItemInMainHand();
                 if (hand == null || hand.getType().isAir()) { p.sendMessage(Msg.err("Rien en main.")); return true; }
                 int current = plugin.auction().countActive(p.getUniqueId());
-                int max = plugin.auction().maxPerPlayer();
+                int max = plugin.auction().maxPerPlayer(p.getUniqueId());
                 if (current >= max) {
                     p.sendMessage(Msg.err("Max " + max + " annonces actives.")); return true;
                 }

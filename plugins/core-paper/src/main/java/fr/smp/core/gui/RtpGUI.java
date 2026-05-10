@@ -36,17 +36,44 @@ public class RtpGUI extends GUIHolder {
                 "",
                 "<yellow>▶ Clic pour partir</yellow>"));
 
-        inv.setItem(13, GUIUtil.item(Material.NETHERRACK,
-                "<red><bold>Nether</bold></red>",
-                "",
-                "<gray>Téléporte aléatoirement dans le Nether.</gray>",
-                "",
-                cdLine,
-                "",
-                "<yellow>▶ Clic pour partir</yellow>"));
+        boolean netherOn = plugin.netherToggle() == null || plugin.netherToggle().enabled() || p.hasPermission("smp.admin");
+        boolean netherUnlocked = plugin.wealth() == null || plugin.wealth().canRtpNether(p);
+        if (!netherOn) {
+            inv.setItem(13, GUIUtil.item(Material.BARRIER,
+                    "<dark_gray><bold>Nether</bold></dark_gray>",
+                    "",
+                    "<red>Le Nether est désactivé.</red>"));
+        } else if (!netherUnlocked) {
+            inv.setItem(13, GUIUtil.item(Material.BARRIER,
+                    "<dark_gray><bold>Nether</bold></dark_gray>",
+                    "",
+                    "<red>RTP Nether verrouillé.</red>",
+                    "<gray>Débloque-le dans /wealth.</gray>"));
+        } else {
+            inv.setItem(13, GUIUtil.item(Material.NETHERRACK,
+                    "<red><bold>Nether</bold></red>",
+                    "",
+                    "<gray>Téléporte aléatoirement dans le Nether.</gray>",
+                    "",
+                    cdLine,
+                    "",
+                    "<yellow>▶ Clic pour partir</yellow>"));
+        }
 
         boolean endOn = plugin.endToggle().enabled();
-        if (endOn) {
+        boolean endUnlocked = plugin.wealth() == null || plugin.wealth().canRtpEnd(p);
+        if (!endOn) {
+            inv.setItem(15, GUIUtil.item(Material.BARRIER,
+                    "<dark_gray><bold>End</bold></dark_gray>",
+                    "",
+                    "<red>L'End est désactivé.</red>"));
+        } else if (!endUnlocked) {
+            inv.setItem(15, GUIUtil.item(Material.BARRIER,
+                    "<dark_gray><bold>End</bold></dark_gray>",
+                    "",
+                    "<red>RTP End verrouillé.</red>",
+                    "<gray>Débloque-le dans /wealth.</gray>"));
+        } else {
             inv.setItem(15, GUIUtil.item(Material.END_STONE,
                     "<light_purple><bold>End</bold></light_purple>",
                     "",
@@ -55,11 +82,6 @@ public class RtpGUI extends GUIHolder {
                     cdLine,
                     "",
                     "<yellow>▶ Clic pour partir</yellow>"));
-        } else {
-            inv.setItem(15, GUIUtil.item(Material.BARRIER,
-                    "<dark_gray><bold>End</bold></dark_gray>",
-                    "",
-                    "<red>L'End est désactivé.</red>"));
         }
 
         inv.setItem(22, GUIUtil.item(Material.BARRIER,
@@ -77,12 +99,26 @@ public class RtpGUI extends GUIHolder {
         String suffix = plugin.getConfig().getString("rtp.world-overworld", "world");
         switch (slot) {
             case 11 -> target = plugin.resolveWorld(suffix, World.Environment.NORMAL);
-            case 13 -> target = plugin.resolveWorld(
-                    plugin.getConfig().getString("rtp.world-nether", suffix + "_nether"),
-                    World.Environment.NETHER);
+            case 13 -> {
+                if (plugin.netherToggle() != null && !plugin.netherToggle().enabled() && !p.hasPermission("smp.admin")) {
+                    p.sendMessage(Msg.err("<red>Le Nether est désactivé.</red>"));
+                    return;
+                }
+                if (plugin.wealth() != null && !plugin.wealth().canRtpNether(p)) {
+                    p.sendMessage(Msg.err("<red>RTP Nether verrouillé.</red> <gray>Débloque-le dans /wealth.</gray>"));
+                    return;
+                }
+                target = plugin.resolveWorld(
+                        plugin.getConfig().getString("rtp.world-nether", suffix + "_nether"),
+                        World.Environment.NETHER);
+            }
             case 15 -> {
                 if (!plugin.endToggle().enabled()) {
                     p.sendMessage(Msg.err("<red>L'End est désactivé.</red>"));
+                    return;
+                }
+                if (plugin.wealth() != null && !plugin.wealth().canRtpEnd(p)) {
+                    p.sendMessage(Msg.err("<red>RTP End verrouillé.</red> <gray>Débloque-le dans /wealth.</gray>"));
                     return;
                 }
                 target = plugin.resolveWorld(

@@ -3,6 +3,7 @@ package fr.smp.core.listeners;
 import fr.smp.core.SMPCore;
 import fr.smp.core.data.PlayerData;
 import fr.smp.core.logging.LogCategory;
+import fr.smp.core.managers.BountyAntiAbuseManager;
 import fr.smp.core.managers.BountyManager;
 import fr.smp.core.utils.Msg;
 import net.kyori.adventure.text.Component;
@@ -79,6 +80,17 @@ public class DeathListener implements Listener {
         if (plugin.bounties() == null) return;
         BountyManager.Bounty b = plugin.bounties().get(victim.getUniqueId());
         if (b == null || b.amount() <= 0) return;
+        if (plugin.bountyAntiAbuse() != null) {
+            BountyAntiAbuseManager.Verdict verdict = plugin.bountyAntiAbuse().canClaim(victim, killer);
+            if (!verdict.allowed()) {
+                killer.sendMessage(Msg.err("<red>Prime bloquée:</red> <gray>anti-teamup détecté.</gray>"));
+                plugin.logs().log(LogCategory.ECONOMY,
+                        "bounty.blocked target=" + victim.getName() + " killer=" + killer.getName()
+                                + " amount=" + b.amount() + " reason=" + verdict.reason()
+                                + " detail=" + verdict.detail());
+                return;
+            }
+        }
         BountyManager.Contribution top = plugin.bounties().biggestContributor(victim.getUniqueId());
         plugin.bounties().remove(victim.getUniqueId());
         plugin.economy().deposit(killer.getUniqueId(), b.amount(),
