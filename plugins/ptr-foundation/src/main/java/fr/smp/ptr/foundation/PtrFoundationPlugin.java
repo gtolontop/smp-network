@@ -1,5 +1,6 @@
 package fr.smp.ptr.foundation;
 
+import fr.smp.ptr.foundation.api.PtrFoundationApi;
 import fr.smp.ptr.foundation.boss.GroundSlamRingTelegraph;
 import fr.smp.ptr.foundation.boss.LaserBeamPretraceTelegraph;
 import fr.smp.ptr.foundation.boss.LootDispatcher;
@@ -168,6 +169,9 @@ public final class PtrFoundationPlugin extends JavaPlugin {
                                                         + fresh.telemetry()
                                                                 .metricDumpIntervalSeconds()));
 
+        // -- Public API entry point — facade statics resolve through this
+        PtrFoundationApi.init(services);
+
         getLogger()
                 .info(
                         () ->
@@ -180,6 +184,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        PtrFoundationApi.shutdown();
         if (services != null) {
             try {
                 services.shutdownAll();
