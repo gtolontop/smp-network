@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "ptr_showcase",
+  "version": "${version}",
+  "name": "PTR Showcase",
+  "description": "Server-side Fabric+Polymer overhaul of the PTR experimental SMP. Real custom blocks, items, entities, biomes and bosses, presented to vanilla clients via Polymer's auto-disguise.",
+  "authors": [
+    "gtolontop"
+  ],
+  "contact": {
+    "homepage": "https://github.com/gtolontop/smp-network"
+  },
+  "license": "MIT",
+  "icon": "assets/ptr/icon.png",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "fr.smp.ptr.PtrShowcase"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "fabric-api": "*",
+    "minecraft": ">=26.1",
+    "java": ">=25",
+    "polymer-core": "*",
+    "polymer-blocks": "*",
+    "polymer-virtual-entity": "*",
+    "polymer-resource-pack": "*"
+  },
+  "suggests": {
+    "polymer-autohost": "*"
+  }
+}
