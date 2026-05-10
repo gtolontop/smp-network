@@ -52,6 +52,8 @@ public final class PtrCommand {
                         .then(Commands.argument("boss", StringArgumentType.word())
                                 .suggests(bossSuggestions())
                                 .executes(c -> spawnBoss(c.getSource(), StringArgumentType.getString(c, "boss")))))
+                .then(Commands.literal("setup")
+                        .executes(PtrCommand::setup))
                 .then(Commands.literal("info")
                         .executes(PtrCommand::info)));
     }
@@ -121,6 +123,16 @@ public final class PtrCommand {
         spawned.setCustomName(Component.literal("§6§l" + capitalise(name)));
         spawned.setCustomNameVisible(true);
         src.sendSuccess(() -> Component.literal("§a§lSpawned §6" + name + "§a at " + player.getName().getString()), true);
+        return 1;
+    }
+
+    private static int setup(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        if (!(src.getEntity() instanceof ServerPlayer player)) {
+            src.sendFailure(Component.literal("Players only."));
+            return 0;
+        }
+        ShowcaseBuilder.build(src.getLevel(), player.blockPosition());
         return 1;
     }
 
