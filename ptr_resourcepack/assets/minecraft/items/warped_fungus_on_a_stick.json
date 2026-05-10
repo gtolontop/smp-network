@@ -1,0 +1,10 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "entries": [
+      {"threshold": 100007, "model": {"type": "minecraft:model", "model": "ptr:item/marteau_build"}}
+    ],
+    "fallback": {"type": "minecraft:model", "model": "minecraft:item/warped_fungus_on_a_stick"}
+  }
+}

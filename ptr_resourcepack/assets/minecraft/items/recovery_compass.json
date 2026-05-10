@@ -1,0 +1,10 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "entries": [
+      {"threshold": 100006, "model": {"type": "minecraft:model", "model": "ptr:item/boussole_boss"}}
+    ],
+    "fallback": {"type": "minecraft:model", "model": "minecraft:item/recovery_compass"}
+  }
+}

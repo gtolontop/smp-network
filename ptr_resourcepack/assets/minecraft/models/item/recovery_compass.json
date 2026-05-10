@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {"layer0": "minecraft:item/recovery_compass_19"},
+  "overrides": [
+    {"predicate": {"custom_model_data": 100006}, "model": "ptr:item/boussole_boss"}
+  ]
+}

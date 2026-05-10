@@ -1,0 +1,17 @@
+name: PtrShowcase
+version: 1.0.0
+main: fr.smp.ptr.PtrShowcase
+api-version: "26.1.2"
+description: "Showcase plugin V3 — items 3D, blocks furniture, mobs custom, biomes datapack"
+authors: ["SMP Team"]
+
+commands:
+  showcase:
+    description: "Showcase commands (give/spawn/biome/tour/setup/help)"
+    aliases: [sc, ptrshow]
+    usage: "/showcase <give|spawn|block|biome|tour|setup|help> [args]"
+
+permissions:
+  ptr.use:
+    description: "Use /showcase commands"
+    default: op

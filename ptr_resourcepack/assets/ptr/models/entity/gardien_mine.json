@@ -1,0 +1,66 @@
+{
+  "credit": "PTR Showcase - Gardien de la Mine 3D",
+  "texture_size": [16, 16],
+  "textures": {
+    "0": "ptr:entity/gardien_mine",
+    "particle": "ptr:entity/gardien_mine"
+  },
+  "elements": [
+    {
+      "name": "torso",
+      "from": [3, 0, 4],
+      "to": [13, 14, 12],
+      "faces": {
+        "north": {"uv": [0, 0, 10, 14], "texture": "#0"},
+        "east":  {"uv": [0, 0, 8, 14], "texture": "#0"},
+        "south": {"uv": [0, 0, 10, 14], "texture": "#0"},
+        "west":  {"uv": [0, 0, 8, 14], "texture": "#0"},
+        "up":    {"uv": [0, 0, 10, 8], "texture": "#0"},
+        "down":  {"uv": [0, 0, 10, 8], "texture": "#0"}
+      }
+    },
+    {
+      "name": "head",
+      "from": [4, 14, 5],
+      "to": [12, 20, 11],
+      "faces": {
+        "north": {"uv": [0, 5, 8, 11], "texture": "#0"},
+        "east":  {"uv": [0, 5, 6, 11], "texture": "#0"},
+        "south": {"uv": [0, 5, 8, 11], "texture": "#0"},
+        "west":  {"uv": [0, 5, 6, 11], "texture": "#0"},
+        "up":    {"uv": [0, 0, 8, 6], "texture": "#0"},
+        "down":  {"uv": [0, 0, 8, 6], "texture": "#0"}
+      }
+    },
+    {
+      "name": "arm_left",
+      "from": [13, 0, 5],
+      "to": [16, 13, 11],
+      "faces": {
+        "north": {"uv": [0, 0, 3, 13], "texture": "#0"},
+        "east":  {"uv": [0, 0, 6, 13], "texture": "#0"},
+        "south": {"uv": [0, 0, 3, 13], "texture": "#0"},
+        "west":  {"uv": [0, 0, 6, 13], "texture": "#0"},
+        "up":    {"uv": [0, 0, 3, 6], "texture": "#0"},
+        "down":  {"uv": [0, 0, 3, 6], "texture": "#0"}
+      }
+    },
+    {
+      "name": "arm_right",
+      "from": [0, 0, 5],
+      "to": [3, 13, 11],
+      "faces": {
+        "north": {"uv": [0, 0, 3, 13], "texture": "#0"},
+        "east":  {"uv": [0, 0, 6, 13], "texture": "#0"},
+        "south": {"uv": [0, 0, 3, 13], "texture": "#0"},
+        "west":  {"uv": [0, 0, 6, 13], "texture": "#0"},
+        "up":    {"uv": [0, 0, 3, 6], "texture": "#0"},
+        "down":  {"uv": [0, 0, 3, 6], "texture": "#0"}
+      }
+    }
+  ],
+  "display": {
+    "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [1, 1, 1]},
+    "gui": {"rotation": [30, 45, 0], "scale": [0.5, 0.5, 0.5]}
+  }
+}

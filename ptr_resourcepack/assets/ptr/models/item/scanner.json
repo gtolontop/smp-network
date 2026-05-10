@@ -1,0 +1,55 @@
+{
+  "credit": "PTR Showcase - Scanner 3D (face-on inv)",
+  "texture_size": [16, 16],
+  "textures": {
+    "0": "ptr:item/scanner",
+    "particle": "ptr:item/scanner"
+  },
+  "elements": [
+    {
+      "name": "front_face",
+      "from": [0, 0, 7],
+      "to": [16, 16, 9],
+      "faces": {
+        "north": {"uv": [0, 0, 16, 16], "texture": "#0"},
+        "south": {"uv": [0, 0, 16, 16], "texture": "#0"},
+        "east":  {"uv": [7, 0, 9, 16], "texture": "#0"},
+        "west":  {"uv": [7, 0, 9, 16], "texture": "#0"},
+        "up":    {"uv": [0, 7, 16, 9], "texture": "#0"},
+        "down":  {"uv": [0, 7, 16, 9], "texture": "#0"}
+      }
+    },
+    {
+      "name": "barrel_back",
+      "from": [5, 2, 4],
+      "to": [11, 13, 7],
+      "faces": {
+        "north": {"uv": [5, 2, 11, 13], "texture": "#0"},
+        "east":  {"uv": [4, 2, 7, 13], "texture": "#0"},
+        "south": {"uv": [5, 2, 11, 13], "texture": "#0"},
+        "west":  {"uv": [4, 2, 7, 13], "texture": "#0"},
+        "up":    {"uv": [5, 4, 11, 7], "texture": "#0"},
+        "down":  {"uv": [5, 4, 11, 7], "texture": "#0"}
+      }
+    },
+    {
+      "name": "lens_protrude",
+      "from": [4, 13, 9],
+      "to": [12, 16, 12],
+      "faces": {
+        "north": {"uv": [4, 13, 12, 16], "texture": "#0"},
+        "east":  {"uv": [9, 13, 12, 16], "texture": "#0"},
+        "south": {"uv": [4, 13, 12, 16], "texture": "#0"},
+        "west":  {"uv": [9, 13, 12, 16], "texture": "#0"},
+        "up":    {"uv": [4, 9, 12, 12], "texture": "#0"}
+      }
+    }
+  ],
+  "display": {
+    "gui": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [1.0, 1.0, 1.0]},
+    "thirdperson_righthand": {"rotation": [-25, 30, 0], "translation": [0, 4, 1], "scale": [1.0, 1.0, 1.0]},
+    "firstperson_righthand": {"rotation": [0, -55, 25], "translation": [1.5, 3.5, 1.5], "scale": [0.85, 0.85, 0.85]},
+    "ground": {"translation": [0, 2, 0], "scale": [0.5, 0.5, 0.5]},
+    "fixed":  {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [1, 1, 1]}
+  }
+}
