@@ -53,6 +53,7 @@ ptr/world/
 ptr/server.jar
 ptr/fabric-server-launcher.jar
 ptr/fabric-server-launcher.properties
+ptr/polymer/
 
 # Runtime misc
 */wepif.yml
