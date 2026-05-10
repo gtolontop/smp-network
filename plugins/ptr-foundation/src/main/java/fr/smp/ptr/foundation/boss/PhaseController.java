@@ -7,7 +7,6 @@ import java.util.Objects;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.LivingEntity;
 import org.jetbrains.annotations.NotNull;
 
@@ -97,8 +96,6 @@ public final class PhaseController {
                             var inst = entity.getAttribute(attr);
                             if (inst != null) {
                                 inst.setBaseValue(val);
-                            } else if (attr == Attribute.MAX_HEALTH) {
-                                entity.setMaxHealth(val);
                             }
                         });
     }

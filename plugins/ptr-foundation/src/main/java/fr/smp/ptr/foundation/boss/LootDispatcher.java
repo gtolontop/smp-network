@@ -6,6 +6,8 @@ import java.util.Objects;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -38,11 +40,18 @@ public final class LootDispatcher {
         LootTable table = Bukkit.getLootTable(tableId);
         List<ItemStack> all = new ArrayList<>(extraDrops);
         if (table != null) {
+            float luck = 0.0f;
+            if (killer != null) {
+                AttributeInstance attr = killer.getAttribute(Attribute.LUCK);
+                if (attr != null) {
+                    luck = (float) attr.getValue();
+                }
+            }
             LootContext context =
                     new LootContext.Builder(center)
                             .killer(killer)
                             .lootedEntity(boss)
-                            .luck(killer == null ? 0.0f : killer.getLuck())
+                            .luck(luck)
                             .build();
             all.addAll(table.populateLoot(java.util.concurrent.ThreadLocalRandom.current(), context));
         }

@@ -42,8 +42,10 @@ jobs:
       - name: Gradle wrapper sanity
         run: ./gradlew --version
 
-      - name: Build (compile + test + checkstyle + spotless)
-        run: ./gradlew build spotlessCheck checkstyleMain test --stacktrace
+      - name: Build (compile + test + checkstyle)
+        # spotlessCheck deferred until google-java-format ships JDK 25
+        # support — see plugins/ptr-foundation/build.gradle.kts for context.
+        run: ./gradlew build checkstyleMain test --stacktrace
 
       - name: Upload jar
         if: success()
