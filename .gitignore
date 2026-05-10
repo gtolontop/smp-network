@@ -44,16 +44,26 @@ lobby/plugins/
 survival/plugins/
 ptr/plugins/
 ptr-paper-legacy/plugins/
+ptr-fabric-legacy/plugins/
 
-# Fabric server runtime
+# Folia / Paper runtime (PTR V3)
+ptr/cache/
 ptr/libraries/
 ptr/versions/
-ptr/.fabric/
-ptr/world/
-ptr/server.jar
-ptr/fabric-server-launcher.jar
-ptr/fabric-server-launcher.properties
-ptr/polymer/
+ptr/logs/
+ptr/data/
+
+# Fabric server runtime (legacy)
+ptr-fabric-legacy/libraries/
+ptr-fabric-legacy/versions/
+ptr-fabric-legacy/.fabric/
+ptr-fabric-legacy/world/
+ptr-fabric-legacy/world_nether/
+ptr-fabric-legacy/world_the_end/
+ptr-fabric-legacy/server.jar
+ptr-fabric-legacy/fabric-server-launcher.jar
+ptr-fabric-legacy/fabric-server-launcher.properties
+ptr-fabric-legacy/polymer/
 
 # Runtime misc
 */wepif.yml
@@ -87,10 +97,10 @@ plugins/*/build/
 plugins/*/.gradle/
 plugins/*/.idea/
 plugins/*/*.iml
-plugins-fabric/*/build/
-plugins-fabric/*/.gradle/
-plugins-fabric/*/.idea/
-plugins-fabric/*/*.iml
+plugins-fabric-legacy/*/build/
+plugins-fabric-legacy/*/.gradle/
+plugins-fabric-legacy/*/.idea/
+plugins-fabric-legacy/*/*.iml
 
 # Resource pack zip artifacts (rebuilt from sources)
 ptr_resourcepack.zip
