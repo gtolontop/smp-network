@@ -86,6 +86,10 @@ plugins/*/build/
 plugins/*/.gradle/
 plugins/*/.idea/
 plugins/*/*.iml
+plugins-fabric/*/build/
+plugins-fabric/*/.gradle/
+plugins-fabric/*/.idea/
+plugins-fabric/*/*.iml
 
 # Resource pack zip artifacts (rebuilt from sources)
 ptr_resourcepack.zip
