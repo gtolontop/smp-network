@@ -2,7 +2,6 @@ package fr.smp.ptr.foundation.boss;
 
 import fr.smp.ptr.foundation.platform.SchedulerService;
 import fr.smp.ptr.foundation.skill.PtrCooldownStore;
-import fr.smp.ptr.foundation.skill.PtrSkill;
 import fr.smp.ptr.foundation.skill.PtrSkillContext;
 import fr.smp.ptr.foundation.skill.PtrSkillTrigger;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
