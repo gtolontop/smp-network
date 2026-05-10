@@ -1,0 +1,14 @@
+{
+  "description": {
+    "translate": "enchantment.ptr.pillager_bane",
+    "fallback": "Pillager Bane"
+  },
+  "weight": 5,
+  "max_level": 5,
+  "min_cost": {"base": 5, "per_level_above_first": 8},
+  "max_cost": {"base": 60, "per_level_above_first": 20},
+  "anvil_cost": 4,
+  "slots": ["mainhand"],
+  "supported_items": "#minecraft:enchantable/weapon",
+  "effects": {}
+}

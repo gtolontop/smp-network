@@ -1,0 +1,50 @@
+{
+  "carvers": ["minecraft:cave", "minecraft:cave_extra_underground"],
+  "downfall": 0.0,
+  "effects": {
+    "fog_color": 8126316,
+    "grass_color": 8126316,
+    "foliage_color": 8126316,
+    "sky_color": 8126316,
+    "water_color": 4566514,
+    "water_fog_color": 1644825,
+    "ambient_sound": "minecraft:ambient.warped_forest.loop",
+    "particle": {
+      "options": {
+        "type": "minecraft:end_rod"
+      },
+      "probability": 0.005
+    }
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "minecraft:ore_diamond_medium",
+      "minecraft:amethyst_geode"
+    ],
+    [],
+    [],
+    [],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "ambient": [{"type": "minecraft:bat", "maxCount": 8, "minCount": 1, "weight": 100}],
+    "axolotls": [],
+    "creature": [],
+    "misc": [],
+    "monster": [
+      {"type": "minecraft:silverfish", "maxCount": 4, "minCount": 1, "weight": 60}
+    ],
+    "underground_water_creature": [],
+    "water_ambient": [],
+    "water_creature": []
+  },
+  "temperature": 0.5
+}

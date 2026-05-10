@@ -1,0 +1,8 @@
+{
+  "comparator_output": 7,
+  "description": {"translate": "jukebox_song.ptr.gardien_theme", "fallback": "PTR Archives - Heart of the Mine"},
+  "length_in_seconds": 137,
+  "sound_event": {
+    "sound_id": "ptr:music.gardien_theme"
+  }
+}

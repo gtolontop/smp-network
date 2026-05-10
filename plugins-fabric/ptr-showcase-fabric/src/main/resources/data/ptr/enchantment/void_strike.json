@@ -1,0 +1,14 @@
+{
+  "description": {
+    "translate": "enchantment.ptr.void_strike",
+    "fallback": "Void Strike"
+  },
+  "weight": 2,
+  "max_level": 3,
+  "min_cost": {"base": 25, "per_level_above_first": 25},
+  "max_cost": {"base": 75, "per_level_above_first": 25},
+  "anvil_cost": 8,
+  "slots": ["mainhand"],
+  "supported_items": "#minecraft:enchantable/weapon",
+  "effects": {}
+}
