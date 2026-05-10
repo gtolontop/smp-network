@@ -3,6 +3,7 @@ package fr.smp.core.listeners;
 import fr.smp.core.SMPCore;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -31,6 +32,7 @@ import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
@@ -65,24 +67,35 @@ public class LobbyProtectionListener implements Listener {
         this.plugin = plugin;
     }
 
+    private boolean eventWorld(World world) {
+        return plugin.eventWorlds() != null && plugin.eventWorlds().isEventWorld(world);
+    }
+
+    private boolean eventWorld(Location location) {
+        return location != null && eventWorld(location.getWorld());
+    }
+
     private boolean bypass(Player p) {
-        return p != null && (p.getGameMode() == GameMode.CREATIVE || p.hasPermission("smp.admin"));
+        return p != null && (eventWorld(p.getWorld()) || p.getGameMode() == GameMode.CREATIVE || p.hasPermission("smp.admin"));
     }
 
     // --- Player survival state ------------------------------------------------
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
+        if (eventWorld(event.getEntity().getWorld())) return;
         if (event.getEntity() instanceof Player) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onRegain(EntityRegainHealthEvent event) {
+        if (eventWorld(event.getEntity().getWorld())) return;
         if (event.getEntity() instanceof Player) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onFood(FoodLevelChangeEvent event) {
+        if (eventWorld(event.getEntity().getWorld())) return;
         event.setCancelled(true);
         if (event.getEntity() instanceof Player p) p.setFoodLevel(20);
     }
@@ -142,36 +155,64 @@ public class LobbyProtectionListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onBurn(BlockBurnEvent event) { event.setCancelled(true); }
+    public void onBurn(BlockBurnEvent event) {
+        if (eventWorld(event.getBlock().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onSpread(BlockSpreadEvent event) { event.setCancelled(true); }
+    public void onSpread(BlockSpreadEvent event) {
+        if (eventWorld(event.getBlock().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onFade(BlockFadeEvent event) { event.setCancelled(true); }
+    public void onFade(BlockFadeEvent event) {
+        if (eventWorld(event.getBlock().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onLeafDecay(LeavesDecayEvent event) { event.setCancelled(true); }
+    public void onLeafDecay(LeavesDecayEvent event) {
+        if (eventWorld(event.getBlock().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onFlow(BlockFromToEvent event) { event.setCancelled(true); }
+    public void onFlow(BlockFromToEvent event) {
+        if (eventWorld(event.getBlock().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onGrow(BlockGrowEvent event) { event.setCancelled(true); }
+    public void onGrow(BlockGrowEvent event) {
+        if (eventWorld(event.getBlock().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onStructureGrow(StructureGrowEvent event) { event.setCancelled(true); }
+    public void onStructureGrow(StructureGrowEvent event) {
+        if (eventWorld(event.getLocation())) return;
+        event.setCancelled(true);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onPistonExtend(BlockPistonExtendEvent event) { event.setCancelled(true); }
+    public void onPistonExtend(BlockPistonExtendEvent event) {
+        if (eventWorld(event.getBlock().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onPistonRetract(BlockPistonRetractEvent event) { event.setCancelled(true); }
+    public void onPistonRetract(BlockPistonRetractEvent event) {
+        if (eventWorld(event.getBlock().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     // --- Entity / item frame / armor stand protection ------------------------
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
+        if (eventWorld(event.getEntity().getWorld())) return;
         if (event.getDamager() instanceof Player p && bypass(p)) return;
         event.setCancelled(true);
     }
@@ -215,21 +256,31 @@ public class LobbyProtectionListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onEntityChangeBlock(EntityChangeBlockEvent event) { event.setCancelled(true); }
+    public void onEntityChangeBlock(EntityChangeBlockEvent event) {
+        if (eventWorld(event.getBlock().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onDoorBreak(EntityBreakDoorEvent event) { event.setCancelled(true); }
+    public void onDoorBreak(EntityBreakDoorEvent event) {
+        if (eventWorld(event.getEntity().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     // --- Explosions ----------------------------------------------------------
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onExplode(EntityExplodeEvent event) {
+        if (eventWorld(event.getLocation())) return;
         event.blockList().clear();
         event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onPrime(ExplosionPrimeEvent event) { event.setCancelled(true); }
+    public void onPrime(ExplosionPrimeEvent event) {
+        if (eventWorld(event.getEntity().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     // --- Items ---------------------------------------------------------------
 
@@ -246,6 +297,7 @@ public class LobbyProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onItemSpawn(ItemSpawnEvent event) {
+        if (eventWorld(event.getLocation())) return;
         // Prevent stray items (breakage, mob drops, etc.) from ever appearing.
         event.setCancelled(true);
     }
@@ -256,7 +308,10 @@ public class LobbyProtectionListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onItemDamage(PlayerItemDamageEvent event) { event.setCancelled(true); }
+    public void onItemDamage(PlayerItemDamageEvent event) {
+        if (eventWorld(event.getPlayer().getWorld())) return;
+        event.setCancelled(true);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onConsume(PlayerItemConsumeEvent event) {
@@ -298,6 +353,10 @@ public class LobbyProtectionListener implements Listener {
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player p)) return;
         if (bypass(p)) return;
+        if (isOffhandSwap(event)) {
+            event.setCancelled(true);
+            return;
+        }
         InventoryType t = event.getInventory().getType();
         // Allow plugin GUIs (chest-based menus are legit), the player's own
         // inventory, and creative. Block container interaction.
@@ -305,6 +364,11 @@ public class LobbyProtectionListener implements Listener {
             case PLAYER, CRAFTING, CREATIVE, CHEST -> { /* allowed */ }
             default -> event.setCancelled(true);
         }
+    }
+
+    private boolean isOffhandSwap(InventoryClickEvent event) {
+        return event.getClick() == ClickType.SWAP_OFFHAND
+                || (event.getClick() == ClickType.NUMBER_KEY && event.getHotbarButton() == -1);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -322,6 +386,7 @@ public class LobbyProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onWeather(WeatherChangeEvent event) {
+        if (eventWorld(event.getWorld())) return;
         if (event.toWeatherState()) event.setCancelled(true);
     }
 }

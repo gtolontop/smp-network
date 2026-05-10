@@ -1,6 +1,8 @@
 package fr.smp.core.gui;
 
 import fr.smp.core.SMPCore;
+import fr.smp.core.logging.LogCategory;
+import fr.smp.core.managers.BountyAntiAbuseManager;
 import fr.smp.core.managers.BountyManager;
 import fr.smp.core.managers.NetworkRoster;
 import fr.smp.core.utils.Msg;
@@ -227,6 +229,16 @@ public class BountyGUI extends GUIHolder {
         if (amount > max) {
             p.sendMessage(Msg.err("Maximum <yellow>$" + Msg.money(max) + "</yellow>."));
             reopen(p); return;
+        }
+        if (plugin.bountyAntiAbuse() != null) {
+            BountyAntiAbuseManager.Verdict verdict = plugin.bountyAntiAbuse().canPlace(p, target, targetName);
+            if (!verdict.allowed()) {
+                p.sendMessage(Msg.err("<red>Tu ne peux pas poser une prime sur ce joueur:</red> <gray>team/alliance détectée.</gray>"));
+                plugin.logs().log(LogCategory.ECONOMY,
+                        "bounty.place_blocked issuer=" + p.getName() + " target=" + targetName
+                                + " reason=" + verdict.reason() + " detail=" + verdict.detail());
+                reopen(p); return;
+            }
         }
         if (!plugin.economy().has(p.getUniqueId(), amount)) {
             p.sendMessage(Msg.err("Fonds insuffisants."));

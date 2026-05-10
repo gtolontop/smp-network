@@ -2,6 +2,7 @@ package fr.smp.core.commands;
 
 import fr.smp.core.SMPCore;
 import fr.smp.core.gui.BountyGUI;
+import fr.smp.core.managers.BountyAntiAbuseManager;
 import fr.smp.core.managers.BountyManager;
 import fr.smp.core.utils.Msg;
 import org.bukkit.Bukkit;
@@ -113,6 +114,16 @@ public class BountyCommand implements CommandExecutor {
         String resolvedName = targetName;
         var pd = plugin.players().loadOffline(target);
         if (pd != null) resolvedName = pd.name();
+        if (plugin.bountyAntiAbuse() != null) {
+            BountyAntiAbuseManager.Verdict verdict = plugin.bountyAntiAbuse().canPlace(p, target, resolvedName);
+            if (!verdict.allowed()) {
+                p.sendMessage(Msg.err("<red>Tu ne peux pas poser une prime sur ce joueur:</red> <gray>team/alliance détectée.</gray>"));
+                plugin.logs().log(fr.smp.core.logging.LogCategory.ECONOMY,
+                        "bounty.place_blocked issuer=" + p.getName() + " target=" + resolvedName
+                                + " reason=" + verdict.reason() + " detail=" + verdict.detail());
+                return;
+            }
+        }
 
         if (!plugin.economy().has(p.getUniqueId(), amount)) {
             p.sendMessage(Msg.err("Fonds insuffisants."));

@@ -122,6 +122,11 @@ public class TeamsGUI extends GUIHolder {
                     "<gray>Actuel: " + t.color() + t.name() + "<reset></gray>",
                     "",
                     "<yellow>▶ Clic pour changer le nom</yellow>"));
+            inv.setItem(22, GUIUtil.item(Material.OAK_SIGN,
+                    "<gold><bold>Changer le préfixe</bold></gold>",
+                    "<gray>Actuel: " + t.color() + "[" + t.tag() + "]<reset></gray>",
+                    "",
+                    "<yellow>▶ Clic pour changer le préfixe</yellow>"));
             boolean confirmingDisband = pendingDisband > System.currentTimeMillis();
             inv.setItem(16, GUIUtil.item(confirmingDisband ? Material.TNT : Material.BARRIER,
                     confirmingDisband ? "<red><bold>⚠ Confirmer dissolution</bold></red>"
@@ -157,7 +162,10 @@ public class TeamsGUI extends GUIHolder {
         inv.setItem(49, GUIUtil.item(Material.BOOK,
                 "<gray><bold>Solde de team</bold></gray>",
                 "<green>$" + Msg.money(t.balance()) + "</green>",
-                "<gray>Membres: <white>" + members.size() + "</white></gray>"));
+                "<gray>Membres: <white>" + members.size() + "/" + plugin.teams().maxMembers(t.id()) + "</white></gray>",
+                "",
+                "<gray>/team bank deposit <montant></gray>",
+                "<gray>/wealth pour les upgrades.</gray>"));
         this.inventory = inv;
         p.openInventory(inv);
     }
@@ -321,6 +329,7 @@ public class TeamsGUI extends GUIHolder {
         else if (raw == 13) openKick(p);
         else if (raw == 14) openColors(p);
         else if (raw == 15) startRenameFlow(p, t.id());
+        else if (raw == 22) startPrefixFlow(p, t.id());
         else if (raw == 16) {
             long now = System.currentTimeMillis();
             if (pendingDisband > now) {
@@ -362,7 +371,7 @@ public class TeamsGUI extends GUIHolder {
         TeamManager.Team t = d != null ? plugin.teams().get(d.teamId()) : null;
         if (t == null) return;
         if (plugin.teams().isFull(t.id())) {
-            p.sendMessage(Msg.err("Team pleine (" + plugin.teams().maxMembers() + " max).")); return;
+            p.sendMessage(Msg.err("Team pleine (" + plugin.teams().maxMembers(t.id()) + " max).")); return;
         }
         plugin.teamInvites().invite(target, t.id());
         tp.sendMessage(Msg.info("<aqua>" + p.getName() + "</aqua> t'invite dans <white>" +
@@ -405,6 +414,39 @@ public class TeamsGUI extends GUIHolder {
             plugin.teams().setName(teamId, name);
             p.sendMessage(Msg.ok("<green>Team renommée en <aqua>" + name + "</aqua>.</green>"));
             if (plugin.nametags() != null) plugin.nametags().refreshAll();
+        });
+    }
+
+    private void startPrefixFlow(Player p, String teamId) {
+        p.closeInventory();
+        plugin.chatPrompt().ask(p,
+                "<aqua>Tape le nouveau préfixe de la team (2-5 caractères, ou \"annuler\") :</aqua>",
+                30, tag -> {
+            if (tag.equalsIgnoreCase("annuler")) {
+                p.sendMessage(Msg.info("<gray>Changement de préfixe annulé.</gray>"));
+                return;
+            }
+            if (!tag.matches("[A-Za-z0-9]{2,5}")) {
+                p.sendMessage(Msg.err("Préfixe invalide (2-5 alphanumérique)."));
+                return;
+            }
+            TeamManager.Team t = plugin.teams().get(teamId);
+            if (t == null || !t.owner().equals(p.getUniqueId().toString())) {
+                p.sendMessage(Msg.err("Tu n'es plus owner de cette team."));
+                return;
+            }
+            TeamManager.Team existing = plugin.teams().byTag(tag);
+            if (existing != null && !existing.id().equals(t.id())) {
+                p.sendMessage(Msg.err("Préfixe déjà pris."));
+                return;
+            }
+            if (!plugin.teams().setTag(teamId, tag)) {
+                p.sendMessage(Msg.err("Changement de préfixe échoué."));
+                return;
+            }
+            p.sendMessage(Msg.ok("<green>Préfixe mis à jour en <aqua>[" + tag + "]</aqua>.</green>"));
+            if (plugin.nametags() != null) plugin.nametags().refreshAll();
+            for (Player online : Bukkit.getOnlinePlayers()) plugin.tabList().update(online);
         });
     }
 

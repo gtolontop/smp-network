@@ -170,6 +170,13 @@ worldborder:
     size: 5000
     center: { x: 0.0, z: 0.0 }
 
+# ------ Event worlds ------
+# Admin-created isolated worlds for temporary events. Entries are created with
+# /eventworld create <name> <void|flat> and reloaded on server start.
+event-worlds:
+  default-border-size: 512
+  worlds: {}
+
 # ------ Combat tag ------
 combat:
   duration-seconds: 15
@@ -180,7 +187,7 @@ tpa:
 
 # ------ Homes ------
 homes:
-  base-slots: 5               # default max homes (override via smp.homes.<N>)
+  base-slots: 3               # default max homes; slots 4/5 are bought with /wealth
   max-slots: 5                # hard cap, matches the single-row Homes GUI
 
 # ------ Cooldowns (seconds) ------
@@ -262,6 +269,20 @@ dragonegg:
 bounty:
   min-amount: 1000000        # Minimum added per bounty contribution (1M)
   max-amount: 100000000000   # Maximum added per single contribution (100B)
+  anti-abuse:
+    enabled: true
+    block-same-team: true
+    # Blocks claims and new bounty placements when SMPLogger sees a hidden
+    # alliance/teamup between the players.
+    hidden-relations:
+      enabled: true
+      db-file: "../shared-data/smplogger/smplogger.db"
+      min-score: 35
+      min-level: "SUSPECT"
+    # If someone linked to the killer is glued to the death spot, the bounty
+    # stays active and no money is paid. This prevents assisted bounty stealing.
+    block-nearby-teamup: true
+    teamup-radius-blocks: 18
 
 # ------ Chassé du jour ------
 # Le joueur avec le plus de kills quotidiens reçoit un statut visible
@@ -279,6 +300,7 @@ keyall:
 
 # ------ World toggles ------
 world:
+  nether-enabled: true        # Portails et téléportations Nether on/off (admin)
   end-enabled: true           # /end on|off|toggle (admin only)
   phantoms-enabled: true      # /phantom on|off|toggle (admin only)
   disable-locator-bar: true   # try to disable the vanilla locator bar HUD (gamerule if available)

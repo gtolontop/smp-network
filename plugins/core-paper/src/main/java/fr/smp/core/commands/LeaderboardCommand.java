@@ -56,7 +56,7 @@ public class LeaderboardCommand implements CommandExecutor, TabCompleter {
                 scope = parsedScope;
                 continue;
             }
-            player.sendMessage(Msg.err("Usage: <white>/leaderboard [money|playtime|kills|deaths|distance|elo] [solo|team]</white>"));
+            player.sendMessage(Msg.err("Usage: <white>/leaderboard [money|playtime|kills|deaths|distance|elo|spent] [solo|team]</white>"));
             return true;
         }
 
@@ -142,7 +142,7 @@ public class LeaderboardCommand implements CommandExecutor, TabCompleter {
         String current = args.length == 0 ? "" : args[args.length - 1].toLowerCase(Locale.ROOT);
         if (args.length == 1) {
             List<String> suggestions = new ArrayList<>(List.of(
-                    "money", "playtime", "kills", "deaths", "distance", "elo", "solo", "team"
+                    "money", "playtime", "kills", "deaths", "distance", "elo", "spent", "solo", "team"
             ));
             return filter(suggestions, current);
         }
@@ -152,7 +152,7 @@ public class LeaderboardCommand implements CommandExecutor, TabCompleter {
 
         if (args.length > 2) return List.of();
         List<String> suggestions = new ArrayList<>(List.of(
-                "money", "playtime", "kills", "deaths", "distance", "elo", "solo", "team"
+                "money", "playtime", "kills", "deaths", "distance", "elo", "spent", "solo", "team"
         ));
 
         for (int i = 0; i < args.length - 1; i++) {

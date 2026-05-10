@@ -10,14 +10,15 @@ import org.bukkit.inventory.Inventory;
 
 public class LeaderboardHubGUI extends GUIHolder {
 
-    private static final int[] CATEGORY_SLOTS = {10, 11, 12, 13, 14, 15};
+    private static final int[] CATEGORY_SLOTS = {10, 11, 12, 13, 14, 15, 16};
     private static final LeaderboardManager.Category[] CATEGORIES = {
             LeaderboardManager.Category.MONEY,
             LeaderboardManager.Category.PLAYTIME,
             LeaderboardManager.Category.KILLS,
             LeaderboardManager.Category.DEATHS,
             LeaderboardManager.Category.DISTANCE,
-            LeaderboardManager.Category.DUEL_ELO
+            LeaderboardManager.Category.DUEL_ELO,
+            LeaderboardManager.Category.WEALTH_SPENT
     };
 
     private final SMPCore plugin;
@@ -52,6 +53,7 @@ public class LeaderboardHubGUI extends GUIHolder {
             case DEATHS -> "Les morts comptent aussi.";
             case DISTANCE -> "Stats vanilla de déplacement.";
             case DUEL_ELO -> "Classement ELO des duels PvP.";
+            case WEALTH_SPENT -> "Joueurs et teams qui ont le plus investi.";
         };
     }
 

@@ -13,7 +13,7 @@ public class TeamTabCompleter implements TabCompleter {
 
     private static final List<String> SUBS = List.of(
             "create", "list", "invite", "join", "leave",
-            "kick", "disband", "sethome", "home", "info", "color");
+            "kick", "disband", "sethome", "home", "info", "color", "prefix", "bank");
 
     private final SMPCore plugin;
     private final NetworkTabCompleter network;

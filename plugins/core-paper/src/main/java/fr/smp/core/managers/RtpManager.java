@@ -37,6 +37,10 @@ public class RtpManager {
     }
 
     public void startPoolFiller() {
+        if (!plugin.isMainSurvival()) {
+            plugin.getLogger().info("[RTP] Pool filler disabled outside the survival backend.");
+            return;
+        }
         int interval = plugin.getConfig().getInt("rtp.pool-fill-interval-ticks", 100);
         fillTask = Bukkit.getScheduler().runTaskTimer(plugin, this::fillPools, interval, interval);
     }
@@ -66,6 +70,12 @@ public class RtpManager {
     }
 
     public CompletableFuture<Boolean> teleport(Player p, World world, boolean cooldown) {
+        if (!isRtpWorld(world)) {
+            p.sendMessage(Msg.err("RTP is disabled in this world."));
+            plugin.getLogger().warning("[RTP] " + p.getName() + " blocked in non-RTP world: "
+                    + (world == null ? "<null>" : world.getName()));
+            return CompletableFuture.completedFuture(false);
+        }
         String key = world.getName();
         ConcurrentLinkedQueue<Location> pool = pools.get(key);
         if (pool != null) {
@@ -177,7 +187,14 @@ public class RtpManager {
     }
 
     private void fillPools() {
+        pools.keySet().removeIf(worldName -> {
+            World world = Bukkit.getWorld(worldName);
+            return !isRtpWorld(world);
+        });
+
         for (World world : Bukkit.getWorlds()) {
+            if (!isRtpWorld(world)) continue;
+
             String key = world.getName();
             ConcurrentLinkedQueue<Location> pool = pools.computeIfAbsent(key, k -> new ConcurrentLinkedQueue<>());
             int needed = POOL_TARGET - pool.size();
@@ -259,6 +276,27 @@ public class RtpManager {
 
     private Location center(World w, int x, int y, int z) {
         return new Location(w, x + 0.5, y, z + 0.5);
+    }
+
+    private boolean isRtpWorld(World world) {
+        if (world == null) return false;
+        if (!plugin.isMainSurvival()) return false;
+        if (plugin.eventWorlds() != null && plugin.eventWorlds().isEventWorld(world)) return false;
+        return configuredRtpWorlds().contains(world.getName());
+    }
+
+    private Set<String> configuredRtpWorlds() {
+        Set<String> names = new HashSet<>();
+        addConfiguredWorld(names, "rtp.default-world", "world");
+        addConfiguredWorld(names, "rtp.world-overworld", "world");
+        addConfiguredWorld(names, "rtp.world-nether", "world_nether");
+        addConfiguredWorld(names, "rtp.world-end", "world_the_end");
+        return names;
+    }
+
+    private void addConfiguredWorld(Set<String> names, String path, String fallback) {
+        String name = plugin.getConfig().getString(path, fallback);
+        if (name != null && !name.isBlank()) names.add(name);
     }
 
     public void clearCooldown(Player p) {

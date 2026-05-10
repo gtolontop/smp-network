@@ -190,6 +190,9 @@ public class LeaderboardGUI extends GUIHolder {
             case DEATHS -> "<gray>Les morts comptent aussi.</gray>";
             case DISTANCE -> "<gray>Lecture des stats vanilla de déplacement.</gray>";
             case DUEL_ELO -> "<gray>Classement ELO des duels PvP — solo uniquement.</gray>";
+            case WEALTH_SPENT -> scope == LeaderboardManager.Scope.TEAM
+                    ? "<gray>Argent dépensé depuis les banques de team.</gray>"
+                    : "<gray>Argent investi dans /wealth et les upgrades.</gray>";
         };
     }
 

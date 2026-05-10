@@ -21,6 +21,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -773,9 +774,16 @@ public class VanishManager implements Listener {
         if (s == null || s.savedHotbar == null) return;
         ItemStack current = event.getCurrentItem();
         ItemStack cursor = event.getCursor();
-        if (toolId(current) != null || toolId(cursor) != null) {
+        ItemStack offhand = p.getInventory().getItemInOffHand();
+        if (toolId(current) != null || toolId(cursor) != null
+                || (isOffhandSwap(event) && toolId(offhand) != null)) {
             event.setCancelled(true);
         }
+    }
+
+    private boolean isOffhandSwap(InventoryClickEvent event) {
+        return event.getClick() == ClickType.SWAP_OFFHAND
+                || (event.getClick() == ClickType.NUMBER_KEY && event.getHotbarButton() == -1);
     }
 
     /** Dispatch des clics sur les outils de vanish dans la hotbar. */

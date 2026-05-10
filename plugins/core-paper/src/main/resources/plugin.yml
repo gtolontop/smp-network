@@ -25,6 +25,10 @@ commands:
     description: "Worldborder management"
     aliases: [worldborder]
     permission: smp.admin
+  eventworld:
+    description: "Create and manage isolated event worlds"
+    aliases: [ew, event]
+    permission: smp.admin
   tp:
     description: "Teleport instantly to a player (network-wide, admin)"
     permission: smp.admin
@@ -65,6 +69,9 @@ commands:
   baltop:
     description: "Top richest players (GUI)"
     aliases: [moneytop, richlist]
+  wealth:
+    description: "Argent utile: achats, upgrades et sinks économiques"
+    aliases: [richesse, argent, spend]
   leaderboard:
     description: "Browse all available leaderboards"
     aliases: [lb, tops]
@@ -91,6 +98,10 @@ commands:
   team:
     description: "Team management"
     aliases: [guild]
+  teamadmin:
+    description: "Admin team management"
+    aliases: [ta, teamsadmin]
+    permission: smp.admin
   ah:
     description: "Auction House"
     aliases: [auction]

@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class ShopGUI extends GUIHolder {
 
@@ -35,6 +36,7 @@ public class ShopGUI extends GUIHolder {
     private ShopManager.ShopItem currentItem;
     private Action currentAction;
     private int quantity = 1;
+    private UUID viewerUuid;
 
     private final Map<Integer, String> slotCategory = new HashMap<>();
     private final Map<Integer, ShopManager.ShopItem> slotBuyItem = new HashMap<>();
@@ -50,6 +52,7 @@ public class ShopGUI extends GUIHolder {
     }
 
     public void open(Player p) {
+        viewerUuid = p.getUniqueId();
         openMain(p);
     }
 
@@ -291,13 +294,15 @@ public class ShopGUI extends GUIHolder {
             return;
         }
 
-        double cost = item.buyPrice() * qty;
+        double discount = plugin.wealth() != null ? plugin.wealth().shopDiscount(p.getUniqueId()) : 0.0;
+        double cost = item.buyPrice() * qty * (1.0 - discount);
         if (!plugin.economy().has(p.getUniqueId(), cost)) { p.sendMessage(Msg.err("Fonds insuffisants.")); return; }
         plugin.economy().withdraw(p.getUniqueId(), cost, "shop.buy " + item.material());
         giveItems(p, item, totalItems);
         plugin.getSyncManager().markDirty(p);
+        String discountText = discount > 0 ? " <gray>(réduction " + Math.round(discount * 100) + "%)</gray>" : "";
         p.sendMessage(Msg.ok("<green>Acheté ×" + totalItems + " " + displayName(item)
-                + " pour $" + Msg.money(cost) + ".</green>"));
+                + " pour $" + Msg.money(cost) + ".</green>" + discountText));
         plugin.logs().log(fr.smp.core.logging.LogCategory.SHOP, p,
                 "buy " + item.id() + " x" + qty + " $" + cost);
         plugin.getLogger().info("[SHOP] " + p.getName() + " a acheté " + item.id() + " x" + totalItems + " pour $" + Msg.money(cost));
@@ -372,7 +377,9 @@ public class ShopGUI extends GUIHolder {
                 return Math.max(1, Math.min(MAX_QTY, canAfford));
             }
             double bal = plugin.economy().balance(p.getUniqueId());
-            int canAfford = (int) Math.max(0, Math.floor(bal / item.buyPrice()));
+            double discount = plugin.wealth() != null ? plugin.wealth().shopDiscount(p.getUniqueId()) : 0.0;
+            double effectivePrice = item.buyPrice() * (1.0 - discount);
+            int canAfford = (int) Math.max(0, Math.floor(bal / effectivePrice));
             return Math.max(1, Math.min(MAX_QTY, canAfford));
         } else {
             int have = 0;
@@ -455,6 +462,11 @@ public class ShopGUI extends GUIHolder {
                 lore.add(MM.deserialize("<!italic><green>Total: <aqua>◆ " + formatAmount(total) + " saphirs</aqua></green>"));
             } else {
                 lore.add(MM.deserialize("<!italic><gray>Unitaire: <yellow>$" + Msg.money(unitPrice) + "</yellow></gray>"));
+                double discount = plugin.wealth() != null && viewerUuid != null ? plugin.wealth().shopDiscount(viewerUuid) : 0.0;
+                if (discount > 0) {
+                    total *= (1.0 - discount);
+                    lore.add(MM.deserialize("<!italic><gray>Réduction: <green>" + Math.round(discount * 100) + "%</green></gray>"));
+                }
                 lore.add(MM.deserialize("<!italic><green>Total: <yellow>$" + Msg.money(total) + "</yellow></green>"));
             }
         } else {

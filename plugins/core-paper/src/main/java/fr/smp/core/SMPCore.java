@@ -40,12 +40,12 @@ import fr.smp.core.sellstick.SellStickListener;
 import fr.smp.core.sellstick.SellStickManager;
 import fr.smp.core.voidstone.VoidstoneManager;
 import fr.smp.core.listeners.AmethystBoostListener;
-import fr.smp.core.listeners.AttributeSwapListener;
 import fr.smp.core.listeners.BuddingAmethystListener;
 import fr.smp.core.listeners.ChainClimbListener;
 import fr.smp.core.listeners.ChatListener;
 import fr.smp.core.listeners.CombatListener;
 import fr.smp.core.listeners.DeathListener;
+import fr.smp.core.listeners.EventWorldListener;
 import fr.smp.core.listeners.GodListener;
 import fr.smp.core.listeners.GUIListener;
 import fr.smp.core.listeners.GateListener;
@@ -106,6 +106,7 @@ public class SMPCore extends JavaPlugin {
     private PlayerDataManager players;
     private SpawnManager spawns;
     private WorldBorderManager worldborders;
+    private EventWorldManager eventWorlds;
     private RtpManager rtp;
     private CombatTagManager combat;
     private HomeManager homes;
@@ -114,6 +115,7 @@ public class SMPCore extends JavaPlugin {
     private TeamManager teams;
     private LeaderboardManager leaderboards;
     private EconomyManager economy;
+    private WealthManager wealth;
     private WorthManager worth;
     private ShopManager shop;
     private AuctionManager auction;
@@ -127,6 +129,7 @@ public class SMPCore extends JavaPlugin {
     private PermissionsManager permissions;
     private NetworkRoster roster;
     private NametagManager nametags;
+    private NetherToggleManager netherToggle;
     private EndToggleManager endToggle;
     private PhantomToggleManager phantomToggle;
     private WeatherListener weather;
@@ -139,6 +142,7 @@ public class SMPCore extends JavaPlugin {
     private AdminModeManager adminMode;
     private ModerationManager moderation;
     private BountyManager bounties;
+    private BountyAntiAbuseManager bountyAntiAbuse;
     private HuntedManager hunted;
     private AlchemyTotemManager alchemyTotem;
     private SpawnerManager spawners;
@@ -201,6 +205,8 @@ public class SMPCore extends JavaPlugin {
         players = new PlayerDataManager(this, database);
         spawns = new SpawnManager(this);
         worldborders = new WorldBorderManager(this);
+        eventWorlds = new EventWorldManager(this);
+        eventWorlds.loadConfiguredWorlds();
         rtp = new RtpManager(this, worldborders);
         rtp.startPoolFiller();
         combat = new CombatTagManager(this);
@@ -220,6 +226,7 @@ public class SMPCore extends JavaPlugin {
         permissions = new PermissionsManager(this, database);
         permissions.load();
         economy = new EconomyManager(this, players);
+        wealth = new WealthManager(this, database);
         cooldowns = new CooldownManager(this);
         worth = new WorthManager(this);
         worth.load();
@@ -242,6 +249,7 @@ public class SMPCore extends JavaPlugin {
         tabList.start();
         nametags = new NametagManager(this);
         nametags.start();
+        netherToggle = new NetherToggleManager(this);
         endToggle = new EndToggleManager(this);
         phantomToggle = new PhantomToggleManager(this);
         waypoints = new WaypointManager(this, database);
@@ -260,6 +268,7 @@ public class SMPCore extends JavaPlugin {
         vanillaBackups.start();
         moderation = new ModerationManager(this, database);
         bounties = new BountyManager(this, database);
+        bountyAntiAbuse = new BountyAntiAbuseManager(this);
         if (isMainSurvival()) {
             hunted = new HuntedManager(this, database);
             hunted.start();
@@ -381,6 +390,7 @@ public class SMPCore extends JavaPlugin {
             pm.registerEvents(new SpamGuard(this), this);
             pm.registerEvents(new ChatListener(this), this);
         }
+        pm.registerEvents(netherToggle, this);
         pm.registerEvents(endToggle, this);
         pm.registerEvents(phantomToggle, this);
         weather = new WeatherListener(this);
@@ -389,6 +399,7 @@ public class SMPCore extends JavaPlugin {
         if (isLobby()) {
             pm.registerEvents(new LobbyProtectionListener(this), this);
         }
+        pm.registerEvents(new EventWorldListener(this), this);
         pm.registerEvents(new ChainClimbListener(this), this);
         pm.registerEvents(new SeedSpoofListener(this), this);
         if (!isLobby()) {
@@ -443,7 +454,6 @@ public class SMPCore extends JavaPlugin {
         pm.registerEvents(new GrindstoneListener(this), this);
         if (!isLobby()) {
             pm.registerEvents(new EnchantBreakListener(this), this);
-            pm.registerEvents(new AttributeSwapListener(), this);
             enchantArmor = new EnchantArmorTask(this);
             enchantArmor.start();
         }
@@ -493,6 +503,11 @@ public class SMPCore extends JavaPlugin {
 
         getCommand("rtp").setExecutor(new RtpCommand(this));
         getCommand("wb").setExecutor(new WorldBorderCommand(this));
+        if (getCommand("eventworld") != null) {
+            EventWorldCommand eventWorldCmd = new EventWorldCommand(this);
+            getCommand("eventworld").setExecutor(eventWorldCmd);
+            getCommand("eventworld").setTabCompleter(eventWorldCmd);
+        }
 
         getCommand("tp").setExecutor(new TpCommand(this));
         getCommand("tpa").setExecutor(new TpaCommand(this, "to"));
@@ -513,6 +528,11 @@ public class SMPCore extends JavaPlugin {
         getCommand("shards").setExecutor(new EconomyCommand(this, "shards"));
         getCommand("eco").setExecutor(new EconomyCommand(this, "eco"));
         getCommand("baltop").setExecutor(new EconomyCommand(this, "baltop"));
+        if (getCommand("wealth") != null) {
+            WealthCommand wealthCmd = new WealthCommand(this);
+            getCommand("wealth").setExecutor(wealthCmd);
+            getCommand("wealth").setTabCompleter(wealthCmd);
+        }
         if (getCommand("leaderboard") != null) {
             LeaderboardCommand leaderboardCommand = new LeaderboardCommand(this);
             getCommand("leaderboard").setExecutor(leaderboardCommand);
@@ -544,6 +564,9 @@ public class SMPCore extends JavaPlugin {
         getCommand("delhome").setExecutor(new HomeCommand(this, "delhome"));
 
         getCommand("team").setExecutor(new TeamCommand(this));
+        TeamAdminCommand teamAdminCmd = new TeamAdminCommand(this);
+        getCommand("teamadmin").setExecutor(teamAdminCmd);
+        getCommand("teamadmin").setTabCompleter(teamAdminCmd);
         getCommand("ah").setExecutor(new AuctionCommand(this));
         getCommand("end").setExecutor(new EndCommand(this));
         getCommand("tpend").setExecutor(new TpEndCommand(this));
@@ -980,6 +1003,7 @@ public class SMPCore extends JavaPlugin {
     public PlayerDataManager players() { return players; }
     public SpawnManager spawns() { return spawns; }
     public WorldBorderManager worldborders() { return worldborders; }
+    public EventWorldManager eventWorlds() { return eventWorlds; }
     public RtpManager rtp() { return rtp; }
     public CombatTagManager combat() { return combat; }
     public HomeManager homes() { return homes; }
@@ -988,6 +1012,7 @@ public class SMPCore extends JavaPlugin {
     public TeamManager teams() { return teams; }
     public LeaderboardManager leaderboards() { return leaderboards; }
     public EconomyManager economy() { return economy; }
+    public WealthManager wealth() { return wealth; }
     public WorthManager worth() { return worth; }
     public ShopManager shop() { return shop; }
     public AuctionManager auction()  { return auction; }
@@ -1003,6 +1028,7 @@ public class SMPCore extends JavaPlugin {
     public PermissionsManager permissions() { return permissions; }
     public NetworkRoster roster() { return roster; }
     public NametagManager nametags() { return nametags; }
+    public NetherToggleManager netherToggle() { return netherToggle; }
     public EndToggleManager endToggle() { return endToggle; }
     public PhantomToggleManager phantomToggle() { return phantomToggle; }
     public WaypointManager waypoints() { return waypoints; }
@@ -1014,11 +1040,13 @@ public class SMPCore extends JavaPlugin {
     public AdminModeManager adminMode() { return adminMode; }
     public ModerationManager moderation() { return moderation; }
     public BountyManager bounties() { return bounties; }
+    public BountyAntiAbuseManager bountyAntiAbuse() { return bountyAntiAbuse; }
     public HuntedManager hunted() { return hunted; }
     public AlchemyTotemManager alchemyTotem() { return alchemyTotem; }
     public SpawnerManager spawners() { return spawners; }
     public VoidstoneManager voidstones() { return voidstones; }
     public DragonEggManager dragonEgg() { return dragonEgg; }
+    public SellStickManager sellSticks() { return sellSticks; }
     public SellAutoManager sellAuto() { return sellAuto; }
     public SellTierManager sellTiers() { return sellTiers; }
     public ResourcePackManager resourcePacks() { return resourcePacks; }

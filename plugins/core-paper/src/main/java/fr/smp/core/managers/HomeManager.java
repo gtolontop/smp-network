@@ -34,13 +34,13 @@ public class HomeManager {
     }
 
     public int maxSlots(Player p) {
-        // Capped to 5 network-wide (single-row Homes GUI).
-        int base = plugin.getConfig().getInt("homes.base-slots", 5);
+        // Capped to 5 network-wide (single-row Homes GUI). Players start at 3
+        // and buy slots 4/5 through the wealth system.
+        int base = Math.min(plugin.getConfig().getInt("homes.base-slots", 3), 3);
         int max = plugin.getConfig().getInt("homes.max-slots", 5);
-        for (int i = max; i >= 1; i--) {
-            if (p.hasPermission("smp.homes." + i)) return Math.min(i, max);
-        }
-        return Math.min(base, max);
+        if (p.hasPermission("smp.admin")) return Math.min(max, 5);
+        int extra = plugin.wealth() != null ? plugin.wealth().homeExtraSlots(p.getUniqueId()) : 0;
+        return Math.min(base + extra, Math.min(max, 5));
     }
 
     public Map<Integer, Home> list(UUID uuid) {

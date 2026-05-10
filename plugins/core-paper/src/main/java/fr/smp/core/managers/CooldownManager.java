@@ -41,6 +41,10 @@ public class CooldownManager {
         set(p, key, secs);
     }
 
+    public void clear(Player p, String key) {
+        getMap(key).remove(p.getUniqueId());
+    }
+
     public void unload(UUID uuid) {
         for (Map<UUID, Long> map : cooldowns.values()) {
             map.remove(uuid);
