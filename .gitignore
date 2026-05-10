@@ -89,6 +89,9 @@ velocity/lang/
 */help.yml
 */permissions.yml
 */eula.txt
+*/bukkit.yml
+*/spigot.yml
+*/folia-config.yml
 
 # Folia build from source
 _build/
