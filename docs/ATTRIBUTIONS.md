@@ -4,6 +4,22 @@
 
 ---
 
+## Plugin architecture inspiration (V3 foundation)
+
+The `ptr-foundation` plugin's architecture is **inspired** by patterns from three premium commercial plugins. None of their code is integrated verbatim — only the publicly-observable architectural patterns (interface shapes, state-machine enums, package layout, idiomatic method names). The user holds a license to inspect and re-use parts in this private project per their stated agreement with each author.
+
+| Plugin | Author | Inspired which V3 layer | Patterns reused |
+|---|---|---|---|
+| **[MythicMobs Premium](https://mythiccraft.io/)** v5.11.0 | Lumine | `boss/`, future `skill/` | `Skill` / `SkillMechanic` / `SkillTrigger` / `IEntityTargeter` / `SkillCondition` / `SkillMetadata` shapes; YAML config layout vocabulary; drop-leaderboard pattern |
+| **[ModelEngine](https://mcmodelengine.com/)** R4.1.0 | Ticxo | future `model/` (3D animation) | `BlueprintAnimation` / `ModelBone` / `ActiveModel` / `AnimationHandler` state-machine shape; `ModelState` enum (IDLE/WALK/JUMP/HOVER/FLY/SPAWN/DEATH); `lerpIn/lerpOut/speed/merge` animation parameters; `.bbmodel` parser pipeline |
+| **[ItemsAdder](https://itemsadder.devs.beer/)** 4.0.16 | LoneDev | `disguise/`, future `api/` (facade) | `CustomBlock.place(id, loc)` / `byAlreadyPlaced(block)` / `byItemStack(stack)` statics; `CustomEntity.spawn` + `convert` pattern; per-bone `getColor()`/`setEnchanted()` API; `CustomBlockPlaceEvent` family for Bukkit listeners |
+
+Each plugin's full inspection notes are in [`INSPIRATION_NOTES.md`](./INSPIRATION_NOTES.md).
+
+**License posture**: this project is private, not open-source, not sold, not redistributable. The credits above stand whether or not we ever change that posture; the inspired implementations remain ours.
+
+---
+
 ## Curated upstream sources (vetted)
 
 These repositories / sites have been vetted as suitable upstream sources for the PTR pack. Each entry below documents the license, what kind of asset to source, and whether attribution must accompany usage.
