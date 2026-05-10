@@ -121,6 +121,9 @@ world_backup_*.zip
 # Bundled Java runtime
 /java/
 
+# Proprietary reference plugins (purchased copies; never committed)
+exemple/
+
 # Claude Code
 .claude/
 
