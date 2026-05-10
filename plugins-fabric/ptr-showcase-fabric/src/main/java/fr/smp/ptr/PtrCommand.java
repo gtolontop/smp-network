@@ -28,7 +28,7 @@ public final class PtrCommand {
     }
 
     private static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx) {
-        dispatcher.register(Commands.literal("ptr")
+        dispatcher.register(Commands.literal("showcase")
                 // PTR is a test realm — open to all by design.
                 .then(Commands.literal("list")
                         .executes(PtrCommand::listAll))
@@ -62,7 +62,7 @@ public final class PtrCommand {
         CommandSourceStack src = ctx.getSource();
         src.sendSuccess(() -> Component.literal("§6§lPTR Showcase content").withStyle(ChatFormatting.GOLD), false);
         src.sendSuccess(() -> Component.literal("§e" + PtrBlocks.count() + " blocks, " + PtrItems.count() + " items registered."), false);
-        src.sendSuccess(() -> Component.literal("§7Use §f/ptr give <name> §7or §f/ptr block <name>"), false);
+        src.sendSuccess(() -> Component.literal("§7Use §f/showcase give <name> §7or §f/showcase block <name>"), false);
         return 1;
     }
 
