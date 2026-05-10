@@ -26,8 +26,9 @@ public final class PtrShowcase implements ModInitializer {
         PtrCommand.bootstrap();
 
         // Bundle this mod's assets/ptr/* directory into Polymer's auto-host pack.
+        // Pack stays optional: a failed download leaves the player connected
+        // (they just see vanilla item visuals for our polymer items until it loads).
         PolymerResourcePackUtils.addModAssets(FABRIC_MOD_ID);
-        PolymerResourcePackUtils.markAsRequired();
 
         LOGGER.info("PTR Showcase ready: {} blocks, {} items, {} entity types, resource pack auto-host enabled.",
                 PtrBlocks.count(), PtrItems.count(), PtrEntities.count());
