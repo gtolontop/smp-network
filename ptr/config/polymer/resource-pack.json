@@ -4,7 +4,9 @@
   "_c1": "Marks resource pack as required, only effects clients and mods using api to check it",
   "markResourcePackAsRequiredByDefault": false,
   "_c5": "Included resource packs from mods!",
-  "include_mod_assets": [],
+  "include_mod_assets": [
+    "ptr_showcase"
+  ],
   "_c6": "Included resource packs from zips!",
   "include_zips": [
     "world/resources.zip"
