@@ -91,6 +91,45 @@ public final class FoliaSchedulerService implements SchedulerService {
     }
 
     @Override
+    public @NotNull ScheduledTask runOnEntityLater(
+            @NotNull Entity entity,
+            @NotNull Runnable task,
+            @Nullable Runnable retired,
+            long delayTicks) {
+        Objects.requireNonNull(entity, "entity");
+        Objects.requireNonNull(task, "task");
+        long ticks = Math.max(1L, delayTicks);
+        ScheduledTask scheduled =
+                entity.getScheduler().runDelayed(plugin, t -> task.run(), retired, ticks);
+        if (scheduled == null) {
+            throw new IllegalStateException(
+                    "EntityScheduler refused to runDelayed on " + entity.getUniqueId());
+        }
+        return scheduled;
+    }
+
+    @Override
+    public @NotNull ScheduledTask runOnEntityTimer(
+            @NotNull Entity entity,
+            @NotNull Runnable task,
+            @Nullable Runnable retired,
+            long delayTicks,
+            long periodTicks) {
+        Objects.requireNonNull(entity, "entity");
+        Objects.requireNonNull(task, "task");
+        long delay = Math.max(1L, delayTicks);
+        long period = Math.max(1L, periodTicks);
+        ScheduledTask scheduled =
+                entity.getScheduler()
+                        .runAtFixedRate(plugin, t -> task.run(), retired, delay, period);
+        if (scheduled == null) {
+            throw new IllegalStateException(
+                    "EntityScheduler refused to runAtFixedRate on " + entity.getUniqueId());
+        }
+        return scheduled;
+    }
+
+    @Override
     public @NotNull ScheduledTask runOnGlobal(@NotNull Runnable task) {
         Objects.requireNonNull(task, "task");
         return Bukkit.getGlobalRegionScheduler().run(plugin, t -> task.run());
