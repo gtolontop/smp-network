@@ -58,6 +58,21 @@ public interface SchedulerService {
     @NotNull ScheduledTask runOnEntity(
             @NotNull Entity entity, @NotNull Runnable task, @Nullable Runnable retired);
 
+    /** Delayed variant of {@link #runOnEntity}. */
+    @NotNull ScheduledTask runOnEntityLater(
+            @NotNull Entity entity,
+            @NotNull Runnable task,
+            @Nullable Runnable retired,
+            long delayTicks);
+
+    /** Recurring variant of {@link #runOnEntity}. */
+    @NotNull ScheduledTask runOnEntityTimer(
+            @NotNull Entity entity,
+            @NotNull Runnable task,
+            @Nullable Runnable retired,
+            long delayTicks,
+            long periodTicks);
+
     /** Run on the global region scheduler (worldborder, weather, time of day). */
     @NotNull ScheduledTask runOnGlobal(@NotNull Runnable task);
 

@@ -13,6 +13,7 @@ import fr.smp.ptr.foundation.registry.PtrEnchantRegistry;
 import fr.smp.ptr.foundation.registry.PtrItemRegistry;
 import fr.smp.ptr.foundation.registry.PtrMobRegistry;
 import fr.smp.ptr.foundation.registry.PtrRegistry;
+import fr.smp.ptr.foundation.skill.PtrSkillRegistry;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import java.util.LinkedHashMap;
@@ -237,6 +238,7 @@ public final class PtrFoundationCommand {
         map.put("mob", services.get(PtrMobRegistry.class));
         map.put("enchant", services.get(PtrEnchantRegistry.class));
         map.put("damage_type", services.get(PtrDamageTypeRegistry.class));
+        map.put("skill", services.get(PtrSkillRegistry.class));
         return map;
     }
 }

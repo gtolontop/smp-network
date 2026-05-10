@@ -25,6 +25,7 @@ import fr.smp.ptr.foundation.registry.PtrDamageTypeRegistry;
 import fr.smp.ptr.foundation.registry.PtrEnchantRegistry;
 import fr.smp.ptr.foundation.registry.PtrItemRegistry;
 import fr.smp.ptr.foundation.registry.PtrMobRegistry;
+import fr.smp.ptr.foundation.skill.PtrSkillRegistry;
 import fr.smp.ptr.foundation.storage.PtrDatabase;
 import fr.smp.ptr.foundation.telemetry.PtrAuditLog;
 import fr.smp.ptr.foundation.telemetry.PtrMetrics;
@@ -96,6 +97,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
         services.register(PtrMobRegistry.class, new PtrMobRegistry());
         services.register(PtrEnchantRegistry.class, new PtrEnchantRegistry());
         services.register(PtrDamageTypeRegistry.class, new PtrDamageTypeRegistry());
+        services.register(PtrSkillRegistry.class, new PtrSkillRegistry());
 
         // -- Disguise carriers ----------------------------------------
         services.register(NoteBlockCarrier.class, new NoteBlockCarrier());
