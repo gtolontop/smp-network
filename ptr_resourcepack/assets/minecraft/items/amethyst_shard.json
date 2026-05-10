@@ -1,0 +1,10 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "entries": [
+      {"threshold": 100005, "model": {"type": "minecraft:model", "model": "ptr:item/voidstone"}}
+    ],
+    "fallback": {"type": "minecraft:model", "model": "minecraft:item/amethyst_shard"}
+  }
+}

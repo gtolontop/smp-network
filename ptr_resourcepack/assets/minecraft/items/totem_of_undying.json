@@ -1,0 +1,10 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "entries": [
+      {"threshold": 100008, "model": {"type": "minecraft:model", "model": "ptr:item/totem_alarme"}}
+    ],
+    "fallback": {"type": "minecraft:model", "model": "minecraft:item/totem_of_undying"}
+  }
+}

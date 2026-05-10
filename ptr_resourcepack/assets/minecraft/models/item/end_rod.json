@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/end_rod",
+  "overrides": [
+    {"predicate": {"custom_model_data": 200004}, "model": "ptr:block/pylone_telegraph"}
+  ]
+}
