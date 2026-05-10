@@ -141,6 +141,50 @@ final class SchemaInit {
             "CREATE INDEX IF NOT EXISTS idx_rare_mat ON rare_resources(material_id, t DESC)",
             "CREATE INDEX IF NOT EXISTS idx_rare_t ON rare_resources(t)",
 
+            // ---------- Cross-day hidden relationship scoring ----------
+            """
+            CREATE TABLE IF NOT EXISTS relation_pairs (
+              pair_key TEXT PRIMARY KEY,           -- lowPlayerId:highPlayerId
+              player_low INTEGER NOT NULL,
+              player_high INTEGER NOT NULL,
+              score INTEGER NOT NULL DEFAULT 0,
+              level TEXT NOT NULL DEFAULT 'CLEAR',
+              evidence_count INTEGER NOT NULL DEFAULT 0,
+              proximity_seconds INTEGER NOT NULL DEFAULT 0,
+              shared_container_count INTEGER NOT NULL DEFAULT 0,
+              shared_furnace_count INTEGER NOT NULL DEFAULT 0,
+              chest_handoff_count INTEGER NOT NULL DEFAULT 0,
+              trade_count INTEGER NOT NULL DEFAULT 0,
+              combat_assist_count INTEGER NOT NULL DEFAULT 0,
+              home_near_count INTEGER NOT NULL DEFAULT 0,
+              pvp_contact_count INTEGER NOT NULL DEFAULT 0,
+              first_seen INTEGER NOT NULL,
+              last_seen INTEGER NOT NULL,
+              last_signal TEXT,
+              last_world_id INTEGER,
+              last_x INTEGER, last_y INTEGER, last_z INTEGER,
+              last_detail TEXT,
+              note TEXT
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_relation_pairs_score ON relation_pairs(score DESC, last_seen DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_relation_pairs_low ON relation_pairs(player_low, score DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_relation_pairs_high ON relation_pairs(player_high, score DESC)",
+            """
+            CREATE TABLE IF NOT EXISTS relation_evidence (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              pair_key TEXT NOT NULL,
+              t INTEGER NOT NULL,
+              signal TEXT NOT NULL,
+              points INTEGER NOT NULL,
+              world_id INTEGER,
+              x INTEGER, y INTEGER, z INTEGER,
+              detail TEXT
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_relation_evidence_pair ON relation_evidence(pair_key, t DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_relation_evidence_t ON relation_evidence(t DESC)",
+
             // ---------- Partition registry ----------
             """
             CREATE TABLE IF NOT EXISTS partitions (

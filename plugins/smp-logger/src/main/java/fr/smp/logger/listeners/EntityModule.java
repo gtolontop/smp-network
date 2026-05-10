@@ -141,6 +141,10 @@ public class EntityModule implements Listener {
         else if (damager instanceof Projectile proj && proj.getShooter() instanceof Player p) attacker = p;
         if (attacker == null) return;
         if (!(victim instanceof Player) && (victim.getCustomName() == null)) return;
+        if (victim instanceof Player vp) {
+            plugin.relationships().recordPvpContact(attacker, vp);
+            plugin.relationships().recordCombatAssist(attacker, vp, victim.getLocation());
+        }
         EventBuilder eb = EventBuilder.begin(plugin)
                 .action(Action.ENTITY_DAMAGE)
                 .actor(attacker)

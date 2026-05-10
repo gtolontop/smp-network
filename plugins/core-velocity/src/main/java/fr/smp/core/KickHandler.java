@@ -75,7 +75,27 @@ public class KickHandler {
             return;
         }
 
-        // Cas UNREACHABLE / SHUTDOWN / UNKNOWN → on tente un fallback vers lobby.
+        if (cat == Category.AUTHENTICATION) {
+            event.setResult(KickedFromServerEvent.DisconnectPlayer.create(mm.deserialize(
+                    "<gradient:#ff6b6b:#feca57><bold>Profil non vérifié</bold></gradient>\n\n"
+                    + "<red>✗ Le serveur n'a pas pu valider ton profil Minecraft.</red>\n\n"
+                    + "<gray>Réessaie dans quelques secondes. Si ça continue, le proxy et les serveurs n'ont pas la même configuration d'auth.</gray>\n\n"
+                    + "<dark_gray>smp.network · " + failedServer + "</dark_gray>"
+            )));
+            return;
+        }
+
+        // Only fail over for infrastructure/server availability issues.
+        if (cat != Category.UNREACHABLE && cat != Category.SHUTDOWN) {
+            event.setResult(KickedFromServerEvent.DisconnectPlayer.create(mm.deserialize(
+                    "<gradient:#ff6b6b:#feca57><bold>Connexion interrompue</bold></gradient>\n\n"
+                    + "<gray>Tu as été déconnecté de <white>" + failedServer + "</white>.</gray>\n"
+                    + "<gray>Raison : <white>" + mm.escapeTags(firstLine(rawReason)) + "</white></gray>\n\n"
+                    + "<dark_gray>smp.network</dark_gray>"
+            )));
+            return;
+        }
+
         RegisteredServer fallback = pickFallback(failedServer);
 
         if (fallback != null) {
@@ -115,7 +135,7 @@ public class KickHandler {
         event.setResult(KickedFromServerEvent.DisconnectPlayer.create(screen));
     }
 
-    private enum Category { VERSION_MISMATCH, UNREACHABLE, SHUTDOWN, BANNED, WHITELIST, SERVER_FULL, UNKNOWN }
+    private enum Category { VERSION_MISMATCH, UNREACHABLE, SHUTDOWN, BANNED, WHITELIST, SERVER_FULL, AUTHENTICATION, UNKNOWN }
 
     private static Category classify(String lower) {
         if (lower.isEmpty()) return Category.UNREACHABLE;
@@ -137,6 +157,15 @@ public class KickHandler {
         if (lower.contains("server is full") || lower.contains("too many players")
                 || lower.contains("serveur est plein")) {
             return Category.SERVER_FULL;
+        }
+        if (lower.contains("unable to verify player details")
+                || lower.contains("failed to verify username")
+                || lower.contains("multiplayer.disconnect.unverified_username")
+                || lower.contains("profile key")
+                || lower.contains("velocity forwarding")
+                || lower.contains("forwarding secret")
+                || lower.contains("invalid forwarding")) {
+            return Category.AUTHENTICATION;
         }
         if (lower.contains("connection refused") || lower.contains("connect timed out")
                 || lower.contains("read timed out") || lower.contains("connection reset")

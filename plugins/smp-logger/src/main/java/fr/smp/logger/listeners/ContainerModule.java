@@ -54,6 +54,7 @@ public class ContainerModule implements Listener {
                 .material(materialOf(inv))
                 .submit();
 
+        plugin.relationships().recordContainerUse(p, loc, materialOf(inv));
         openSnapshots.put(p.getUniqueId(), Snapshot.of(p, inv, loc));
     }
 

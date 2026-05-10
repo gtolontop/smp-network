@@ -46,6 +46,10 @@ commands:
     description: "Trigger an immediate backup (data | inv | db)"
     aliases: [lbackup]
     permission: smplogger.admin
+  relations:
+    description: "Hidden alliance relation score, evidence and admin GUI"
+    aliases: [rel, alliancecheck, teamcheck]
+    permission: smplogger.relations
 
 permissions:
   smplogger.lookup:
@@ -71,6 +75,9 @@ permissions:
     default: op
   smplogger.admin:
     description: "Admin (stats / purge / backup / config)"
+    default: op
+  smplogger.relations:
+    description: "Inspect hidden relation scores and evidence"
     default: op
   smplogger.bypass:
     description: "Skip logging entirely (e.g. ops, NPCs)"

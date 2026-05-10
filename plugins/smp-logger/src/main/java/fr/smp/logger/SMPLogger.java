@@ -14,6 +14,7 @@ import fr.smp.logger.modules.ModuleManager;
 import fr.smp.logger.queue.EventBuilder;
 import fr.smp.logger.queue.EventQueue;
 import fr.smp.logger.rare.RareResourceTracker;
+import fr.smp.logger.relations.RelationshipEngine;
 import fr.smp.logger.scan.ScanModule;
 import fr.smp.logger.trade.TradeDetector;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -31,6 +32,7 @@ public class SMPLogger extends JavaPlugin implements EventBuilder.DictView {
     private PreciousStore preciousStore;
     private TradeDetector tradeDetector;
     private RareResourceTracker rareTracker;
+    private RelationshipEngine relationships;
     private ScanModule scanModule;
     private ModuleManager modules;
     private BackupModule backup;
@@ -63,10 +65,12 @@ public class SMPLogger extends JavaPlugin implements EventBuilder.DictView {
 
         this.tradeDetector = new TradeDetector(this);
         this.rareTracker = new RareResourceTracker(this);
+        this.relationships = new RelationshipEngine(this);
         this.scanModule = new ScanModule(this);
 
         this.modules = new ModuleManager(this);
         modules.registerAll();
+        relationships.start();
 
         this.backup = new BackupModule(this);
         backup.start();
@@ -79,6 +83,7 @@ public class SMPLogger extends JavaPlugin implements EventBuilder.DictView {
     @Override
     public void onDisable() {
         if (backup != null) backup.stop();
+        if (relationships != null) relationships.stop();
         if (modules != null) modules.unregisterAll();
         if (queue != null) queue.stop();
         if (db != null) db.close();
@@ -96,6 +101,7 @@ public class SMPLogger extends JavaPlugin implements EventBuilder.DictView {
     public PreciousStore preciousStore() { return preciousStore; }
     public TradeDetector tradeDetector() { return tradeDetector; }
     public RareResourceTracker rareTracker() { return rareTracker; }
+    public RelationshipEngine relationships() { return relationships; }
     public ScanModule scanModule() { return scanModule; }
     public BackupModule backup() { return backup; }
     public ModuleManager modules() { return modules; }

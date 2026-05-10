@@ -24,6 +24,9 @@ public class CommandsRegistrar {
         bind("loggerstats", new StatsCommand(plugin));
         bind("loggerpurge", new PurgeCommand(plugin));
         bind("loggerbackup", new BackupCommand(plugin));
+        RelationsCommand relations = new RelationsCommand(plugin);
+        bind("relations", relations);
+        plugin.getServer().getPluginManager().registerEvents(relations, plugin);
     }
 
     private void bind(String name, org.bukkit.command.CommandExecutor ex) {

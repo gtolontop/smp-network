@@ -2,6 +2,7 @@ package fr.smp.logger.trade;
 
 import fr.smp.logger.SMPLogger;
 import fr.smp.logger.model.Action;
+import fr.smp.logger.relations.RelationSignal;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Item;
@@ -153,6 +154,13 @@ public class TradeDetector {
             ps.setInt(10, at.getBlockY());
             ps.setInt(11, at.getBlockZ());
             ps.executeUpdate();
+            if (from != null && to != null) {
+                RelationSignal signal = method == Action.TRADE_CHEST_HANDOFF
+                        ? RelationSignal.CHEST_HANDOFF
+                        : RelationSignal.TRADE;
+                plugin.relationships().recordTrade(from, to, signal, at,
+                        amount + "x " + item.getType().name() + " via " + method.name());
+            }
         } catch (SQLException e) {
             plugin.getLogger().warning("Trade persist failed: " + e.getMessage());
         }

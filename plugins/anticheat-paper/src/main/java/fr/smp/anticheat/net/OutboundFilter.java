@@ -111,11 +111,13 @@ public final class OutboundFilter extends ChannelDuplexHandler {
         try {
             if (xray.enabled()) {
                 if (msg instanceof ServerboundPlayerActionPacket act) {
-                    BlockPos p = act.getPos();
-                    int x = p.getX(), y = p.getY(), z = p.getZ();
-                    Bukkit.getScheduler().runTask(plugin, () -> {
-                        if (player.isOnline()) xray.revealOnInteract(player, x, y, z);
-                    });
+                    if (isBlockAction(act.getAction())) {
+                        BlockPos p = act.getPos();
+                        int x = p.getX(), y = p.getY(), z = p.getZ();
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            if (player.isOnline()) xray.revealOnInteract(player, x, y, z);
+                        });
+                    }
                 } else if (msg instanceof ServerboundUseItemOnPacket use) {
                     BlockPos p = use.getHitResult().getBlockPos();
                     int x = p.getX(), y = p.getY(), z = p.getZ();
@@ -128,6 +130,12 @@ public final class OutboundFilter extends ChannelDuplexHandler {
             plugin.getLogger().fine("inbound filter error: " + t.getMessage());
         }
         super.channelRead(ctx, msg);
+    }
+
+    private boolean isBlockAction(ServerboundPlayerActionPacket.Action action) {
+        return action == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK
+                || action == ServerboundPlayerActionPacket.Action.ABORT_DESTROY_BLOCK
+                || action == ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK;
     }
 
     private boolean hasBypass(Permissible p) {
