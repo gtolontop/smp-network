@@ -13,6 +13,7 @@ import fr.smp.ptr.foundation.registry.PtrEnchantRegistry;
 import fr.smp.ptr.foundation.registry.PtrItemRegistry;
 import fr.smp.ptr.foundation.registry.PtrMobRegistry;
 import fr.smp.ptr.foundation.registry.PtrRegistry;
+import fr.smp.ptr.foundation.model.PtrModelRegistry;
 import fr.smp.ptr.foundation.pack.PtrResourcePackService;
 import fr.smp.ptr.foundation.skill.PtrSkillRegistry;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -278,6 +279,7 @@ public final class PtrFoundationCommand {
         map.put("enchant", services.get(PtrEnchantRegistry.class));
         map.put("damage_type", services.get(PtrDamageTypeRegistry.class));
         map.put("skill", services.get(PtrSkillRegistry.class));
+        map.put("model", services.get(PtrModelRegistry.class));
         return map;
     }
 }
