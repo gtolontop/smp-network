@@ -1,7 +1,17 @@
 # PTR V3 — roadmap after the foundation
 
 The foundation branch (`feat/ptr-v3-folia-foundation`) ships the
-plumbing. None of this list ships there.
+plumbing **plus the 5 inspiration iterations** drawn from MythicMobs /
+ModelEngine / ItemsAdder (see `INSPIRATION_NOTES.md`):
+
+- ✅ **Iter A — Skill system** (`fr.smp.ptr.foundation.skill.*`)
+- ✅ **Iter B — Public API facades + Bukkit events** (`fr.smp.ptr.foundation.api.*`)
+- ✅ **Iter C — Resource pack pipeline** (gradle `buildResourcePack`, `PtrResourcePackService`, `/ptrf pack info/reload`)
+- ✅ **Iter D — Model engine 3D** (`fr.smp.ptr.foundation.model.*` — `.bbmodel` parser + ActiveModel + AnimationController state machine)
+- ✅ **Iter E — Drop leaderboard** (`fr.smp.ptr.foundation.drop.*`)
+
+What's still on the roadmap below is **content** and a few framework
+extensions identified during the bootstrap.
 
 ## High-priority (next branch)
 
