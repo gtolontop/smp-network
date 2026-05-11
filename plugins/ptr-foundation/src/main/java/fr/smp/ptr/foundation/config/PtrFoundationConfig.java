@@ -15,6 +15,7 @@ public final class PtrFoundationConfig {
     private Telemetry telemetry = new Telemetry();
     private Storage storage = new Storage();
     private Audit audit = new Audit();
+    private ResourcePack resourcePack = new ResourcePack();
 
     public Telemetry telemetry() {
         return telemetry;
@@ -26,6 +27,10 @@ public final class PtrFoundationConfig {
 
     public Audit audit() {
         return audit;
+    }
+
+    public ResourcePack resourcePack() {
+        return resourcePack;
     }
 
     /** Telemetry section. */
@@ -75,6 +80,36 @@ public final class PtrFoundationConfig {
 
         public int flushIntervalSeconds() {
             return flushIntervalSeconds;
+        }
+    }
+
+    /** Resource-pack section. */
+    @ConfigSerializable
+    public static final class ResourcePack {
+        private String url = "";
+        private String sha1 = "";
+        private boolean pushOnJoin = true;
+        private String prompt = "§6PTR §8· §7Téléchargement du resource pack…";
+        private boolean required = false;
+
+        public String url() {
+            return url;
+        }
+
+        public String sha1() {
+            return sha1;
+        }
+
+        public boolean pushOnJoin() {
+            return pushOnJoin;
+        }
+
+        public String prompt() {
+            return prompt;
+        }
+
+        public boolean required() {
+            return required;
         }
     }
 }

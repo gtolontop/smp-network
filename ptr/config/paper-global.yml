@@ -1,6 +1,18 @@
-# PTR V3 — Folia 26.1.2 global config.
-# Forked from ptr-paper-legacy/config/paper-global.yml and adjusted for the
-# foundation plugin's expectations (note_block + mushroom disguise carriers).
+# This is the global configuration file for Paper.
+# As you can see, there's a lot to configure. Some options may impact gameplay, so use
+# with caution, and make sure you know what each option does before configuring.
+# 
+# If you need help with the configuration or have any questions related to Paper,
+# join us in our Discord or check the docs page.
+# 
+# The world configuration options have been moved inside
+# their respective world folder. The files are named paper-world.yml
+# 
+# File Reference: https://docs.papermc.io/paper/reference/global-configuration/
+# Docs: https://docs.papermc.io/
+# Discord: https://discord.gg/papermc
+# Website: https://papermc.io/
+
 _version: 31
 anticheat:
   obfuscation:
@@ -19,12 +31,8 @@ anticheat:
           sanitize-count: true
 block-updates:
   disable-chorus-plant-updates: false
-  # PTR foundation: NoteBlockCarrier requires invalid (instrument, note, powered)
-  # combinations to survive without being reset by neighbour updates.
-  disable-noteblock-updates: true
-  # MushroomCarrier piggy-backs on MultipleFacing — the same neighbour update
-  # path resets it back to a default cube on adjacency change.
   disable-mushroom-block-updates: true
+  disable-noteblock-updates: true
   disable-tripwire-updates: false
 chunk-loading-advanced:
   auto-config-send-distance: true
@@ -43,7 +51,6 @@ collisions:
 commands:
   ride-command-allow-player-as-vehicle: false
   suggest-player-names-when-null-tab-completions: true
-  time-command-affects-all-worlds: false
 config-version: 30
 console:
   enable-brigadier-completions: false
@@ -81,6 +88,7 @@ misc:
   fix-far-end-terrain-generation: true
   load-permissions-yml-before-plugins: true
   max-joins-per-tick: 5
+  max-tracking-combat-entries: 10240
   prevent-negative-villager-demand: false
   region-file-cache-size: 2048
   send-full-pos-for-item-entities: false
@@ -117,7 +125,6 @@ proxies:
   velocity:
     enabled: true
     online-mode: false
-    # Mirrors velocity/forwarding.secret. Rotation requires updating both files.
     secret: smp-vF7kXq2mN9pRwL4tJhBcYeAsDuZi3G8n
 scoreboards:
   save-empty-scoreboard-teams: true
@@ -135,6 +142,8 @@ threaded-regions:
   grid-exponent: 4
   scheduler: EDF
   threads: -1
+time:
+  affects-all-worlds: false
 timings:
   enabled: false
   hidden-config-entries:
