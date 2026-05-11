@@ -18,6 +18,7 @@ import fr.smp.ptr.foundation.disguise.LeafLitterCarrier;
 import fr.smp.ptr.foundation.disguise.MushroomCarrier;
 import fr.smp.ptr.foundation.disguise.NoteBlockCarrier;
 import fr.smp.ptr.foundation.disguise.TripwireCarrier;
+import fr.smp.ptr.foundation.model.PtrModelRegistry;
 import fr.smp.ptr.foundation.platform.FoliaSchedulerService;
 import fr.smp.ptr.foundation.platform.PaperVersionGuard;
 import fr.smp.ptr.foundation.platform.SchedulerService;
@@ -99,6 +100,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
         services.register(PtrEnchantRegistry.class, new PtrEnchantRegistry());
         services.register(PtrDamageTypeRegistry.class, new PtrDamageTypeRegistry());
         services.register(PtrSkillRegistry.class, new PtrSkillRegistry());
+        services.register(PtrModelRegistry.class, new PtrModelRegistry());
 
         // -- Disguise carriers ----------------------------------------
         services.register(NoteBlockCarrier.class, new NoteBlockCarrier());
