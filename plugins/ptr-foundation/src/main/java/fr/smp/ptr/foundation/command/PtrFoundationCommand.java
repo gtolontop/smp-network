@@ -13,6 +13,7 @@ import fr.smp.ptr.foundation.registry.PtrEnchantRegistry;
 import fr.smp.ptr.foundation.registry.PtrItemRegistry;
 import fr.smp.ptr.foundation.registry.PtrMobRegistry;
 import fr.smp.ptr.foundation.registry.PtrRegistry;
+import fr.smp.ptr.foundation.pack.PtrResourcePackService;
 import fr.smp.ptr.foundation.skill.PtrSkillRegistry;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -85,6 +86,11 @@ public final class PtrFoundationCommand {
                                 .requires(s -> s.getSender().hasPermission("ptr.cmd.debug"))
                                 .then(Commands.literal("region").executes(this::runDebugRegion))
                                 .then(Commands.literal("pdc").executes(this::runDebugPdc)))
+                .then(
+                        Commands.literal("pack")
+                                .requires(s -> s.getSender().hasPermission("ptr.cmd.pack"))
+                                .then(Commands.literal("info").executes(this::runPackInfo))
+                                .then(Commands.literal("reload").executes(this::runPackReload)))
                 .build();
     }
 
@@ -189,6 +195,39 @@ public final class PtrFoundationCommand {
                         Component.text(
                                 "Region owned-by-current-thread: " + owned,
                                 owned ? NamedTextColor.GREEN : NamedTextColor.RED));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int runPackInfo(
+            com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
+        PtrResourcePackService pack = services.get(PtrResourcePackService.class);
+        Component msg =
+                Component.text("Pack ", NamedTextColor.GOLD)
+                        .append(
+                                pack.isConfigured()
+                                        ? Component.text("configured", NamedTextColor.GREEN)
+                                        : Component.text("not configured", NamedTextColor.RED))
+                        .append(Component.text(" url=", NamedTextColor.GRAY))
+                        .append(Component.text(pack.url().isBlank() ? "<empty>" : pack.url(),
+                                NamedTextColor.YELLOW))
+                        .append(Component.text(" sha1=", NamedTextColor.GRAY))
+                        .append(Component.text(pack.sha1().isBlank() ? "<empty>" : pack.sha1(),
+                                NamedTextColor.YELLOW))
+                        .append(Component.text(" required=" + pack.isRequired(),
+                                NamedTextColor.GRAY));
+        ctx.getSource().getSender().sendMessage(msg);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int runPackReload(
+            com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
+        PtrResourcePackService pack = services.get(PtrResourcePackService.class);
+        int pushed = pack.sendToAll();
+        ctx.getSource()
+                .getSender()
+                .sendMessage(
+                        Component.text("Pack pushed to " + pushed + " player(s)",
+                                NamedTextColor.GREEN));
         return Command.SINGLE_SUCCESS;
     }
 
