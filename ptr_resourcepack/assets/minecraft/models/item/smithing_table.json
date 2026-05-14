@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:block/smithing_table",
-  "overrides": [
-    {"predicate": {"custom_model_data": 200001}, "model": "ptr:block/forge_runique"}
-  ]
-}

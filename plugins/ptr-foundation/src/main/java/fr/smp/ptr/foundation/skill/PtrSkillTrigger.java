@@ -5,18 +5,12 @@ import org.jetbrains.annotations.NotNull;
 /**
  * When does a {@link PtrSkill} activate?
  *
- * <p>Sealed because the {@code PhaseController} dispatches via {@code
- * instanceof} pattern matching. Adding a new trigger means extending the
- * sealed set and a matching branch in the dispatcher.
- *
- * <p>Foundation supports four poll-driven triggers (cheap on the entity
- * scheduler tick). Event-driven triggers (onDamaged / onAttack /
- * onPlayerKill) are deferred to a later iteration; see
- * {@code docs/V3_ROADMAP.md}.
+ * <p>The foundation only defines trigger vocabulary. Content plugins decide
+ * which dispatcher owns these triggers.
  */
 public sealed interface PtrSkillTrigger {
 
-    /** Fires once when the controller starts (i.e. boss enters its first phase). */
+    /** Fires once when a scripted entity or sequence starts. */
     record OnSpawn() implements PtrSkillTrigger {}
 
     /** Fires once when the controller stops (entity becomes invalid or dead). */
@@ -35,8 +29,8 @@ public sealed interface PtrSkillTrigger {
     }
 
     /**
-     * Fires once the first time the boss's health drops at or below
-     * {@code percent} of its current max. Re-armable per phase entry.
+     * Fires once the first time the caster's health drops at or below
+     * {@code percent} of its current max.
      */
     record OnHpBelow(double percent) implements PtrSkillTrigger {
         public OnHpBelow {

@@ -2,7 +2,7 @@ name: PtrFoundation
 version: '${version}'
 main: fr.smp.ptr.foundation.PtrFoundationPlugin
 api-version: '1.21'
-description: 'PTR V3 foundation — Folia base, registries, disguise carriers, boss framework.'
+description: 'SMP PTR Foundation — clean Folia base for future creation plugins.'
 website: 'https://github.com/gtolontop/smp-network'
 authors: ['SMP Team']
 folia-supported: true

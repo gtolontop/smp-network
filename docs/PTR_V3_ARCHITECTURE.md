@@ -33,8 +33,8 @@ exchange for:
 |---|---|---|
 | Real `ptr:` block ids on the wire | WorldEdit / `//set` corrupts custom blocks back to their carrier | content layer must register placement in PDC + an SQLite placement table |
 | Real `ptr:` item ids | crafting recipes pin to carrier material, so collisions are possible | every custom item carries a unique `ptr:item_id` PDC tag at creation |
-| Real `ptr:` entity ids | bosses revert to "invisible base mob + ItemDisplay rig" V1-style | `DisplayMobCarrier` documents the pattern; the foundation ships zero bosses |
-| Polymer auto-served resource pack | autohost is now our code to write | deferred to a later branch (`docs/V3_ROADMAP.md`) |
+| Real `ptr:` entity ids | custom mobs use vanilla base entities plus display rigs | `DisplayMobCarrier` documents the pattern; the foundation ships zero mobs |
+| Polymer auto-served resource pack | content assets need a separate pipeline | deferred to a later asset/content branch |
 
 What we keep: every `ptr:` registry entry that Mojang made data-driven
 (damage_type, enchantment, painting_variant, jukebox_song, instrument,
@@ -53,12 +53,9 @@ A layer never imports from a layer below it.
                             └────────┬────────┘
                                      │
                             ┌────────┴────────┐
-         boss             telemetry           │
-   BossDefinition       PtrMetrics            │
-   PhaseController      PtrAuditLog           │
-   Telegraph(s)         PtrTelemetryService   │
-   MusicOrchestrator                          │
-   LootDispatcher                             │
+        telemetry           │ PtrMetrics      │
+      PtrAuditLog           │ PtrTelemetrySvc │
+                            └────────┬────────┘
                             ┌────────┴────────┐
         disguise            │ DisguiseCarrier │
         NoteBlock           │ DisguiseGuard…  │
@@ -127,7 +124,7 @@ paper-api alone and runs unchanged on Folia.
 | Tripwire | 127 states | 0 entities | flat decals, low collision |
 | LeafLitter (26.1+) | 16 states | 0 entities | ground decals |
 | DisplayBlock | unbounded (PDC) | 3 entities (BlockDisplay + barrier + Interaction) | furniture, machines, non-cubic decor |
-| DisplayMob | unbounded (PDC) | 1 mob + ≥1 ItemDisplay | bosses, custom mob silhouettes |
+| DisplayMob | unbounded (PDC) | 1 mob + ≥1 ItemDisplay | custom mob silhouettes |
 
 Carriers explicitly **not** implemented in the foundation:
 
@@ -146,14 +143,13 @@ plugins/ptr-foundation/
 ├── src/main/java/fr/smp/ptr/foundation/
 │   ├── PtrFoundationPlugin.java     # init order, LIFO shutdown
 │   ├── PtrServices.java             # in-house service locator
-│   ├── TelegraphCatalogue.java
 │   ├── platform/                    # §3.1 SchedulerService + PaperVersionGuard + RegionLocator
 │   ├── config/                      # §3.2 hot-reload typed config (Configurate)
 │   ├── storage/                     # §3.3 HikariCP/Flyway/SQLite + PDC codecs
 │   ├── registry/                    # §3.4 PtrRegistry<T> + 5 empty sub-registries
 │   ├── disguise/                    # §3.5 6 carriers + guard listener
+│   ├── skill/                       # reusable trigger/targeter/mechanic vocabulary
 │   ├── telemetry/                   # §3.7 metrics + audit log + telemetry service
-│   ├── boss/                        # §3.8 BossDefinition + 4 telegraphs + music + loot
 │   └── command/                     # §3.6 /ptrf brigadier root
 └── src/main/resources/
     ├── paper-plugin.yml
@@ -166,9 +162,8 @@ What does **not** ship in the foundation:
 - Zero blocks, zero items, zero mobs, zero bosses, zero enchantments,
   zero damage types, zero loot tables, zero arenas, zero datapacks, zero
   resource pack assets.
-- No Paper plugin from `plugins/` (core-paper / anticheat-paper /
-  smp-logger / ptr-showcase / core-velocity) is touched; those are
-  reserved for lobby + survival.
+- No unrelated Paper plugin from `plugins/` (core-paper / anticheat-paper /
+  smp-logger / core-velocity) is touched; those remain the network base.
 
 ---
 
@@ -190,7 +185,7 @@ Velocity forwarding is wired through `proxies.velocity.secret` in
 | Decision | Why | Reversible? |
 |---|---|---|
 | Spotless disabled | google-java-format / palantir-java-format 1.25–2.50 throw `NoSuchMethodError` on JDK 25's javac internals | yes — re-enable once gjf ships a JDK 25 build (`V3_ROADMAP.md`) |
-| Telegraphs use Bukkit `world.spawnParticle` instead of NMS `ClientboundBundlePacket` | NMS BundlePacket optimisation can be a drop-in replacement on the `Telegraph` interface | yes — interface unchanged when migrated |
+| No built-in boss or model engine layer | the foundation is now only a base for future content modules | yes — add those systems in separate plugins |
 | No `dev.folia:folia-api` gradle dep | resolves capability conflict with paper-api | reversible if paperweight ever stops shipping the Folia shims in paper-api |
 | `BlockDisplay`-based carriers spawn 3 entities per placement | trade-off of unbounded capacity vs entity budget — caller's problem to throttle | content layer can switch to a Mushroom carrier for cubic blocks |
 

@@ -18,8 +18,8 @@ import org.bukkit.potion.PotionEffectType;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Mob + ItemDisplay rig — used for bosses whose silhouette diverges too far
- * from any vanilla mob.
+ * Mob + ItemDisplay rig — used for custom mobs whose silhouette diverges too
+ * far from any vanilla mob.
  *
  * <p>Capacity: <b>unbounded</b> (PDC-keyed instances). Cost: an invisible
  * base mob plus one or more {@link ItemDisplay} entities for the visual.
@@ -28,7 +28,7 @@ import org.jetbrains.annotations.NotNull;
  *
  * <ul>
  *   <li>The base mob's AI still drives pathfinding — pick a base whose AI
- *       silhouette matches your boss (IronGolem ≠ Pillager).
+ *       silhouette matches the content you are building.
  *   <li>Spectator camera locks onto the invisible base mob, not the
  *       rig. Looks fine, but the camera position is the mob's, not the
  *       visual centre.

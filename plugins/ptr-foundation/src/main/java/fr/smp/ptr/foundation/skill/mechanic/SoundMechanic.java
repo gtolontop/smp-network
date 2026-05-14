@@ -13,8 +13,8 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * {@code effect:sound{s=X;volume=V;pitch=P}} — play the sound at every
- * target. Defaults to {@code SoundCategory.HOSTILE} so the player can mute
- * boss sounds via the vanilla audio slider.
+ * target. Defaults to {@code SoundCategory.HOSTILE} so noisy combat effects
+ * remain on the vanilla hostile audio slider.
  */
 public final class SoundMechanic implements PtrSkillMechanic {
 

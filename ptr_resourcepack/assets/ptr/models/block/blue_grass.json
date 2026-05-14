@@ -1,9 +1,0 @@
-{
-  "parent": "minecraft:block/cube_bottom_top",
-  "textures": {
-    "particle": "ptr:block/blue_grass_top",
-    "top": "ptr:block/blue_grass_top",
-    "bottom": "minecraft:block/dirt",
-    "side": "ptr:block/blue_grass_side"
-  }
-}
