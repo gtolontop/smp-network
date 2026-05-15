@@ -1,90 +1,45 @@
-# PTR V3 — roadmap after the foundation
+# PTR V3 — roadmap after SMP Creation Kit
 
-The foundation branch (`feat/ptr-v3-folia-foundation`) ships the
-plumbing **plus the 5 inspiration iterations** drawn from MythicMobs /
-ModelEngine / ItemsAdder (see `INSPIRATION_NOTES.md`):
+SMP Creation Kit now ships only reusable base systems:
 
-- ✅ **Iter A — Skill system** (`fr.smp.ptr.foundation.skill.*`)
-- ✅ **Iter B — Public API facades + Bukkit events** (`fr.smp.ptr.foundation.api.*`)
-- ✅ **Iter C — Resource pack pipeline** (gradle `buildResourcePack`, `PtrResourcePackService`, `/ptrf pack info/reload`)
-- ✅ **Iter D — Model engine 3D** (`fr.smp.ptr.foundation.model.*` — `.bbmodel` parser + ActiveModel + AnimationController state machine)
-- ✅ **Iter E — Drop leaderboard** (`fr.smp.ptr.foundation.drop.*`)
+- Folia-safe scheduler wrapper and version guard.
+- Hot-reload YAML config.
+- SQLite/Flyway storage and audit log.
+- Empty registries for future blocks, items, mobs, enchants, damage types, and skills.
+- API facades plus Bukkit events.
+- Disguise carriers.
+- Skill vocabulary and simple mechanics.
+- Telemetry and `/ptrf` diagnostics.
 
-What's still on the roadmap below is **content** and a few framework
-extensions identified during the bootstrap.
+It intentionally does **not** ship ModelEngine-like animation code, resource
+pack assets, pack autohosting, boss helpers, loot leaderboards, crates, maps, or
+any gameplay content.
 
-## High-priority (next branch)
+## Next Branches
 
-1. **Port the 35 datapack entries** from
-   `plugins-fabric-legacy/ptr-showcase-fabric/src/main/resources/data/ptr/`
-   into a datapack served at `ptr/datapacks/ptr_content/` or via a
-   resource-pack-equivalent loader. Stack-agnostic JSON, copy verbatim:
-   5 damage_type, 5 enchantment, 6 painting, 3 jukebox_song,
-   2 instrument, 4 banner, 2 trim, 4 biome.
+1. **Content plugin skeletons.** Create separate modules for actual gameplay
+   experiments instead of growing the foundation: crates, mobs, bosses, shops,
+   or resource-pack-backed items each get their own layer.
 
-2. **Resource-pack autohost replacement.** Polymer used to do this; in
-   the plugin model it's our code. Options:
-   - Reuse the existing `dist/ptr-resourcepack.zip` GitHub-raw flow that
-     the legacy server uses.
-   - Embed a tiny Netty HTTP server inside the foundation plugin.
-   The decision depends on whether we want hot-reload of the pack.
+2. **Datapack/resource-pack strategy.** Decide later whether PTR content uses a
+   hosted pack, a generated pack, ItemsAdder, or another asset pipeline. The
+   creation kit should not own that decision.
 
-3. **Concrete content registration.** The cahier des charges
-   (`CAHIER_DES_CHARGES_MINECRAFT_V3.md`) specifies tools, items,
-   blocks, enchants, potions, bosses. Each becomes a `PtrXxxDef`
-   registered into the matching `PtrRegistry`.
+3. **Concrete registries.** Once the content split exists, register real
+   `PtrBlockDef`, `PtrItemDef`, `PtrMobDef`, and skill entries from those
+   plugins.
 
-## Medium-priority (own branches)
+4. **Operator tooling.** Useful additions to `/ptrf`:
+   - `/ptrf debug scheduler`
+   - `/ptrf debug carrier <kind> <location>`
+   - `/ptrf audit tail [n]`
 
-4. **NMS `ClientboundBundlePacket` migration for Telegraph impls.** The
-   current `Telegraph` implementations use Bukkit's
-   `world.spawnParticle` which fans out as one packet per particle. A
-   single NMS bundle per frame is the documented optimisation;
-   interfaces stay unchanged.
+5. **Formatting.** Re-enable Spotless once google-java-format or
+   palantir-java-format ships a JDK 25-compatible build.
 
-5. **Spotless re-enable.** Once google-java-format or palantir-java-format
-   publish a JDK 25 build that doesn't `NoSuchMethodError` on
-   `Log$DeferredDiagnosticHandler`, re-add Spotless to
-   `plugins/ptr-foundation/build.gradle.kts`. Track upstream:
-   - https://github.com/google/google-java-format/issues
-   - https://github.com/palantir/palantir-java-format/issues
+## Deferred
 
-6. **`/ptrf` debug surface widening.** The foundation ships `info`,
-   `reload`, `registry list`, `registry dump`, `debug region`, `debug
-   pdc`. Useful additions:
-   - `/ptrf debug scheduler` — counts of pending tasks per scheduler.
-   - `/ptrf debug carrier <kind> <location>` — verify a placement.
-   - `/ptrf audit tail [n]` — read recent `ptr_audit` rows.
-
-## Low-priority / nice-to-have
-
-7. **Folia API as separate dep.** If paperweight ever drops the Folia
-   scheduler shims from paper-api, declare `dev.folia:folia-api`
-   explicitly. Today it conflicts on the `paper-mojangapi` capability.
-
-8. **`LeafLitterCarrier` live state read.** The current impl writes
-   leaf_litter via `setType` and stores `(segments, facing)` in PDC; it
-   doesn't yet read it back from `BlockData`. Wait for paperweight to
-   stabilise the leaf_litter `BlockData` API surface.
-
-9. **`SCAFFOLDING` / `CHORUS` carriers.** Rejected for the foundation
-   because their state count is small and their physics are aggressive.
-   If a future content layer needs them, reopen the analysis.
-
-10. **Spectator camera fix for `DisplayMobCarrier`.** Spectator locks on
-    to the invisible base mob, not the ItemDisplay rig. There is no
-    server-side fix; needs a client-side hint or accepted as a leak.
-
-11. **Folia-aware permission probe.** LuckPerms is the de-facto perm
-    backend. Confirm the existing lobby/survival LuckPerms install
-    forwards correctly to the PTR backend over Velocity plugin messages.
-
-## Deferred from the Fabric attempt (still relevant)
-
-- Telegraph damage application + scheduled tick wiring (currently the
-  telegraphs render visuals only; damage is the content layer's job).
-- Music orchestrator → start/crossfade `ptr:music.*` per active phase.
-- Loot dispatcher → wire to a per-boss loot table.
-- `wolf_variant` / `cat_variant` datapack entries — the 26.1 schema
-  rejects the schema we built for Fabric (`minecraft:tag` not allowed,
-  `baby_assets` required). Cross-reference a vanilla wolf_variant JSON.
+- Boss frameworks and loot dispatchers belong in a future content module.
+- Blockbench / ModelEngine parsing belongs in a future rendering/content module.
+- Resource-pack zipping and hosting belongs in a future asset module.
+- Large maps and imported datapacks stay out of SMP Creation Kit.

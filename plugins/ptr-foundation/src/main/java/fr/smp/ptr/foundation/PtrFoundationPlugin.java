@@ -1,13 +1,6 @@
 package fr.smp.ptr.foundation;
 
 import fr.smp.ptr.foundation.api.PtrFoundationApi;
-import fr.smp.ptr.foundation.boss.GroundSlamRingTelegraph;
-import fr.smp.ptr.foundation.boss.LaserBeamPretraceTelegraph;
-import fr.smp.ptr.foundation.boss.LootDispatcher;
-import fr.smp.ptr.foundation.boss.MusicOrchestrator;
-import fr.smp.ptr.foundation.boss.RingSeismPulseTelegraph;
-import fr.smp.ptr.foundation.boss.Telegraph;
-import fr.smp.ptr.foundation.boss.VoidPortalSwirlTelegraph;
 import fr.smp.ptr.foundation.command.PtrFoundationCommand;
 import fr.smp.ptr.foundation.config.PtrConfigService;
 import fr.smp.ptr.foundation.config.PtrFoundationConfig;
@@ -18,7 +11,6 @@ import fr.smp.ptr.foundation.disguise.LeafLitterCarrier;
 import fr.smp.ptr.foundation.disguise.MushroomCarrier;
 import fr.smp.ptr.foundation.disguise.NoteBlockCarrier;
 import fr.smp.ptr.foundation.disguise.TripwireCarrier;
-import fr.smp.ptr.foundation.model.PtrModelRegistry;
 import fr.smp.ptr.foundation.platform.FoliaSchedulerService;
 import fr.smp.ptr.foundation.platform.PaperVersionGuard;
 import fr.smp.ptr.foundation.platform.SchedulerService;
@@ -33,7 +25,6 @@ import fr.smp.ptr.foundation.telemetry.PtrAuditLog;
 import fr.smp.ptr.foundation.telemetry.PtrMetrics;
 import fr.smp.ptr.foundation.telemetry.PtrTelemetryService;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import java.util.List;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -50,7 +41,6 @@ import org.bukkit.plugin.java.JavaPlugin;
  *   <li>Empty registries (one per content type).
  *   <li>Disguise carriers + guard listener.
  *   <li>{@link PtrMetrics} + {@link PtrTelemetryService} + {@link PtrAuditLog}.
- *   <li>Boss helpers (telegraph catalogue, music, loot).
  *   <li>{@code /ptrf} Brigadier root registered via Paper {@link LifecycleEvents#COMMANDS}.
  * </ol>
  */
@@ -70,7 +60,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
         try {
             config.initialise();
         } catch (Exception e) {
-            getLogger().severe("PtrFoundation config init failed: " + e.getMessage());
+            getLogger().severe("SMP Creation Kit config init failed: " + e.getMessage());
             setEnabled(false);
             return;
         }
@@ -87,7 +77,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
                             cfg.storage().runMigrations(),
                             getLogger());
         } catch (Exception e) {
-            getLogger().severe("PtrFoundation storage init failed: " + e.getMessage());
+            getLogger().severe("SMP Creation Kit storage init failed: " + e.getMessage());
             setEnabled(false);
             return;
         }
@@ -100,7 +90,6 @@ public final class PtrFoundationPlugin extends JavaPlugin {
         services.register(PtrEnchantRegistry.class, new PtrEnchantRegistry());
         services.register(PtrDamageTypeRegistry.class, new PtrDamageTypeRegistry());
         services.register(PtrSkillRegistry.class, new PtrSkillRegistry());
-        services.register(PtrModelRegistry.class, new PtrModelRegistry());
 
         // -- Disguise carriers ----------------------------------------
         services.register(NoteBlockCarrier.class, new NoteBlockCarrier());
@@ -134,18 +123,6 @@ public final class PtrFoundationPlugin extends JavaPlugin {
         services.register(PtrAuditLog.class, audit, PtrAuditLog::stop);
         audit.start();
 
-        // -- Boss helpers ---------------------------------------------
-        List<Telegraph> telegraphs =
-                List.of(
-                        new GroundSlamRingTelegraph(),
-                        new LaserBeamPretraceTelegraph(),
-                        new RingSeismPulseTelegraph(),
-                        new VoidPortalSwirlTelegraph());
-        TelegraphCatalogue catalogue = new TelegraphCatalogue(telegraphs);
-        services.register(TelegraphCatalogue.class, catalogue);
-        services.register(MusicOrchestrator.class, new MusicOrchestrator());
-        services.register(LootDispatcher.class, new LootDispatcher());
-
         // -- Brigadier /ptrf ------------------------------------------
         PtrFoundationCommand commandRoot = new PtrFoundationCommand(services);
         getLifecycleManager()
@@ -155,7 +132,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
                             event.registrar()
                                     .register(
                                             commandRoot.build(),
-                                            "PtrFoundation root command",
+                                            "SMP Creation Kit root command",
                                             java.util.List.of("ptrf"));
                         });
 
@@ -177,7 +154,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
         getLogger()
                 .info(
                         () ->
-                                "PtrFoundation v"
+                                "SMP Creation Kit v"
                                         + getPluginMeta().getVersion()
                                         + " enabled — "
                                         + services.size()
@@ -191,7 +168,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
             try {
                 services.shutdownAll();
             } catch (Throwable t) {
-                getLogger().warning("PtrFoundation shutdown error: " + t.getMessage());
+                getLogger().warning("SMP Creation Kit shutdown error: " + t.getMessage());
             }
             services = null;
         }

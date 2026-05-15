@@ -25,12 +25,6 @@ public final class PtrPdcKeys {
     /** Identifies a {@code ptr:} mob (foundation-managed). */
     public static final NamespacedKey MOB_ID = PtrIds.key("mob_id");
 
-    /** Identifies a {@code ptr:} boss instance. */
-    public static final NamespacedKey BOSS_ID = PtrIds.key("boss_id");
-
-    /** Stores the current boss phase index. */
-    public static final NamespacedKey BOSS_PHASE = PtrIds.key("boss_phase");
-
     /** Stores a charge value (energy/durability replacement) on items. */
     public static final NamespacedKey ITEM_CHARGE = PtrIds.key("item_charge");
 

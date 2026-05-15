@@ -1,6 +1,3 @@
-import java.math.BigInteger
-import java.security.MessageDigest
-
 plugins {
     java
     checkstyle
@@ -50,13 +47,9 @@ dependencies {
 
 tasks {
     shadowJar {
-        archiveBaseName.set("PtrFoundation")
+        archiveBaseName.set("SMPCreationKit")
         archiveClassifier.set("")
         archiveVersion.set(project.version.toString())
-
-        // Don't ship the resource pack inside the plugin jar — it's a separate
-        // artifact built by `buildResourcePack` below.
-        exclude("pack/**")
 
         // Relocate everything but the SQLite JDBC driver — that one loads
         // native libs from its declared package name and breaks if relocated.
@@ -69,30 +62,8 @@ tasks {
         mergeServiceFiles()
     }
 
-    val buildResourcePack by registering(Zip::class) {
-        group = "build"
-        description =
-            "Zip src/main/resources/pack/ into build/resource-pack/PtrFoundation-pack.zip."
-        from(project.file("src/main/resources/pack"))
-        archiveFileName.set("PtrFoundation-pack.zip")
-        destinationDirectory.set(project.layout.buildDirectory.dir("resource-pack"))
-        // Reproducible build: stable timestamps so the SHA1 is stable across
-        // CI runs that did not change the assets.
-        isPreserveFileTimestamps = false
-        isReproducibleFileOrder = true
-        doLast {
-            val zip = archiveFile.get().asFile
-            val digest = MessageDigest.getInstance("SHA-1").digest(zip.readBytes())
-            val sha1 = String.format("%040x", BigInteger(1, digest))
-            destinationDirectory.get().asFile.resolve("PtrFoundation-pack.sha1")
-                .writeText(sha1)
-            logger.lifecycle("Resource pack built: ${zip.absolutePath} sha1=$sha1")
-        }
-    }
-
     build {
         dependsOn(shadowJar)
-        dependsOn(buildResourcePack)
     }
 
     compileJava {

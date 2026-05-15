@@ -47,7 +47,7 @@ public final class PtrDatabase {
         HikariConfig cfg = new HikariConfig();
         cfg.setJdbcUrl("jdbc:sqlite:" + dbFile.toAbsolutePath());
         cfg.setMaximumPoolSize(Math.max(1, poolSize));
-        cfg.setPoolName("ptr-foundation-sqlite");
+        cfg.setPoolName("smp-creation-kit-sqlite");
         cfg.setConnectionTestQuery("SELECT 1");
         cfg.setAutoCommit(true);
         // SQLite PRAGMAs are per-connection; setting them via connectionInitSql

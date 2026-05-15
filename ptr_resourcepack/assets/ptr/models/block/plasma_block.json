@@ -1,7 +1,0 @@
-{
-  "parent": "minecraft:block/cube_all",
-  "textures": {
-    "all": "ptr:block/plasma_block",
-    "particle": "ptr:block/plasma_block"
-  }
-}

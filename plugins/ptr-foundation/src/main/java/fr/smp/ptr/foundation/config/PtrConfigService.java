@@ -33,7 +33,7 @@ public final class PtrConfigService {
     private final List<Consumer<PtrFoundationConfig>> listeners = new CopyOnWriteArrayList<>();
 
     /**
-     * @param dataFolder plugin data folder (typically {@code plugins/PtrFoundation/}).
+     * @param dataFolder plugin data folder (typically {@code plugins/SMPCreationKit/}).
      * @param logger plugin logger.
      */
     public PtrConfigService(@NotNull Path dataFolder, @NotNull Logger logger) {

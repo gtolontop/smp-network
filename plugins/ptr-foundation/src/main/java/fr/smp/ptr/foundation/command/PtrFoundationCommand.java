@@ -13,8 +13,6 @@ import fr.smp.ptr.foundation.registry.PtrEnchantRegistry;
 import fr.smp.ptr.foundation.registry.PtrItemRegistry;
 import fr.smp.ptr.foundation.registry.PtrMobRegistry;
 import fr.smp.ptr.foundation.registry.PtrRegistry;
-import fr.smp.ptr.foundation.model.PtrModelRegistry;
-import fr.smp.ptr.foundation.pack.PtrResourcePackService;
 import fr.smp.ptr.foundation.skill.PtrSkillRegistry;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -87,17 +85,12 @@ public final class PtrFoundationCommand {
                                 .requires(s -> s.getSender().hasPermission("ptr.cmd.debug"))
                                 .then(Commands.literal("region").executes(this::runDebugRegion))
                                 .then(Commands.literal("pdc").executes(this::runDebugPdc)))
-                .then(
-                        Commands.literal("pack")
-                                .requires(s -> s.getSender().hasPermission("ptr.cmd.pack"))
-                                .then(Commands.literal("info").executes(this::runPackInfo))
-                                .then(Commands.literal("reload").executes(this::runPackReload)))
                 .build();
     }
 
     private int runInfo(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
         Component out =
-                Component.text("PtrFoundation", NamedTextColor.GOLD)
+                Component.text("SMP Creation Kit", NamedTextColor.GOLD)
                         .append(Component.text(" — services=" + services.size(), NamedTextColor.GRAY))
                         .append(Component.text(" / server=", NamedTextColor.GRAY))
                         .append(Component.text(Bukkit.getName() + " " + Bukkit.getVersion(),
@@ -110,9 +103,9 @@ public final class PtrFoundationCommand {
         boolean ok = services.get(PtrConfigService.class).reload();
         Component msg =
                 ok
-                        ? Component.text("PtrFoundation reload OK", NamedTextColor.GREEN)
+                        ? Component.text("SMP Creation Kit reload OK", NamedTextColor.GREEN)
                         : Component.text(
-                                "PtrFoundation reload FAILED — check logs, previous config kept",
+                                "SMP Creation Kit reload FAILED — check logs, previous config kept",
                                 NamedTextColor.RED);
         ctx.getSource().getSender().sendMessage(msg);
         return Command.SINGLE_SUCCESS;
@@ -199,39 +192,6 @@ public final class PtrFoundationCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private int runPackInfo(
-            com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
-        PtrResourcePackService pack = services.get(PtrResourcePackService.class);
-        Component msg =
-                Component.text("Pack ", NamedTextColor.GOLD)
-                        .append(
-                                pack.isConfigured()
-                                        ? Component.text("configured", NamedTextColor.GREEN)
-                                        : Component.text("not configured", NamedTextColor.RED))
-                        .append(Component.text(" url=", NamedTextColor.GRAY))
-                        .append(Component.text(pack.url().isBlank() ? "<empty>" : pack.url(),
-                                NamedTextColor.YELLOW))
-                        .append(Component.text(" sha1=", NamedTextColor.GRAY))
-                        .append(Component.text(pack.sha1().isBlank() ? "<empty>" : pack.sha1(),
-                                NamedTextColor.YELLOW))
-                        .append(Component.text(" required=" + pack.isRequired(),
-                                NamedTextColor.GRAY));
-        ctx.getSource().getSender().sendMessage(msg);
-        return Command.SINGLE_SUCCESS;
-    }
-
-    private int runPackReload(
-            com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
-        PtrResourcePackService pack = services.get(PtrResourcePackService.class);
-        int pushed = pack.sendToAll();
-        ctx.getSource()
-                .getSender()
-                .sendMessage(
-                        Component.text("Pack pushed to " + pushed + " player(s)",
-                                NamedTextColor.GREEN));
-        return Command.SINGLE_SUCCESS;
-    }
-
     private int runDebugPdc(
             com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
         if (!(ctx.getSource().getSender() instanceof Player p)) {
@@ -279,7 +239,6 @@ public final class PtrFoundationCommand {
         map.put("enchant", services.get(PtrEnchantRegistry.class));
         map.put("damage_type", services.get(PtrDamageTypeRegistry.class));
         map.put("skill", services.get(PtrSkillRegistry.class));
-        map.put("model", services.get(PtrModelRegistry.class));
         return map;
     }
 }

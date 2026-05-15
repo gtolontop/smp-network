@@ -11,8 +11,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Fired after a foundation mob dies. Not cancellable — death has already
- * happened. Listeners can read the killer and drop context to award loot,
- * post leaderboards, etc.
+ * happened. Listeners can read the entity and killer context for their own
+ * downstream systems.
  */
 public final class PtrEntityDeathEvent extends Event {
 

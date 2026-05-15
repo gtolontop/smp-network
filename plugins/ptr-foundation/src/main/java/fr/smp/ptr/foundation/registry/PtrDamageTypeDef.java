@@ -6,9 +6,8 @@ import org.bukkit.NamespacedKey;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Definition of a foundation-managed custom damage type. Like enchantments,
- * the real registry entry is a datapack JSON; this record carries the
- * server-side label.
+ * Definition of a foundation-managed custom damage type. The foundation keeps
+ * only the server-side label; future content modules own any runtime backing.
  */
 public record PtrDamageTypeDef(@NotNull NamespacedKey id, @NotNull Component displayName)
         implements PtrIdentified {

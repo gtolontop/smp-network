@@ -1,7 +1,10 @@
-# PTR — Architecture Decision Record (Fabric + Polymer)
+# PTR — Legacy Architecture Record (Fabric + Polymer)
 
-> **Living document.** Updated continuously during the overnight overhaul (2026-05-10/11).
-> Source of truth for the PTR (Public Test Realm) custom-content stack on the SMP network.
+> **Legacy archive.** This file documents the abandoned Fabric+Polymer
+> experiment from 2026-05-10/11. It is not the active PTR base and must not be
+> used as deployment guidance. The current source of truth is
+> [`PTR_V3_ARCHITECTURE.md`](./PTR_V3_ARCHITECTURE.md): Folia 26.1.2 plus
+> **SMP Creation Kit** from `plugins/ptr-foundation/`.
 
 ---
 
@@ -115,15 +118,15 @@ miencraft/
 │   │   └── polymer/{auto-host,common,resource-pack,server,sound-patch}.json
 │   └── world/                # gitignored
 ├── ptr-paper-legacy/         # frozen Paper PTR snapshot (reference + fallback)
-├── plugins/                  # Paper plugins (lobby + survival + legacy ptr-showcase)
+├── plugins/                  # Paper plugins (lobby + survival + active SMP Creation Kit)
 │   ├── core-paper/
 │   ├── core-velocity/
 │   ├── anticheat-paper/
 │   ├── smp-logger/
-│   └── ptr-showcase/         # legacy Paper PTR plugin (kept for fallback / reference)
+│   └── ptr-foundation/       # SMP Creation Kit clean Folia PTR base
 ├── plugins-fabric/           # NEW — Fabric mods compiled here
 │   └── ptr-showcase-fabric/  # the new PTR mod
-├── ptr_resourcepack/         # legacy Paper-era resource pack source
+├── ptr_resourcepack/         # removed from active base; historical note only
 ├── ptr-fabric-resourcepack/  # NEW — sources for the v2 resource pack auto-built by Polymer
 ├── docs/
 │   └── PTR_ARCHITECTURE.md   # this file
@@ -162,7 +165,7 @@ These entries are the cheapest "real custom content" wins available. Every datap
 
 ## 6. Resource pack pipeline
 
-1. **Sources** in `ptr-fabric-resourcepack/` (textures, models, sounds — all CC0 / permissive, attributions in `docs/ATTRIBUTIONS.md`).
+1. **Sources** in `ptr-fabric-resourcepack/` (textures, models, sounds — all CC0 / permissive in the historical Fabric attempt).
 2. **Polymer resource-pack module** at runtime adds programmatic items: items maps, block model dispatchers, painting variants, font characters for HUD ornaments, sound entries.
 3. **Polymer autohost** serves the final pack on a built-in HTTP endpoint at boot, hashes it, and points the client to it via the `resource-pack` server.properties hook.
 4. **Vanilla client** prompts to download the pack on join (200–500 KB target).
@@ -226,13 +229,13 @@ These entries are the cheapest "real custom content" wins available. Every datap
 | `/ptr` command | `list`, `give <item> [count]`, `block <block> [count]`, `spawn <boss>`, `setup`, `info` with tab completion | ✅ |
 | Showcase plaza | `/ptr setup` builds a 32×32 polished blackstone plaza with all 10 polymer blocks placed in display rows + 3 boss-spawn pads at the corners | ✅ |
 | Architecture doc | `docs/PTR_ARCHITECTURE.md`, this file | ✅ |
-| Attributions ledger | `docs/ATTRIBUTIONS.md` with vetted upstream sources (Faithful, FreeMinecraftModels, FrenchKrab, awesome-cc0, OpenGameArt, Pixabay, Mixkit, Kenney, Sketchfab) and a sourcing priority queue | ✅ |
+| Attributions ledger | removed from the active base with the legacy resource-pack assets | archived |
 
 ### Deferred to a follow-up branch
 
 | Item | Why deferred | Estimated effort |
 |---|---|---|
-| Replace placeholder textures with real CC0/permissive Blockbench-exported models | Sources are now vetted in `ATTRIBUTIONS.md` (FrenchKrab `drill_breaker.bbmodel`, FreeMinecraftModels, etc.), but `.bbmodel` → `.json` + `.png` export needs the Blockbench GUI; can't do that headlessly | 3–5 h |
+| Replace placeholder textures with real CC0/permissive Blockbench-exported models | deferred to a future asset/content module, outside the clean foundation | future |
 | Real CC0 boss music for the 3 `ptr:music.*` jukebox_song ids | Sourcing CC0 audio + OGG conversion (mono, 22050 Hz, 96 kbps); registries already declared, just need the sound files in `assets/ptr/sounds/music/` | 1–2 h |
 | Telegraph damage application + scheduled tick wiring | `Telegraph` currently renders the visual tells; the damage-on-warmup-end hook needs a `ScheduledTickAccess` integration in `customServerAiStep` | 2 h |
 | Music orchestrator | Start/crossfade `ptr:music.*` per active phase from `BossPhaseController`; trivial once the OGGs ship | 1 h |
@@ -262,4 +265,4 @@ These entries are the cheapest "real custom content" wins available. Every datap
 
 ## 11. Attributions index
 
-See [`ATTRIBUTIONS.md`](./ATTRIBUTIONS.md) for licenses + URLs of every external model, texture, sound, music track or font used by the PTR resource pack. Contribution rule: **if it isn't CC0 or explicitly granted, it doesn't ship**.
+The active PTR base no longer ships resource-pack assets. Future asset modules must restore a fresh attribution ledger before shipping third-party models, textures, sounds, music, or fonts.

@@ -1,4 +1,4 @@
--- PtrFoundation V001 — initial schema.
+-- SMP Creation Kit V001 — initial schema.
 --
 -- Foundation only emits one schema:
 --   ptr_audit         — admin-action audit trail (filled by PtrAuditLog).
@@ -8,7 +8,7 @@
 -- They cannot live in the migration: Flyway refuses to mix non-transactional
 -- PRAGMA statements with the transactional CREATE TABLEs below.
 --
--- Future content layers (block placements, item ownership, boss kills) will
+-- Future content layers (block placements, item ownership, mob kills) will
 -- add their own tables in V002+ migrations.
 
 CREATE TABLE IF NOT EXISTS ptr_audit (

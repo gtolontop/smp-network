@@ -28,7 +28,7 @@ public final class PaperVersionGuard {
         boolean folia = name != null && name.toLowerCase(Locale.ROOT).contains("folia");
         if (!folia) {
             throw new IllegalStateException(
-                    "PtrFoundation requires Folia (Bukkit.getName()='" + name
+                    "SMP Creation Kit requires Folia (Bukkit.getName()='" + name
                             + "', Bukkit.getVersion()='" + version
                             + "'). Refusing to enable. Switch the backend in ptr/ "
                             + "to a Folia 26.1.2 build or use the legacy Paper plugin.");

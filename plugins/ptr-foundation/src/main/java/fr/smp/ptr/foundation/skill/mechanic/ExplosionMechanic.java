@@ -10,7 +10,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * {@code effect:explosion} — visual + (optional) terrain-damaging explosion
- * at each target. Set {@code breakBlocks = false} to keep the boss arena
+ * at each target. Set {@code breakBlocks = false} to keep the build area
  * intact — the foundation default.
  */
 public final class ExplosionMechanic implements PtrSkillMechanic {

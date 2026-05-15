@@ -1,4 +1,4 @@
-# PtrFoundation runtime configuration.
+# SMP Creation Kit runtime configuration.
 #
 # Hot-reload supported via /ptrf reload. The reload swap is atomic — listeners
 # see the new config or the old one, never a half-built mix.
@@ -11,7 +11,7 @@ telemetry:
   metric-dump-interval-seconds: 60
 
 storage:
-  # Path is relative to <ptr server>/plugins/PtrFoundation/.
+  # Path is relative to <ptr server>/plugins/SMPCreationKit/.
   sqlite-file: 'data/ptr.db'
   # SQLite single-writer pool. Bump if a future migration enables WAL + readers.
   pool-size: 1
@@ -22,17 +22,3 @@ audit:
   # PtrAuditLog flushes to ptr_audit every N events or every M seconds, whichever first.
   flush-batch-size: 64
   flush-interval-seconds: 30
-
-resource-pack:
-  # URL the client downloads on join. Empty disables resource pack push.
-  url: ''
-  # Expected SHA1 of the zip at `url`. The client refuses the pack if this
-  # does not match. Generate with `./gradlew buildResourcePack` and read the
-  # value from build/resource-pack/PtrFoundation-pack.sha1.
-  sha1: ''
-  # Push the pack to every joining player automatically.
-  push-on-join: true
-  # Adventure component shown to the player when prompted to download.
-  prompt: '§6PTR §8· §7Téléchargement du resource pack…'
-  # If true, kick players who refuse the pack. False = degraded experience.
-  required: false

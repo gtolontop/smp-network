@@ -9,8 +9,8 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * {@code signal{name=X}} — write the signal name into the context's
- * variable bag under the {@code "signal"} key. Other skills (or the
- * boss controller, in a follow-up iteration) can poll for it.
+ * variable bag under the {@code "signal"} key. Other skills or content
+ * dispatchers can poll for it.
  *
  * <p>The foundation stops there — there is no built-in skill-to-skill
  * subscription bus yet; content layers wire signals to their own listeners.
