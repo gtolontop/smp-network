@@ -4,7 +4,7 @@
   "https://checkstyle.org/dtds/configuration_1_3.dtd">
 
 <!--
-  PTR Foundation checkstyle profile.
+  SMP Creation Kit checkstyle profile.
 
   Intentionally narrow: spotless owns formatting, so we only check the
   rules that catch architectural mistakes the formatter cannot:

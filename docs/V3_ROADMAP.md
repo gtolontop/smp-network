@@ -1,6 +1,6 @@
-# PTR V3 — roadmap after the clean foundation
+# PTR V3 — roadmap after SMP Creation Kit
 
-The foundation branch now ships only reusable base systems:
+SMP Creation Kit now ships only reusable base systems:
 
 - Folia-safe scheduler wrapper and version guard.
 - Hot-reload YAML config.
@@ -23,7 +23,7 @@ any gameplay content.
 
 2. **Datapack/resource-pack strategy.** Decide later whether PTR content uses a
    hosted pack, a generated pack, ItemsAdder, or another asset pipeline. The
-   foundation should not own that decision.
+   creation kit should not own that decision.
 
 3. **Concrete registries.** Once the content split exists, register real
    `PtrBlockDef`, `PtrItemDef`, `PtrMobDef`, and skill entries from those
@@ -42,4 +42,4 @@ any gameplay content.
 - Boss frameworks and loot dispatchers belong in a future content module.
 - Blockbench / ModelEngine parsing belongs in a future rendering/content module.
 - Resource-pack zipping and hosting belongs in a future asset module.
-- Large maps and imported datapacks stay out of the foundation.
+- Large maps and imported datapacks stay out of SMP Creation Kit.

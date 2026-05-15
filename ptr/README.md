@@ -4,8 +4,8 @@ This directory hosts the **Public Test Realm** server backend. The previous
 Fabric+Polymer stack lives at `../ptr-fabric-legacy/` as historical reference.
 The Paper-era stack lives at `../ptr-paper-legacy/`.
 
-V3 swaps that out for **Folia** plus a single in-house plugin
-(`plugins/ptr-foundation/`). Trade-offs are documented in
+V3 swaps that out for **Folia** plus **SMP Creation Kit**, a single in-house
+base plugin built from `plugins/ptr-foundation/`. Trade-offs are documented in
 [`../docs/PTR_V3_ARCHITECTURE.md`](../docs/PTR_V3_ARCHITECTURE.md).
 
 ## Binary
@@ -57,9 +57,9 @@ the foundation, leave it on defaults.
 
 ## Plugins
 
-`plugins/` is gitignored. The foundation plugin built from
-`../plugins/ptr-foundation/` lands at `plugins/PtrFoundation-*.jar`. No other
-plugin is expected on this backend at the foundation stage; in particular
+`plugins/` is gitignored. SMP Creation Kit is built from
+`../plugins/ptr-foundation/` and lands at `plugins/SMPCreationKit-*.jar`. No other
+plugin is expected on this backend at the creation-kit stage; in particular
 core-paper / anticheat-paper / smp-logger stay on the lobby and survival
 shards.
 

@@ -90,7 +90,7 @@ public final class PtrFoundationCommand {
 
     private int runInfo(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
         Component out =
-                Component.text("PtrFoundation", NamedTextColor.GOLD)
+                Component.text("SMP Creation Kit", NamedTextColor.GOLD)
                         .append(Component.text(" — services=" + services.size(), NamedTextColor.GRAY))
                         .append(Component.text(" / server=", NamedTextColor.GRAY))
                         .append(Component.text(Bukkit.getName() + " " + Bukkit.getVersion(),
@@ -103,9 +103,9 @@ public final class PtrFoundationCommand {
         boolean ok = services.get(PtrConfigService.class).reload();
         Component msg =
                 ok
-                        ? Component.text("PtrFoundation reload OK", NamedTextColor.GREEN)
+                        ? Component.text("SMP Creation Kit reload OK", NamedTextColor.GREEN)
                         : Component.text(
-                                "PtrFoundation reload FAILED — check logs, previous config kept",
+                                "SMP Creation Kit reload FAILED — check logs, previous config kept",
                                 NamedTextColor.RED);
         ctx.getSource().getSender().sendMessage(msg);
         return Command.SINGLE_SUCCESS;

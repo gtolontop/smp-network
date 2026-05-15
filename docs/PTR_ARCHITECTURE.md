@@ -115,12 +115,12 @@ miencraft/
 │   │   └── polymer/{auto-host,common,resource-pack,server,sound-patch}.json
 │   └── world/                # gitignored
 ├── ptr-paper-legacy/         # frozen Paper PTR snapshot (reference + fallback)
-├── plugins/                  # Paper plugins (lobby + survival + active PTR foundation)
+├── plugins/                  # Paper plugins (lobby + survival + active SMP Creation Kit)
 │   ├── core-paper/
 │   ├── core-velocity/
 │   ├── anticheat-paper/
 │   ├── smp-logger/
-│   └── ptr-foundation/       # clean Folia PTR base
+│   └── ptr-foundation/       # SMP Creation Kit clean Folia PTR base
 ├── plugins-fabric/           # NEW — Fabric mods compiled here
 │   └── ptr-showcase-fabric/  # the new PTR mod
 ├── ptr_resourcepack/         # removed from active base; historical note only

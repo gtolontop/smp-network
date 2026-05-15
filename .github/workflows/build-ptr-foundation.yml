@@ -1,4 +1,4 @@
-name: build-ptr-foundation
+name: build-smp-creation-kit
 
 on:
   push:
@@ -51,6 +51,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PtrFoundation
+          name: SMPCreationKit
           path: plugins/ptr-foundation/build/libs/*.jar
           retention-days: 14

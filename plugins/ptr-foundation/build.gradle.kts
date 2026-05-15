@@ -47,7 +47,7 @@ dependencies {
 
 tasks {
     shadowJar {
-        archiveBaseName.set("PtrFoundation")
+        archiveBaseName.set("SMPCreationKit")
         archiveClassifier.set("")
         archiveVersion.set(project.version.toString())
 

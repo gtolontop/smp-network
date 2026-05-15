@@ -1,4 +1,4 @@
-# Smoke test: boot Folia 26.1.2 with PtrFoundation, watch logs for
+# Smoke test: boot Folia 26.1.2 with SMP Creation Kit, watch logs for
 # "Done (" and zero exceptions during the first 30 s, then RCON-stop.
 #
 # Exit codes:
@@ -10,14 +10,18 @@ $root = Split-Path -Parent $PSScriptRoot
 $ptrDir   = Join-Path $root 'ptr'
 $jar      = Join-Path $ptrDir 'folia-26.1.2-8.jar'
 $pluginsDir = Join-Path $ptrDir 'plugins'
-$pluginJar = Get-ChildItem (Join-Path $root 'plugins\ptr-foundation\build\libs') -Filter 'PtrFoundation-*.jar' |
+$pluginJar = Get-ChildItem (Join-Path $root 'plugins\ptr-foundation\build\libs') -Filter 'SMPCreationKit-*.jar' |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
 if (-not (Test-Path $jar))            { throw "Folia jar missing: $jar — download per ptr/README.md" }
-if (-not $pluginJar)                  { throw "PtrFoundation jar missing — run ./gradlew build first" }
+if (-not $pluginJar)                  { throw "SMP Creation Kit jar missing — run ./gradlew build first" }
 
 if (-not (Test-Path $pluginsDir))     { New-Item -ItemType Directory $pluginsDir -Force | Out-Null }
-Copy-Item $pluginJar.FullName (Join-Path $pluginsDir 'PtrFoundation.jar') -Force
+foreach ($old in 'PtrFoundation.jar','SMPCreationKit.jar') {
+    $oldPath = Join-Path $pluginsDir $old
+    if (Test-Path $oldPath) { Remove-Item -Force $oldPath }
+}
+Copy-Item $pluginJar.FullName (Join-Path $pluginsDir 'SMPCreationKit.jar') -Force
 
 $rcon = Join-Path $root 'scripts\rcon-cmd.ps1'
 $rconPwd = (Select-String -Path (Join-Path $ptrDir 'server.properties') -Pattern '^rcon\.password=(.+)$').Matches.Groups[1].Value
@@ -33,7 +37,7 @@ foreach ($w in 'world','world_nether','world_the_end') {
     if (Test-Path $p) { Remove-Item -Recurse -Force $p }
 }
 
-$logFile = Join-Path $env:TEMP "ptr-foundation-smoke-$([guid]::NewGuid().ToString('N').Substring(0,8)).log"
+$logFile = Join-Path $env:TEMP "smp-creation-kit-smoke-$([guid]::NewGuid().ToString('N').Substring(0,8)).log"
 $proc = Start-Process -FilePath (Join-Path $javaHome 'bin\java.exe') -ArgumentList @(
     '-Xms2G','-Xmx4G',
     '-XX:+UseG1GC','-XX:+ParallelRefProcEnabled','-XX:MaxGCPauseMillis=200',

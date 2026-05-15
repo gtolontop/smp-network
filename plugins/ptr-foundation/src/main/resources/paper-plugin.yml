@@ -1,8 +1,8 @@
-name: PtrFoundation
+name: SMPCreationKit
 version: '${version}'
 main: fr.smp.ptr.foundation.PtrFoundationPlugin
 api-version: '1.21'
-description: 'SMP PTR Foundation — clean Folia base for future creation plugins.'
+description: 'SMP Creation Kit — clean Folia base for future PTR creation plugins.'
 website: 'https://github.com/gtolontop/smp-network'
 authors: ['SMP Team']
 folia-supported: true
@@ -13,10 +13,10 @@ permissions:
     description: 'Use /ptrf at all.'
     default: op
   ptr.cmd.reload:
-    description: 'Reload PtrFoundation config.'
+    description: 'Reload SMP Creation Kit config.'
     default: op
   ptr.cmd.registry:
-    description: 'Inspect PtrFoundation registries.'
+    description: 'Inspect SMP Creation Kit registries.'
     default: op
   ptr.cmd.debug:
     description: 'Inspect runtime state (PDC, region).'

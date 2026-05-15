@@ -1,4 +1,4 @@
--- PtrFoundation V001 — initial schema.
+-- SMP Creation Kit V001 — initial schema.
 --
 -- Foundation only emits one schema:
 --   ptr_audit         — admin-action audit trail (filled by PtrAuditLog).

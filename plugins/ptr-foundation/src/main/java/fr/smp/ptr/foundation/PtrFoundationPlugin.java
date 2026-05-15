@@ -60,7 +60,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
         try {
             config.initialise();
         } catch (Exception e) {
-            getLogger().severe("PtrFoundation config init failed: " + e.getMessage());
+            getLogger().severe("SMP Creation Kit config init failed: " + e.getMessage());
             setEnabled(false);
             return;
         }
@@ -77,7 +77,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
                             cfg.storage().runMigrations(),
                             getLogger());
         } catch (Exception e) {
-            getLogger().severe("PtrFoundation storage init failed: " + e.getMessage());
+            getLogger().severe("SMP Creation Kit storage init failed: " + e.getMessage());
             setEnabled(false);
             return;
         }
@@ -132,7 +132,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
                             event.registrar()
                                     .register(
                                             commandRoot.build(),
-                                            "PtrFoundation root command",
+                                            "SMP Creation Kit root command",
                                             java.util.List.of("ptrf"));
                         });
 
@@ -154,7 +154,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
         getLogger()
                 .info(
                         () ->
-                                "PtrFoundation v"
+                                "SMP Creation Kit v"
                                         + getPluginMeta().getVersion()
                                         + " enabled — "
                                         + services.size()
@@ -168,7 +168,7 @@ public final class PtrFoundationPlugin extends JavaPlugin {
             try {
                 services.shutdownAll();
             } catch (Throwable t) {
-                getLogger().warning("PtrFoundation shutdown error: " + t.getMessage());
+                getLogger().warning("SMP Creation Kit shutdown error: " + t.getMessage());
             }
             services = null;
         }

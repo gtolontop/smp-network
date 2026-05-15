@@ -9,8 +9,8 @@
 
 ## 0. TL;DR
 
-PTR V3 runs on **Folia 26.1.2** with a single in-house plugin
-(`plugins/ptr-foundation/`). The Fabric+Polymer stack from the previous
+PTR V3 runs on **Folia 26.1.2** with **SMP Creation Kit**, a single in-house
+base plugin built from `plugins/ptr-foundation/`. The Fabric+Polymer stack from the previous
 overnight overhaul is retained read-only as `ptr-fabric-legacy/` /
 `plugins-fabric-legacy/`. The Paper-era stack is `ptr-paper-legacy/`.
 
@@ -36,10 +36,10 @@ exchange for:
 | Real `ptr:` entity ids | custom mobs use vanilla base entities plus display rigs | `DisplayMobCarrier` documents the pattern; the foundation ships zero mobs |
 | Polymer auto-served resource pack | content assets need a separate pipeline | deferred to a later asset/content branch |
 
-What we keep: every `ptr:` registry entry that Mojang made data-driven
-(damage_type, enchantment, painting_variant, jukebox_song, instrument,
-banner_pattern, trim_pattern, biome). The 35 entries built for the Fabric
-attempt port one-to-one as a datapack — also on the roadmap.
+What we keep: the ability for future content modules to register the
+data-driven concepts they need. The Fabric attempt's registry content is not
+shipped by SMP Creation Kit; it can be reintroduced later from a separate
+datapack or content plugin.
 
 ---
 
@@ -133,7 +133,7 @@ Carriers explicitly **not** implemented in the foundation:
 
 ---
 
-## 5. Foundation responsibilities (what ships)
+## 5. SMP Creation Kit responsibilities (what ships)
 
 ```
 plugins/ptr-foundation/
@@ -157,7 +157,7 @@ plugins/ptr-foundation/
     └── db/migration/V001__init.sql
 ```
 
-What does **not** ship in the foundation:
+What does **not** ship in SMP Creation Kit:
 
 - Zero blocks, zero items, zero mobs, zero bosses, zero enchantments,
   zero damage types, zero loot tables, zero arenas, zero datapacks, zero
@@ -167,7 +167,7 @@ What does **not** ship in the foundation:
 
 ---
 
-## 6. Foundation expectations on the operator
+## 6. Operator expectations
 
 The Folia backend must run with `config/paper-global.yml`'s
 `block-updates.disable-noteblock-updates: true` and
@@ -185,7 +185,7 @@ Velocity forwarding is wired through `proxies.velocity.secret` in
 | Decision | Why | Reversible? |
 |---|---|---|
 | Spotless disabled | google-java-format / palantir-java-format 1.25–2.50 throw `NoSuchMethodError` on JDK 25's javac internals | yes — re-enable once gjf ships a JDK 25 build (`V3_ROADMAP.md`) |
-| No built-in boss or model engine layer | the foundation is now only a base for future content modules | yes — add those systems in separate plugins |
+| No built-in boss or model engine layer | SMP Creation Kit is only a base for future content modules | yes — add those systems in separate plugins |
 | No `dev.folia:folia-api` gradle dep | resolves capability conflict with paper-api | reversible if paperweight ever stops shipping the Folia shims in paper-api |
 | `BlockDisplay`-based carriers spawn 3 entities per placement | trade-off of unbounded capacity vs entity budget — caller's problem to throttle | content layer can switch to a Mushroom carrier for cubic blocks |
 
@@ -201,3 +201,4 @@ Velocity forwarding is wired through `proxies.velocity.secret` in
 | 2026-05-10 | Bootstrapped Gradle build for `plugins/ptr-foundation/` (paperweight, shadow, checkstyle, JUnit5, CI workflow) | `4d14818` |
 | 2026-05-10 | Wrote every foundation layer (platform → command) with empty registries and zero content | `ac7bd47` |
 | 2026-05-11 | Tests + Hikari connectionInitSql for SQLite PRAGMAs + JDK 25 `--release 25` | `580aa1c` |
+| 2026-05-15 | Reset the active base to SMP Creation Kit: no showcase, no resource pack, no model engine, no bosses, no loot/drop layer, no maps | PR #5 |

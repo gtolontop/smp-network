@@ -1,4 +1,4 @@
-# PtrFoundation runtime configuration.
+# SMP Creation Kit runtime configuration.
 #
 # Hot-reload supported via /ptrf reload. The reload swap is atomic — listeners
 # see the new config or the old one, never a half-built mix.
@@ -11,7 +11,7 @@ telemetry:
   metric-dump-interval-seconds: 60
 
 storage:
-  # Path is relative to <ptr server>/plugins/PtrFoundation/.
+  # Path is relative to <ptr server>/plugins/SMPCreationKit/.
   sqlite-file: 'data/ptr.db'
   # SQLite single-writer pool. Bump if a future migration enables WAL + readers.
   pool-size: 1

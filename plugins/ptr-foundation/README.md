@@ -1,4 +1,4 @@
-# SMP PTR Foundation
+# SMP Creation Kit
 
 Clean Folia base for future PTR creation plugins. This module owns only the
 stable plumbing: Folia-safe scheduling, hot-reload config, SQLite audit
@@ -59,7 +59,7 @@ sched.runAsync(() -> {
 ./gradlew shadowJar
 ```
 
-Output: `build/libs/PtrFoundation-0.1.0.jar`. Drop it into `ptr/plugins/`.
+Output: `build/libs/SMPCreationKit-0.1.0.jar`. Drop it into `ptr/plugins/`.
 
 CI workflow: [`.github/workflows/build-ptr-foundation.yml`](../../.github/workflows/build-ptr-foundation.yml).
 
