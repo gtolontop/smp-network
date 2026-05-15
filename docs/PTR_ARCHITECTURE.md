@@ -1,7 +1,10 @@
-# PTR — Architecture Decision Record (Fabric + Polymer)
+# PTR — Legacy Architecture Record (Fabric + Polymer)
 
-> **Living document.** Updated continuously during the overnight overhaul (2026-05-10/11).
-> Source of truth for the PTR (Public Test Realm) custom-content stack on the SMP network.
+> **Legacy archive.** This file documents the abandoned Fabric+Polymer
+> experiment from 2026-05-10/11. It is not the active PTR base and must not be
+> used as deployment guidance. The current source of truth is
+> [`PTR_V3_ARCHITECTURE.md`](./PTR_V3_ARCHITECTURE.md): Folia 26.1.2 plus
+> **SMP Creation Kit** from `plugins/ptr-foundation/`.
 
 ---
 

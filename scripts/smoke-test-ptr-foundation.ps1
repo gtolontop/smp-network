@@ -16,6 +16,31 @@ $pluginJar = Get-ChildItem (Join-Path $root 'plugins\ptr-foundation\build\libs')
 if (-not (Test-Path $jar))            { throw "Folia jar missing: $jar — download per ptr/README.md" }
 if (-not $pluginJar)                  { throw "SMP Creation Kit jar missing — run ./gradlew build first" }
 
+$serverPropertiesPath = Join-Path $ptrDir 'server.properties'
+$serverPropertiesBytes = [System.IO.File]::ReadAllBytes($serverPropertiesPath)
+
+function Remove-PtrRuntimeArtifacts {
+    $allowed = @(
+        'config',
+        'server.properties',
+        'README.md',
+        'folia-26.1.2-8.jar'
+    )
+    $ptrRoot = (Resolve-Path $ptrDir).Path.TrimEnd('\')
+    Get-ChildItem -LiteralPath $ptrDir -Force |
+        Where-Object { $allowed -notcontains $_.Name } |
+        ForEach-Object {
+            $resolved = $_.FullName
+            if (-not $resolved.StartsWith("$ptrRoot\", [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "Refusing to clean outside ptr/: $resolved"
+            }
+            Remove-Item -LiteralPath $resolved -Recurse -Force
+        }
+    [System.IO.File]::WriteAllBytes($serverPropertiesPath, $serverPropertiesBytes)
+}
+
+Set-Content -LiteralPath (Join-Path $ptrDir 'eula.txt') -Value 'eula=true' -Encoding ASCII
+
 if (-not (Test-Path $pluginsDir))     { New-Item -ItemType Directory $pluginsDir -Force | Out-Null }
 foreach ($old in 'PtrFoundation.jar','SMPCreationKit.jar') {
     $oldPath = Join-Path $pluginsDir $old
@@ -93,6 +118,8 @@ Write-Host '--- last 80 log lines ---'
 Write-Host $logTail
 Write-Host '--- summary ---'
 Write-Host "bootReady=$bootReady hadException=$hadException bootElapsedSec=$bootElapsedSec rconOk=$rconOk"
+
+Remove-PtrRuntimeArtifacts
 
 if ($bootReady -and -not $hadException -and $rconOk) {
     Write-Host 'SMOKE TEST PASSED'

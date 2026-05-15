@@ -19,7 +19,6 @@ public final class PtrBlockBreakEvent extends Event implements Cancellable {
     private final PtrBlockDef block;
     private final @Nullable Player breaker;
     private boolean cancelled = false;
-    private boolean dropLoot = true;
 
     public PtrBlockBreakEvent(
             @NotNull Location location,
@@ -40,15 +39,6 @@ public final class PtrBlockBreakEvent extends Event implements Cancellable {
 
     public @Nullable Player breaker() {
         return breaker;
-    }
-
-    /** Whether the foundation should drop the block's loot. */
-    public boolean dropLoot() {
-        return dropLoot;
-    }
-
-    public void setDropLoot(boolean drop) {
-        this.dropLoot = drop;
     }
 
     @Override

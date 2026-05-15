@@ -8,9 +8,8 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Definition of a foundation-managed custom enchantment.
  *
- * <p>Real {@code enchantment} entries are data-driven in 26.1, so the
- * "implementation" of an enchant is mostly a datapack JSON. This record is
- * the server-side handle that listeners and tooltip overrides hang off.
+ * <p>The creation kit keeps only the server-side handle that listeners and
+ * tooltip overrides hang off. Future content modules own any runtime backing.
  */
 public record PtrEnchantDef(@NotNull NamespacedKey id, @NotNull Component displayName)
         implements PtrIdentified {
