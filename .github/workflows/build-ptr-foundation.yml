@@ -2,7 +2,7 @@ name: build-smp-creation-kit
 
 on:
   push:
-    branches: [feat/ptr-v3-folia-foundation, master]
+    branches: [master]
     paths:
       - 'plugins/ptr-foundation/**'
       - '.github/workflows/build-ptr-foundation.yml'

@@ -1,7 +1,0 @@
-{
-  "asset_id": "ptr:etendard_ptr",
-  "height": 1,
-  "width": 2,
-  "title": {"translate": "painting.ptr.etendard.title", "fallback": "Etendard PTR", "color": "gold"},
-  "author": {"translate": "painting.ptr.etendard.author", "fallback": "PTR Archives", "color": "gray"}
-}

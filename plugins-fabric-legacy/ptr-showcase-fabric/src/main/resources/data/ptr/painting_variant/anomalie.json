@@ -1,7 +1,0 @@
-{
-  "asset_id": "ptr:anomalie",
-  "height": 1,
-  "width": 1,
-  "title": {"translate": "painting.ptr.anomalie.title", "fallback": "Anomalie", "color": "light_purple"},
-  "author": {"translate": "painting.ptr.anomalie.author", "fallback": "PTR Archives", "color": "gray"}
-}

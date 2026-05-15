@@ -1,7 +1,0 @@
-{
-  "asset_id": "ptr:gardien",
-  "height": 2,
-  "width": 2,
-  "title": {"translate": "painting.ptr.gardien.title", "fallback": "Gardien des Mines", "color": "yellow"},
-  "author": {"translate": "painting.ptr.gardien.author", "fallback": "PTR Archives", "color": "gray"}
-}

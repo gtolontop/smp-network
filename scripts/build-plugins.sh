@@ -38,7 +38,7 @@ cp "$VELO_JAR"  "$BASE_DIR/velocity/plugins/"
 # heuristic) to block cheat-client users from transferring to survival.
 cp "$AC_JAR"    "$BASE_DIR/lobby/plugins/"
 cp "$AC_JAR"    "$BASE_DIR/survival/plugins/"
-# SMPLogger: full activity log + backups, deployed everywhere.
+# SMPLogger: full activity log + backups on the current Paper backends.
 cp "$LOG_JAR"   "$BASE_DIR/lobby/plugins/"
 cp "$LOG_JAR"   "$BASE_DIR/survival/plugins/"
 

@@ -1,8 +1,8 @@
 # PTR backend — Folia 26.1.2 (V3 foundation)
 
-This directory hosts the **Public Test Realm** server backend. The previous
-Fabric+Polymer stack lives at `../ptr-fabric-legacy/` as historical reference.
-The Paper-era stack lives at `../ptr-paper-legacy/`.
+This directory hosts the **Public Test Realm** server backend. Historical
+Fabric/Polymer and Paper PTR snapshots were removed from the active repo; use
+git history if you need to inspect those experiments.
 
 V3 swaps that out for **Folia** plus **SMP Creation Kit**, a single in-house
 base plugin built from `plugins/ptr-foundation/`. Trade-offs are documented in
@@ -49,8 +49,8 @@ to `127.0.0.1:25568`. Modern forwarding is wired through
 
 | File | Source | Notes |
 |---|---|---|
-| `paper-global.yml` | Adapted from `../ptr-paper-legacy/config/paper-global.yml` | Sets `proxies.velocity.{enabled,online-mode,secret}`, disables note_block and mushroom neighbour updates for the disguise layer, names the timings server `PTR-Folia`. |
-| `paper-world-defaults.yml` | Copied verbatim from the legacy Paper PTR | Anti-xray + entity tracking ranges + spawn limits the legacy server validated. |
+| `paper-global.yml` | Folia/Paper config | Sets `proxies.velocity.{enabled,online-mode,secret}`, disables note_block and mushroom neighbour updates for the disguise layer, names the timings server `PTR-Folia`. |
+| `paper-world-defaults.yml` | Folia/Paper config | Anti-xray + entity tracking ranges + spawn limits for the isolated PTR backend. |
 
 `folia-config.yml` lands in this directory on first boot — out of scope for
 the foundation, leave it on defaults.

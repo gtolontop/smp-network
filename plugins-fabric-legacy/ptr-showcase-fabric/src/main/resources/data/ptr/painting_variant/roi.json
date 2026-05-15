@@ -1,7 +1,0 @@
-{
-  "asset_id": "ptr:roi",
-  "height": 2,
-  "width": 2,
-  "title": {"translate": "painting.ptr.roi.title", "fallback": "Roi des Pillards", "color": "red"},
-  "author": {"translate": "painting.ptr.roi.author", "fallback": "PTR Archives", "color": "gray"}
-}

@@ -1,8 +1,0 @@
-{
-  "comparator_output": 11,
-  "description": {"translate": "jukebox_song.ptr.anomalie_theme", "fallback": "PTR Archives - Echoes of the Anomaly"},
-  "length_in_seconds": 158,
-  "sound_event": {
-    "sound_id": "ptr:music.anomalie_theme"
-  }
-}
