@@ -1,7 +1,0 @@
-{
-  "asset_id": "ptr:pylone",
-  "height": 2,
-  "width": 1,
-  "title": {"translate": "painting.ptr.pylone.title", "fallback": "Pylône", "color": "light_purple"},
-  "author": {"translate": "painting.ptr.pylone.author", "fallback": "PTR Archives", "color": "gray"}
-}

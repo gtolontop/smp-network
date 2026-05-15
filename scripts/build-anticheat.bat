@@ -17,8 +17,6 @@ copy /Y "%BASE_DIR%\plugins\anticheat-paper\build\libs\%JAR%" "%BASE_DIR%\lobby\
 if errorlevel 1 goto :error
 copy /Y "%BASE_DIR%\plugins\anticheat-paper\build\libs\%JAR%" "%BASE_DIR%\survival\plugins\"
 if errorlevel 1 goto :error
-copy /Y "%BASE_DIR%\plugins\anticheat-paper\build\libs\%JAR%" "%BASE_DIR%\ptr\plugins\"
-if errorlevel 1 goto :error
 
 echo Done.
 pause

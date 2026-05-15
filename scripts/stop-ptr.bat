@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-REM Graceful stop for the PTR server only (RCON + save-all flush).
+REM Graceful stop for the PTR Folia server only (RCON + save-all flush).
 
 set BASE_DIR=%~dp0..
 set JAVA=%BASE_DIR%\java\jdk-25.0.2+10\bin\java.exe

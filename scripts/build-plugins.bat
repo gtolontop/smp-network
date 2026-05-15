@@ -36,18 +36,15 @@ if errorlevel 1 goto :error
 echo Deploying jars...
 copy /Y "%BASE_DIR%\plugins\core-paper\build\libs\SMPCore-Paper-1.0.0.jar"     "%BASE_DIR%\lobby\plugins\"
 copy /Y "%BASE_DIR%\plugins\core-paper\build\libs\SMPCore-Paper-1.0.0.jar"     "%BASE_DIR%\survival\plugins\"
-copy /Y "%BASE_DIR%\plugins\core-paper\build\libs\SMPCore-Paper-1.0.0.jar"     "%BASE_DIR%\ptr\plugins\"
 copy /Y "%BASE_DIR%\plugins\core-velocity\build\libs\SMPCore-Velocity-1.0.0.jar" "%BASE_DIR%\velocity\plugins\"
 REM AntiCheat deployed to both servers: survival fait le taf anti-xray/ESP/movement,
 REM lobby ne fait que la detection client (brand + channels + freecam) pour bloquer
 REM le transfert vers survival des joueurs avec meteor/wurst/WDL/etc.
 copy /Y "%BASE_DIR%\plugins\anticheat-paper\build\libs\AntiCheat-Paper-1.0.0.jar" "%BASE_DIR%\lobby\plugins\"
 copy /Y "%BASE_DIR%\plugins\anticheat-paper\build\libs\AntiCheat-Paper-1.0.0.jar" "%BASE_DIR%\survival\plugins\"
-copy /Y "%BASE_DIR%\plugins\anticheat-paper\build\libs\AntiCheat-Paper-1.0.0.jar" "%BASE_DIR%\ptr\plugins\"
-REM SMPLogger : log full activity + backups, deploy partout pour tout traquer
+REM SMPLogger : log full activity + backups on the current Paper backends
 copy /Y "%BASE_DIR%\plugins\smp-logger\build\libs\SMPLogger-Paper-1.0.0.jar"   "%BASE_DIR%\survival\plugins\"
 copy /Y "%BASE_DIR%\plugins\smp-logger\build\libs\SMPLogger-Paper-1.0.0.jar"   "%BASE_DIR%\lobby\plugins\"
-copy /Y "%BASE_DIR%\plugins\smp-logger\build\libs\SMPLogger-Paper-1.0.0.jar"   "%BASE_DIR%\ptr\plugins\"
 
 if not exist "%BASE_DIR%\shared-data\players" mkdir "%BASE_DIR%\shared-data\players"
 

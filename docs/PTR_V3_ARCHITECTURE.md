@@ -1,18 +1,17 @@
 # PTR V3 — Architecture Decision Record (Folia + custom plugin)
 
 > Written 2026-05-11 during the V3 foundation bootstrap. Supersedes
-> [`PTR_ARCHITECTURE.md`](./PTR_ARCHITECTURE.md), which remains as the
-> historical record of the Fabric+Polymer attempt (now archived under
-> `ptr-fabric-legacy/`).
+> the old Fabric+Polymer architecture record, now removed from the active repo.
+> Use git history if you need to inspect that experiment.
 
 ---
 
 ## 0. TL;DR
 
 PTR V3 runs on **Folia 26.1.2** with **SMP Creation Kit**, a single in-house
-base plugin built from `plugins/ptr-foundation/`. The Fabric+Polymer stack from the previous
-overnight overhaul is retained read-only as `ptr-fabric-legacy/` /
-`plugins-fabric-legacy/`. The Paper-era stack is `ptr-paper-legacy/`.
+base plugin built from `plugins/ptr-foundation/`. The Fabric+Polymer and
+Paper-era PTR snapshots were removed from the active tree after the Folia base
+landed.
 
 The trade-off vs Polymer is consciously taken: we lose real registry ids
 for blocks/items/entities (everything goes back to vanilla disguises) in
@@ -195,8 +194,8 @@ Velocity forwarding is wired through `proxies.velocity.secret` in
 
 | Date | Change | Commit |
 |---|---|---|
-| 2026-05-10 | Branched `feat/ptr-v3-folia-foundation` from `master` | first commit |
-| 2026-05-10 | Renamed `ptr/` → `ptr-fabric-legacy/`, `plugins-fabric/` → `plugins-fabric-legacy/`, archived start scripts under `scripts/legacy/` | `2c7760a` |
+| 2026-05-10 | Started the Folia foundation branch from `master` | first commit |
+| 2026-05-10 | Moved the abandoned Fabric/Paper PTR attempts out of the active base during the migration | `2c7760a` |
 | 2026-05-10 | Bootstrapped Folia 26.1.2 backend in `ptr/` (jar, server.properties, paper-global.yml, start scripts, README) | `87a96da` |
 | 2026-05-10 | Bootstrapped Gradle build for `plugins/ptr-foundation/` (paperweight, shadow, checkstyle, JUnit5, CI workflow) | `4d14818` |
 | 2026-05-10 | Wrote every foundation layer (platform → command) with empty registries and zero content | `ac7bd47` |

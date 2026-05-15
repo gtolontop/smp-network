@@ -1,8 +1,0 @@
-{
-  "description": {"translate": "instrument.ptr.void_horn", "fallback": "Void Horn"},
-  "range": 384,
-  "sound_event": {
-    "sound_id": "ptr:item.void_horn.use"
-  },
-  "use_duration": 9.0
-}

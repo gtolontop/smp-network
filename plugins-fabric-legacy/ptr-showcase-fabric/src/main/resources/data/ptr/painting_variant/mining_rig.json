@@ -1,7 +1,0 @@
-{
-  "asset_id": "ptr:mining_rig",
-  "height": 1,
-  "width": 3,
-  "title": {"translate": "painting.ptr.mining_rig.title", "fallback": "Mining Rig", "color": "aqua"},
-  "author": {"translate": "painting.ptr.mining_rig.author", "fallback": "PTR Archives", "color": "gray"}
-}
